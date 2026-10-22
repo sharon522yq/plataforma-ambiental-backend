@@ -43,6 +43,31 @@ Las pruebas simulan los roles `anon` y `authenticated` y el esquema `auth` que S
 PRUEBAS_SUPABASE=1 npm test
 ```
 
+Con eso también se comprueba que el backend lee `perfiles` con la llave de servicio (migración 006) y que `/sesion` rechaza la llave anon como token.
+
+Para probar un inicio de sesión real, crea un usuario de prueba en **Authentication → Users** y agrega `PRUEBAS_SUPABASE_EMAIL` y `PRUEBAS_SUPABASE_CLAVE`. Sin ellas, esa prueba se omite.
+
+## Autenticación
+
+- Las rutas protegidas exigen `Authorization: Bearer <access_token>` de Supabase Auth. Sin token o con uno inválido o vencido responden 401.
+- El token se verifica con `SUPABASE_JWT_SECRET` (HS256) o con las llaves públicas del proyecto (`/auth/v1/.well-known/jwks.json`, ES256/RS256), según cómo lo firme Supabase (D-16).
+- El rol se lee de `perfiles` en cada solicitud, nunca del token. Una cuenta desactivada o sin perfil recibe 403, igual que un rol insuficiente.
+- `GET /api/v1/sesion` devuelve `{ id, rol }` del usuario que inició sesión (D-19).
+
+## Endpoints públicos
+
+No requieren sesión. Los listados aceptan `?pagina` (desde 1) y `?limite` (1 a 100, por defecto 20) y responden `{ datos, paginacion }`. Las coordenadas salen como `ubicacion: { lat, lng }` (D-22).
+
+| Ruta | Filtros |
+|---|---|
+| `GET /api/v1/puntos` | `tipo`, `gravedad_min` (1 a 5) |
+| `GET /api/v1/puntos/cercanos` | `lat`, `lng` (obligatorios), `radio` en metros (1 a 50000, por defecto 5000), `tipo`, `limite` |
+| `GET /api/v1/puntos/:id` | Incluye las acciones activas del punto. 404 si no existe o no está publicado |
+| `GET /api/v1/acciones` | `tipo` (denuncia, firma, donacion, voluntariado), `punto_id` |
+| `GET /api/v1/organizaciones` | `zona` (búsqueda parcial). Nunca incluye el contacto |
+
+Solo se muestran puntos publicados, y acciones y organizaciones activas. Lo decide RLS en la base, no solo el código.
+
 ## Comandos
 
 | Comando | Qué hace |

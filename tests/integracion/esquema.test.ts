@@ -1,4 +1,4 @@
-import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { mkdtemp, readdir, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import pg from "pg";
@@ -96,7 +96,8 @@ describe.skipIf(!process.env.TEST_DATABASE_URL)("esquema de base de datos", () =
   it("no vuelve a aplicar migraciones ya registradas", async () => {
     const r = await aplicarMigraciones(baseDePruebas().url, path.resolve("migrations"));
     expect(r.aplicadas).toEqual([]);
-    expect(r.omitidas).toHaveLength(6);
+    const archivos = (await readdir(path.resolve("migrations"))).filter((n) => n.endsWith(".sql"));
+    expect(r.omitidas).toHaveLength(archivos.length);
   });
 });
 

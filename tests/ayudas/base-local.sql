@@ -1,17 +1,21 @@
 -- Imita lo que Supabase ya trae en cada proyecto: roles y el esquema auth.
 -- Solo para pruebas locales. NUNCA se ejecuta contra Supabase.
 
+-- Los roles son globales del servidor y varios archivos de prueba crean bases en paralelo.
+-- Si otro proceso crea el mismo rol al mismo tiempo, se ignora el duplicado.
 do $$
+declare
+  r record;
 begin
-  if not exists (select 1 from pg_roles where rolname = 'anon') then
-    create role anon nologin;
-  end if;
-  if not exists (select 1 from pg_roles where rolname = 'authenticated') then
-    create role authenticated nologin;
-  end if;
-  if not exists (select 1 from pg_roles where rolname = 'service_role') then
-    create role service_role nologin bypassrls;
-  end if;
+  for r in select * from (values ('anon', 'nologin'), ('authenticated', 'nologin'), ('service_role', 'nologin bypassrls')) as v(nombre, opciones) loop
+    if not exists (select 1 from pg_roles where rolname = r.nombre) then
+      begin
+        execute format('create role %I %s', r.nombre, r.opciones);
+      exception when duplicate_object or unique_violation then
+        null;
+      end;
+    end if;
+  end loop;
 end
 $$;
 

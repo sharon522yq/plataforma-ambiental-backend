@@ -1,2 +1,12 @@
+import type { UsuarioSesion } from "../compartido/sesion.js";
+
+declare global {
+  namespace Express {
+    interface Request {
+      /** Lo llena autenticar.ts cuando el token es válido. */
+      usuario?: UsuarioSesion;
+    }
+  }
+}
+
 export {};
-// Se añade req.usuario tipado cuando se implemente autenticar.ts.

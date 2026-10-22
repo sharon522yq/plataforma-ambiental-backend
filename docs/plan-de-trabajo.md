@@ -36,12 +36,14 @@ Cada fase tiene: alcance, criterio de salida, pruebas y permisos que hay que ped
 - **Permisos:** **requerido** antes de usar la base de pruebas de Supabase (M3 listo).
 
 ## Fase 4: Autenticación y autorización
+- **Estado:** **Completa en código y pruebas (2026-10-22).** `src/config/jwt.ts` (verificador HS256 y JWKS), `src/middleware/autenticar.ts`, `src/middleware/autorizar.ts`, `src/compartido/perfiles.ts` (rol desde `perfiles`), `src/compartido/sesion.ts`, `GET /api/v1/sesion` (D-19). 97 pruebas en verde con base local, 5 omitidas (Supabase real). Cobertura de líneas 94,7 %. Prueba de mutación: quitar la comprobación de rol o de emisor y audiencia hace fallar las pruebas. Se corrigió además una condición de carrera en `tests/ayudas/base-local.sql` (roles creados en paralelo en un servidor nuevo). `supabase.test.ts` pasó contra el proyecto real (4 de 4, 2026-10-22), incluida la lectura de `perfiles` con la llave de servicio (migración 006). En la PC: 50 pruebas en verde y 52 omitidas por no tener base local. **Pendiente opcional:** un inicio de sesión real para cerrar D-16.
 - **Alcance:** `autenticar.ts` (verifica JWT con `SUPABASE_JWT_SECRET`), `autorizar.ts` (rol leído de la base, no del token), `express.d.ts`, y `tests/ayudas/` para generar tokens por rol.
 - **Criterio de salida:** token inválido, vencido o ausente da 401; rol insuficiente da 403; el rol se lee de `perfiles`.
 - **Pruebas:** unitarias de verificación de JWT; integración con roles público, ciudadano, moderador, editor y administrador.
 - **Permisos:** no requiere, salvo que se use un proyecto de Supabase de pruebas (M9).
 
 ## Fase 5: Endpoints públicos
+- **Estado:** **Completa en código y pruebas (2026-10-22).** Migración 007 con funciones de consulta pública (`listar_puntos_publicos`, `obtener_punto_publico`, `puntos_cercanos_publicos`, `listar_acciones_publicas`, `listar_organizaciones_publicas`) y permisos de ejecución explícitos (D-21). Rutas en `src/modulos/puntos`, `acciones` y `organizaciones`, con el cliente anon (RLS decide qué se ve). 142 pruebas en verde con base local, 7 omitidas (Supabase real). Cobertura de líneas 97 %. Prueba de mutación: dar permiso de ejecución a PUBLIC hace fallar la prueba de permisos. **Pendiente:** correr `supabase.test.ts` contra el proyecto real después de `npm run migrar`.
 - **Alcance:** `GET /puntos`, `GET /puntos/cercanos`, `GET /puntos/:id`, `GET /acciones`, `GET /organizaciones`; paginación `?pagina&limite` (máximo 100).
 - **Criterio de salida:** nunca se devuelven puntos en revisión o archivados; coordenadas validadas; sin datos de contacto internos.
 - **Pruebas:** éxito, error de validación (400), no encontrado (404), y aislamiento por RLS.
