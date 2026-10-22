@@ -95,6 +95,31 @@ curl -X POST http://localhost:3000/api/v1/aportes/<id>/evidencia \
   -H "Authorization: Bearer <token>" -F "foto=@foto.jpg"
 ```
 
+## Administración
+
+Requieren sesión. Las acciones y organizaciones las gestionan el editor y el administrador; usuarios, roles y auditoría, solo el administrador.
+
+| Ruta | Quién | Qué hace |
+|---|---|---|
+| `POST /api/v1/admin/acciones` | Editor, administrador | Crea una acción (`tipo`, `nombre`, opcionales `descripcion`, `enlace` https, `organizacion_id`, `punto_id` de un punto publicado) |
+| `POST /api/v1/admin/organizaciones` | Editor, administrador | Crea una organización (`nombre`, opcionales `contacto` interno y `zona`) |
+| `GET /api/v1/admin/usuarios` | Administrador | Lista con correo, sin teléfono. Filtros `rol` y `busqueda` (nombre o correo) |
+| `PATCH /api/v1/admin/usuarios/:id/rol` | Administrador | Cambia el rol. Nadie puede cambiar el suyo |
+| `GET /api/v1/admin/auditoria` | Administrador | Registros del más reciente al más antiguo. Filtros `tabla`, `accion`, `usuario_id`, `registro_id`, `desde`, `hasta` (fechas ISO) |
+
+Cada creación, cambio o borrado de acciones y organizaciones, y cada cambio de rol o activación, deja un registro en `auditoria` (triggers de la migración 010).
+
+### Nombrar al primer administrador
+
+Como nadie puede darse un rol a sí mismo, el primero se nombra en Supabase → SQL Editor, con el correo de tu cuenta:
+
+```sql
+update perfiles set rol = 'administrador'
+where id = (select id from auth.users where email = 'tu-correo@ejemplo.com');
+```
+
+Después, ese administrador cambia los demás roles desde la API.
+
 ## Comandos
 
 | Comando | Qué hace |

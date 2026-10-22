@@ -23,7 +23,8 @@ export function crearRutasModeracion(
   almacen: AlmacenEvidencias,
 ): Router {
   const rutas = Router();
-  rutas.use(sinCache, autenticar, autorizar("moderador", "administrador"));
+  // Solo estas rutas: /admin también lo comparten las de administración, con otros roles.
+  rutas.use(["/aportes", "/puntos"], sinCache, autenticar, autorizar("moderador", "administrador"));
   const cliente = (token: string | undefined) => clienteUsuario(token ?? "");
 
   rutas.get("/aportes", validar({ query: consultaCola }), (req, res, siguiente) => {

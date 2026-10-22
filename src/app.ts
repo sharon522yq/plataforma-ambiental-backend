@@ -11,6 +11,7 @@ import { crearAutenticar } from "./middleware/autenticar.js";
 import { crearAutorizar } from "./middleware/autorizar.js";
 import { manejadorErrores } from "./middleware/manejador-errores.js";
 import { crearRutasAcciones } from "./modulos/acciones/rutas.js";
+import { crearRutasAdministracion } from "./modulos/administracion/rutas.js";
 import { crearRutasAportes, type ClientePorUsuario } from "./modulos/aportes/rutas.js";
 import { crearRutasModeracion } from "./modulos/moderacion/rutas.js";
 import { crearRutasOrganizaciones } from "./modulos/organizaciones/rutas.js";
@@ -65,6 +66,7 @@ export function crearApp(entorno: Entorno, dependencias?: Dependencias) {
   api.use("/organizaciones", crearRutasOrganizaciones(publico));
   api.use("/aportes", crearRutasAportes(autenticar, autorizar, clienteUsuario, almacen));
   api.use("/admin", crearRutasModeracion(autenticar, autorizar, clienteUsuario, almacen));
+  api.use("/admin", crearRutasAdministracion(autenticar, autorizar, clienteUsuario));
 
   app.use("/api/v1", api);
   app.use((_req, res) => {

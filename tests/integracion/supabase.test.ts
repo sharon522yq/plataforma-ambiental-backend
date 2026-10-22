@@ -95,6 +95,24 @@ describe.skipIf(process.env.PRUEBAS_SUPABASE !== "1")("salud contra Supabase rea
     expect((await request(app).post("/api/v1/aportes/00000000-0000-0000-0000-000000000000/evidencia")).status).toBe(401);
   });
 
+  it("las funciones de administración existen y exigen un administrador (migración 010)", async () => {
+    const servicio = crearClienteServicio(entorno);
+    for (const [nombre, parametros] of [
+      ["listar_usuarios", {}],
+      ["listar_auditoria", {}],
+      ["cambiar_rol", { usuario_id: "00000000-0000-0000-0000-000000000000", rol: "editor" }],
+      ["crear_accion", { tipo: "firma", nombre: "prueba" }],
+    ] as const) {
+      const r = await servicio.rpc(nombre, parametros);
+      expect(r.error?.code, nombre).toBe("42501");
+    }
+    // Un visitante no puede ejecutarlas.
+    expect((await crearClienteAnon(entorno).rpc("listar_usuarios", {})).error).not.toBeNull();
+    for (const ruta of ["/api/v1/admin/usuarios", "/api/v1/admin/auditoria"]) {
+      expect((await request(app).get(ruta)).status).toBe(401);
+    }
+  });
+
   it("GET /sesion responde 401 sin token y con la llave anon usada como token", async () => {
     expect((await request(app).get("/api/v1/sesion")).status).toBe(401);
     const r = await request(app).get("/api/v1/sesion").set("Authorization", `Bearer ${entorno.SUPABASE_ANON_KEY}`);
