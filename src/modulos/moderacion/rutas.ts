@@ -2,6 +2,7 @@ import { Router, type RequestHandler } from "express";
 import type { z } from "zod";
 import { sinCache } from "../../compartido/cache.js";
 import { armarPagina, desplazamiento, llamarFuncion } from "../../compartido/consultas.js";
+import { conEnlace, paginaConEnlaces, type AlmacenEvidencias } from "../../compartido/evidencias.js";
 import { quitarDatosPersonales } from "../../compartido/privacidad.js";
 import type { Autorizar } from "../../middleware/autorizar.js";
 import { validar } from "../../middleware/validar.js";
@@ -12,9 +13,15 @@ import { consultaCola, cuerpoEstadoPunto, cuerpoNuevoPunto, cuerpoRevision, para
 /**
  * Moderación: cola de aportes, revisión y gestión de puntos. Solo moderador y administrador.
  * Corre con la sesión del usuario, así que las políticas de la base aplican además del rol.
- * La auditoría la registran los triggers de la migración 008.
+ * La auditoría la registran los triggers de la migración 008. Las fotos de evidencia
+ * salen como enlaces temporales (D-27).
  */
-export function crearRutasModeracion(autenticar: RequestHandler, autorizar: Autorizar, clienteUsuario: ClientePorUsuario): Router {
+export function crearRutasModeracion(
+  autenticar: RequestHandler,
+  autorizar: Autorizar,
+  clienteUsuario: ClientePorUsuario,
+  almacen: AlmacenEvidencias,
+): Router {
   const rutas = Router();
   rutas.use(sinCache, autenticar, autorizar("moderador", "administrador"));
   const cliente = (token: string | undefined) => clienteUsuario(token ?? "");
@@ -26,7 +33,8 @@ export function crearRutasModeracion(autenticar: RequestHandler, autorizar: Auto
       limite: q.limite,
       desplazamiento: desplazamiento(q),
     })
-      .then((r) => res.json(armarPagina(r, aporteModeracion, { pagina: q.pagina, limite: q.limite })))
+      .then((r) => paginaConEnlaces(almacen, armarPagina(r, aporteModeracion, { pagina: q.pagina, limite: q.limite })))
+      .then((r) => res.json(r))
       .catch(siguiente);
   });
 
@@ -42,7 +50,8 @@ export function crearRutasModeracion(autenticar: RequestHandler, autorizar: Auto
       publicar: cuerpo.decision === "aprobado" ? cuerpo.publicar : false,
       duplicado_de: cuerpo.decision === "duplicado" ? cuerpo.duplicado_de : null,
     })
-      .then((r) => res.json(aporteModeracion.parse(r)))
+      .then((r) => conEnlace(almacen, aporteModeracion.parse(r)))
+      .then((r) => res.json(r))
       .catch(siguiente);
   });
 

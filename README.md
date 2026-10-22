@@ -76,12 +76,24 @@ Requieren `Authorization: Bearer <token>`. Corren con la sesión del usuario, as
 |---|---|---|
 | `POST /api/v1/aportes` | Cualquier cuenta activa | Crea un aporte pendiente. Se quitan correos y teléfonos de la descripción (D-24) |
 | `GET /api/v1/aportes/mis` | Cualquier cuenta activa | Aportes propios, paginados |
+| `POST /api/v1/aportes/:id/evidencia` | El autor del aporte | Foto de evidencia (multipart, campo `foto`; JPG, PNG o WebP de hasta 8 MB). Una sola por aporte y solo si está pendiente |
 | `GET /api/v1/admin/aportes` | Moderador, administrador | Cola por `estado` (por defecto `pendiente`) |
 | `PATCH /api/v1/admin/aportes/:id/revision` | Moderador, administrador | `aprobado` (crea o actualiza el punto; `titulo` obligatorio si es nuevo), `rechazado` (exige `motivo`) o `duplicado` (exige `duplicado_de`). El autor no puede revisar su propio aporte |
 | `POST /api/v1/admin/puntos` | Moderador, administrador | Crea un punto. El moderador solo en revisión |
 | `PATCH /api/v1/admin/puntos/:id/estado` | Moderador, administrador | Publica o archiva. Solo el administrador reabre un archivado |
 
 Cada cambio de estado queda en `auditoria` mediante triggers (D-23).
+
+### Fotos de evidencia
+
+Las fotos se guardan en el bucket privado `evidencias` de Supabase Storage (lo crea la migración 009). Antes de guardarlas, el backend les quita la ubicación GPS y los datos de la cámara, y las reduce a 1600 px. En las respuestas, cada aporte trae `evidencia: null` o `evidencia: { url, expira_en_segundos: 600 }`: el enlace caduca a los 10 minutos y hay que volver a pedir el aporte para obtener otro. Las fotos nunca aparecen en los endpoints públicos (D-27).
+
+Ejemplo con curl:
+
+```bash
+curl -X POST http://localhost:3000/api/v1/aportes/<id>/evidencia \
+  -H "Authorization: Bearer <token>" -F "foto=@foto.jpg"
+```
 
 ## Comandos
 

@@ -5,6 +5,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Entorno } from "./config/env.js";
 import { crearVerificadorSupabase, type VerificadorJwt } from "./config/jwt.js";
 import { crearClienteAnon, crearClienteServicio, crearClienteUsuario } from "./config/supabase.js";
+import { crearAlmacenSupabase, type AlmacenEvidencias } from "./compartido/evidencias.js";
 import { crearLectorPerfiles, type LectorPerfiles } from "./compartido/perfiles.js";
 import { crearAutenticar } from "./middleware/autenticar.js";
 import { crearAutorizar } from "./middleware/autorizar.js";
@@ -26,13 +27,19 @@ export interface Dependencias {
   perfiles?: LectorPerfiles;
   /** Cliente con la sesión del usuario, para escrituras con RLS. */
   clienteUsuario?: ClientePorUsuario;
+  /** Fotos de evidencia. Por defecto, el bucket privado de Storage con el cliente de servicio. */
+  almacen?: AlmacenEvidencias;
 }
 
 export function crearApp(entorno: Entorno, dependencias?: Dependencias) {
   const app = express();
   const publico = dependencias?.publico ?? crearClienteAnon(entorno);
   const verificador = dependencias?.verificador ?? crearVerificadorSupabase(entorno);
-  const perfiles = dependencias?.perfiles ?? crearLectorPerfiles(crearClienteServicio(entorno));
+  // Un solo cliente de servicio, y solo si hace falta (las pruebas inyectan sus dobles).
+  let servicio: SupabaseClient | undefined;
+  const clienteServicio = () => (servicio ??= crearClienteServicio(entorno));
+  const perfiles = dependencias?.perfiles ?? crearLectorPerfiles(clienteServicio());
+  const almacen = dependencias?.almacen ?? crearAlmacenSupabase(clienteServicio());
   const clienteUsuario = dependencias?.clienteUsuario ?? ((token: string) => crearClienteUsuario(entorno, token));
   const autenticar = crearAutenticar(verificador);
   const autorizar = crearAutorizar(perfiles);
@@ -56,8 +63,8 @@ export function crearApp(entorno: Entorno, dependencias?: Dependencias) {
   api.use("/puntos", crearRutasPuntos(publico));
   api.use("/acciones", crearRutasAcciones(publico));
   api.use("/organizaciones", crearRutasOrganizaciones(publico));
-  api.use("/aportes", crearRutasAportes(autenticar, autorizar, clienteUsuario));
-  api.use("/admin", crearRutasModeracion(autenticar, autorizar, clienteUsuario));
+  api.use("/aportes", crearRutasAportes(autenticar, autorizar, clienteUsuario, almacen));
+  api.use("/admin", crearRutasModeracion(autenticar, autorizar, clienteUsuario, almacen));
 
   app.use("/api/v1", api);
   app.use((_req, res) => {

@@ -219,6 +219,54 @@ describe.skipIf(!process.env.TEST_DATABASE_URL)("aportes y moderación en la bas
     });
   });
 
+  describe("adjuntar_evidencia (migración 009)", () => {
+    const rutaDe = (uid: string, aporte: unknown) => `${uid}/${String(aporte)}.jpg`;
+
+    it("adjunta la foto al aporte propio y pendiente, una sola vez, y lo audita", async () => {
+      const a = await nuevoAporte(u.ciudadanaA);
+      expect(a.evidencia_ruta).toBeNull();
+      const ruta = rutaDe(u.ciudadanaA, a.id);
+      const r = await como(u.ciudadanaA, "adjuntar_evidencia($1, $2)", [a.id, ruta]);
+      expect(r).toMatchObject({ id: a.id, evidencia_ruta: ruta, estado: "pendiente" });
+      expect((await auditoria(a.id as string)).map((x) => x.accion)).toContain("evidencia_adjuntada");
+      await expect(como(u.ciudadanaA, "adjuntar_evidencia($1, $2)", [a.id, ruta])).rejects.toMatchObject({
+        code: "55000", message: "El aporte ya tiene evidencia",
+      });
+      const mis = await como<{ datos: Json[] }>(u.ciudadanaA, "mis_aportes()");
+      expect(mis.datos.find((x) => x.id === a.id)?.evidencia_ruta).toBe(ruta);
+    });
+
+    it("rechaza una ruta fuera de la carpeta del usuario o de otro aporte", async () => {
+      const a = await nuevoAporte(u.ciudadanaA);
+      for (const ruta of [rutaDe(u.ciudadanoB, a.id), rutaDe(u.ciudadanaA, randomUUID()), `${u.ciudadanaA}/../${String(a.id)}.jpg`, ""]) {
+        await expect(como(u.ciudadanaA, "adjuntar_evidencia($1, $2)", [a.id, ruta])).rejects.toMatchObject({ code: "22023" });
+      }
+    });
+
+    it("no deja adjuntar a un aporte ajeno ni a uno ya revisado", async () => {
+      const ajeno = await nuevoAporte(u.ciudadanoB);
+      await expect(como(u.ciudadanaA, "adjuntar_evidencia($1, $2)", [ajeno.id, rutaDe(u.ciudadanaA, ajeno.id)])).rejects.toMatchObject({ code: "P0002" });
+      const a = await nuevoAporte(u.ciudadanaA);
+      await como(u.moderadora, "revisar_aporte($1, 'rechazado', 'No es ambiental')", [a.id]);
+      await expect(como(u.ciudadanaA, "adjuntar_evidencia($1, $2)", [a.id, rutaDe(u.ciudadanaA, a.id)])).rejects.toMatchObject({ code: "55000" });
+      const { rows } = await cliente().query<{ e: string | null }>("select evidencia_url e from aportes where id = any($1)", [[ajeno.id, a.id]]);
+      expect(rows.every((x) => x.e === null)).toBe(true);
+    });
+
+    it("solo cambia la evidencia: descripción, ubicación y estado quedan igual", async () => {
+      const a = await nuevoAporte(u.ciudadanaA);
+      const r = await como(u.ciudadanaA, "adjuntar_evidencia($1, $2)", [a.id, rutaDe(u.ciudadanaA, a.id)]);
+      expect(r).toMatchObject({ descripcion: a.descripcion, lat: a.lat, lng: a.lng, estado: "pendiente", punto_id: null });
+    });
+
+    it("la moderación ve la ruta en la cola", async () => {
+      const a = await nuevoAporte(u.ciudadanoB);
+      await como(u.ciudadanoB, "adjuntar_evidencia($1, $2)", [a.id, rutaDe(u.ciudadanoB, a.id)]);
+      const cola = await como<{ datos: Json[] }>(u.moderadora, "cola_aportes('pendiente', 100, 0)");
+      expect(cola.datos.find((x) => x.id === a.id)?.evidencia_ruta).toBe(rutaDe(u.ciudadanoB, a.id));
+    });
+  });
+
   describe("permisos de ejecución", () => {
     it("solo authenticated y service_role ejecutan las funciones; nadie llama los triggers", async () => {
       const funciones = [
@@ -228,6 +276,7 @@ describe.skipIf(!process.env.TEST_DATABASE_URL)("aportes y moderación en la bas
         "revisar_aporte(uuid,text,text,text,integer,boolean,uuid)",
         "crear_punto(text,text,integer,text,double precision,double precision,text)",
         "cambiar_estado_punto(uuid,text)",
+        "adjuntar_evidencia(uuid,text)",
       ];
       const { rows } = await cliente().query<{ f: string; anon: boolean; autenticado: boolean; servicio: boolean }>(
         `select f, has_function_privilege('anon', f, 'execute') anon,

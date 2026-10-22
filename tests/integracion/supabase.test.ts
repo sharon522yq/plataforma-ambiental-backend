@@ -74,6 +74,27 @@ describe.skipIf(process.env.PRUEBAS_SUPABASE !== "1")("salud contra Supabase rea
     expect((await request(app).get("/api/v1/admin/aportes")).status).toBe(401);
   });
 
+  it("el bucket de evidencias existe, es privado y solo acepta JPEG de hasta 2 MB (migración 009)", async () => {
+    const servicio = crearClienteServicio(entorno);
+    const { data, error } = await servicio.storage.getBucket("evidencias");
+    expect(error).toBeNull();
+    expect(data).toMatchObject({ public: false, file_size_limit: 2097152, allowed_mime_types: ["image/jpeg"] });
+    // La función existe y exige sesión.
+    const r = await servicio.rpc("adjuntar_evidencia", { aporte_id: "00000000-0000-0000-0000-000000000000", ruta: "x" });
+    expect(r.error?.code).toBe("42501");
+  });
+
+  it("un visitante no puede subir ni listar fotos de evidencia", async () => {
+    const ruta = `prueba-anon/${String(Date.now())}.jpg`;
+    const bucketAnon = crearClienteAnon(entorno).storage.from("evidencias");
+    const subida = await bucketAnon.upload(ruta, Buffer.from([0xff, 0xd8, 0xff]), { contentType: "image/jpeg" });
+    if (!subida.error) await crearClienteServicio(entorno).storage.from("evidencias").remove([ruta]); // no dejar basura
+    expect(subida.error).not.toBeNull();
+    const lista = await bucketAnon.list();
+    expect(lista.data ?? []).toHaveLength(0);
+    expect((await request(app).post("/api/v1/aportes/00000000-0000-0000-0000-000000000000/evidencia")).status).toBe(401);
+  });
+
   it("GET /sesion responde 401 sin token y con la llave anon usada como token", async () => {
     expect((await request(app).get("/api/v1/sesion")).status).toBe(401);
     const r = await request(app).get("/api/v1/sesion").set("Authorization", `Bearer ${entorno.SUPABASE_ANON_KEY}`);

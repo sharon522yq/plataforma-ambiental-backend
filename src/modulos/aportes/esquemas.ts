@@ -20,6 +20,8 @@ export const cuerpoNuevoAporte = z.object({
 
 export const consultaMisAportes = esquemaPaginacion;
 
+export const parametrosAporte = z.object({ id: z.string().uuid() });
+
 const agruparUbicacion = <T extends { lat: number; lng: number }>({ lat, lng, ...resto }: T) => ({
   ...resto,
   ubicacion: { lat, lng },
@@ -35,6 +37,8 @@ const camposAporte = {
   lng: z.number(),
   estado: z.enum(ESTADOS_APORTE),
   motivo_revision: z.string().nullable(),
+  /** Ruta interna en Storage. Nunca sale tal cual: `conEnlaces` la cambia por un enlace temporal. */
+  evidencia_ruta: z.string().nullable().default(null),
   creado_en: z.string(),
   actualizado_en: z.string(),
 };

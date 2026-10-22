@@ -1,9 +1,11 @@
 import { randomUUID } from "node:crypto";
+import sharp from "sharp";
 import request from "supertest";
 import { describe, expect, it } from "vitest";
 import { crearApp } from "../../src/app.js";
 import type { Perfil } from "../../src/compartido/perfiles.js";
 import { crearVerificadorJwt } from "../../src/config/jwt.js";
+import { almacenFalso } from "../ayudas/almacen-falso.js";
 import { clienteFalso } from "../ayudas/cliente-falso.js";
 import { entornoDePrueba } from "../ayudas/entorno.js";
 import { perfilesFalsos } from "../ayudas/perfiles-falsos.js";
@@ -30,8 +32,9 @@ const punto = {
 };
 
 /** App con un cliente por usuario falso: guarda el token con el que se creó cada cliente. */
-function app(respuestas: Parameters<typeof rpcFalso>[0]) {
+function app(respuestas: Parameters<typeof rpcFalso>[0], opcionesAlmacen?: Parameters<typeof almacenFalso>[0]) {
   const falso = rpcFalso(respuestas);
+  const almacen = almacenFalso(opcionesAlmacen);
   const tokens: string[] = [];
   const a = crearApp(entornoDePrueba(), {
     publico: clienteFalso({ error: null }),
@@ -41,8 +44,9 @@ function app(respuestas: Parameters<typeof rpcFalso>[0]) {
       tokens.push(token);
       return falso.cliente;
     },
+    almacen: almacen.almacen,
   });
-  return { app: a, llamadas: falso.llamadas, tokens };
+  return { app: a, llamadas: falso.llamadas, tokens, archivos: almacen.archivos, borrados: almacen.borrados };
 }
 
 const token = (sub: string) => tokenDePrueba({ sub });
@@ -54,6 +58,7 @@ describe("permisos de las rutas de aportes y moderación", () => {
   const rutas: [string, string][] = [
     ["post", "/api/v1/aportes"],
     ["get", "/api/v1/aportes/mis"],
+    ["post", `/api/v1/aportes/${APORTE}/evidencia`],
     ["get", "/api/v1/admin/aportes"],
     ["patch", `/api/v1/admin/aportes/${APORTE}/revision`],
     ["post", "/api/v1/admin/puntos"],
@@ -202,5 +207,96 @@ describe("moderación de puntos", () => {
     expect(llamadas[0]).toEqual({ nombre: "cambiar_estado_punto", parametros: { punto_id: PUNTO, estado: "publicado" } });
     expect((await request(a).patch(`/api/v1/admin/puntos/${PUNTO}/estado`).set("Authorization", cabecera).send({ estado: "borrado" })).status).toBe(400);
     expect((await request(a).patch("/api/v1/admin/puntos/abc/estado").set("Authorization", cabecera).send({ estado: "publicado" })).status).toBe(400);
+  });
+});
+
+describe("POST /api/v1/aportes/:id/evidencia", () => {
+  const ruta = `/api/v1/aportes/${APORTE}/evidencia`;
+  const rutaGuardada = `${CIUDADANO}/${APORTE}.jpg`;
+  const foto = () =>
+    sharp({ create: { width: 2400, height: 1200, channels: 3, background: { r: 10, g: 90, b: 40 } } })
+      .withExif({ IFD3: { GPSLatitudeRef: "N", GPSLatitude: "20/1 39/1 0/1" } })
+      .jpeg()
+      .toBuffer();
+  const conFoto = { ...aporte, evidencia_ruta: rutaGuardada };
+
+  it("201: guarda la foto limpia en la carpeta del usuario y responde con un enlace temporal", async () => {
+    const { app: a, llamadas, archivos } = app({ adjuntar_evidencia: ok(conFoto) });
+    const r = await request(a).post(ruta).set("Authorization", await bearer(CIUDADANO)).attach("foto", await foto(), "foto.jpg");
+    expect(r.status).toBe(201);
+    expect(r.body).toMatchObject({ id: APORTE, evidencia: { url: expect.stringContaining(rutaGuardada) as unknown, expira_en_segundos: 600 } });
+    expect(JSON.stringify(r.body)).not.toContain("evidencia_ruta");
+    expect(llamadas[0]).toEqual({ nombre: "adjuntar_evidencia", parametros: { aporte_id: APORTE, ruta: rutaGuardada } });
+    const guardada = archivos.get(rutaGuardada);
+    expect(guardada).toBeDefined();
+    const meta = await sharp(guardada).metadata();
+    expect(meta).toMatchObject({ format: "jpeg", width: 1600, height: 800 });
+    expect(meta.exif).toBeUndefined();
+  });
+
+  it("si la base la rechaza, borra lo subido y responde con su error", async () => {
+    const { app: a, archivos, borrados } = app({
+      adjuntar_evidencia: { data: null, error: { code: "55000", message: "Solo se puede agregar evidencia a un aporte pendiente", hint: "publico" } },
+    });
+    const r = await request(a).post(ruta).set("Authorization", await bearer(CIUDADANO)).attach("foto", await foto(), "foto.jpg");
+    expect(r.status).toBe(409);
+    expect(r.body).toMatchObject({ error: { mensaje: "Solo se puede agregar evidencia a un aporte pendiente" } });
+    expect(borrados).toEqual([rutaGuardada]);
+    expect(archivos.size).toBe(0);
+  });
+
+  it("409 sin tocar la base ni borrar nada si ya hay una foto en esa ruta", async () => {
+    const { app: a, llamadas, borrados } = app({}, { existentes: [rutaGuardada] });
+    const r = await request(a).post(ruta).set("Authorization", await bearer(CIUDADANO)).attach("foto", await foto(), "foto.jpg");
+    expect(r.status).toBe(409);
+    expect(llamadas).toHaveLength(0);
+    expect(borrados).toHaveLength(0);
+  });
+
+  it.each([
+    ["sin archivo", (q: request.Test) => q.field("x", "y")],
+    ["con otro nombre de campo", async (q: request.Test) => q.attach("imagen", await foto(), "foto.jpg")],
+    ["con dos fotos", async (q: request.Test) => q.attach("foto", await foto(), "a.jpg").attach("foto", await foto(), "b.jpg")],
+    ["con un archivo que no es imagen", (q: request.Test) => q.attach("foto", Buffer.from("hola"), "foto.jpg")],
+  ])("400 %s, sin subir ni llamar a la base", async (_caso, armar) => {
+    const { app: a, llamadas, archivos } = app({});
+    const r = await armar(request(a).post(ruta).set("Authorization", await bearer(CIUDADANO)));
+    expect(r.status).toBe(400);
+    expect(llamadas).toHaveLength(0);
+    expect(archivos.size).toBe(0);
+  });
+
+  it("400 si el id no es un uuid", async () => {
+    const { app: a } = app({});
+    const r = await request(a).post("/api/v1/aportes/abc/evidencia").set("Authorization", await bearer(CIUDADANO)).attach("foto", await foto(), "f.jpg");
+    expect(r.status).toBe(400);
+  });
+
+  it("413 si el archivo pesa más de 8 MB", async () => {
+    const { app: a, archivos } = app({});
+    const r = await request(a).post(ruta).set("Authorization", await bearer(CIUDADANO)).attach("foto", Buffer.alloc(8 * 1024 * 1024 + 1), "f.jpg");
+    expect(r.status).toBe(413);
+    expect(archivos.size).toBe(0);
+  });
+});
+
+describe("enlaces de evidencia en los listados", () => {
+  const ruta = `${CIUDADANO}/${APORTE}.jpg`;
+
+  it("mis aportes y la cola de moderación traen enlace temporal, nunca la ruta interna", async () => {
+    const fila = { ...aporte, evidencia_ruta: ruta, autor_id: CIUDADANO, revisor_id: null };
+    const { app: a } = app({ mis_aportes: ok({ total: 1, datos: [fila] }), cola_aportes: ok({ total: 1, datos: [fila] }) });
+    for (const [url, sub] of [["/api/v1/aportes/mis", CIUDADANO], ["/api/v1/admin/aportes", MODERADOR]] as const) {
+      const r = await request(a).get(url).set("Authorization", await bearer(sub));
+      expect(r.status).toBe(200);
+      expect(r.body).toMatchObject({ datos: [{ evidencia: { url: `https://firmado.prueba/${ruta}?token=t` } }] });
+      expect(JSON.stringify(r.body)).not.toContain("evidencia_ruta");
+    }
+  });
+
+  it("un aporte sin foto trae evidencia: null", async () => {
+    const { app: a } = app({ mis_aportes: ok({ total: 1, datos: [{ ...aporte, evidencia_ruta: null }] }) });
+    const r = await request(a).get("/api/v1/aportes/mis").set("Authorization", await bearer(CIUDADANO));
+    expect(r.body).toMatchObject({ datos: [{ evidencia: null }] });
   });
 });
