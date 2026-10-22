@@ -4,12 +4,14 @@ import cors from "cors";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Entorno } from "./config/env.js";
 import { crearVerificadorSupabase, type VerificadorJwt } from "./config/jwt.js";
-import { crearClienteAnon, crearClienteServicio } from "./config/supabase.js";
+import { crearClienteAnon, crearClienteServicio, crearClienteUsuario } from "./config/supabase.js";
 import { crearLectorPerfiles, type LectorPerfiles } from "./compartido/perfiles.js";
 import { crearAutenticar } from "./middleware/autenticar.js";
 import { crearAutorizar } from "./middleware/autorizar.js";
 import { manejadorErrores } from "./middleware/manejador-errores.js";
 import { crearRutasAcciones } from "./modulos/acciones/rutas.js";
+import { crearRutasAportes, type ClientePorUsuario } from "./modulos/aportes/rutas.js";
+import { crearRutasModeracion } from "./modulos/moderacion/rutas.js";
 import { crearRutasOrganizaciones } from "./modulos/organizaciones/rutas.js";
 import { crearRutasPuntos } from "./modulos/puntos/rutas.js";
 import { crearRutasSalud } from "./modulos/salud/rutas.js";
@@ -22,6 +24,8 @@ export interface Dependencias {
   verificador?: VerificadorJwt;
   /** Lectura de roles. Por defecto, perfiles con el cliente de servicio. */
   perfiles?: LectorPerfiles;
+  /** Cliente con la sesión del usuario, para escrituras con RLS. */
+  clienteUsuario?: ClientePorUsuario;
 }
 
 export function crearApp(entorno: Entorno, dependencias?: Dependencias) {
@@ -29,6 +33,7 @@ export function crearApp(entorno: Entorno, dependencias?: Dependencias) {
   const publico = dependencias?.publico ?? crearClienteAnon(entorno);
   const verificador = dependencias?.verificador ?? crearVerificadorSupabase(entorno);
   const perfiles = dependencias?.perfiles ?? crearLectorPerfiles(crearClienteServicio(entorno));
+  const clienteUsuario = dependencias?.clienteUsuario ?? ((token: string) => crearClienteUsuario(entorno, token));
   const autenticar = crearAutenticar(verificador);
   const autorizar = crearAutorizar(perfiles);
 
@@ -51,6 +56,8 @@ export function crearApp(entorno: Entorno, dependencias?: Dependencias) {
   api.use("/puntos", crearRutasPuntos(publico));
   api.use("/acciones", crearRutasAcciones(publico));
   api.use("/organizaciones", crearRutasOrganizaciones(publico));
+  api.use("/aportes", crearRutasAportes(autenticar, autorizar, clienteUsuario));
+  api.use("/admin", crearRutasModeracion(autenticar, autorizar, clienteUsuario));
 
   app.use("/api/v1", api);
   app.use((_req, res) => {

@@ -68,6 +68,21 @@ No requieren sesión. Los listados aceptan `?pagina` (desde 1) y `?limite` (1 a 
 
 Solo se muestran puntos publicados, y acciones y organizaciones activas. Lo decide RLS en la base, no solo el código.
 
+## Aportes y moderación
+
+Requieren `Authorization: Bearer <token>`. Corren con la sesión del usuario, así que las políticas de la base deciden además del rol (D-15).
+
+| Ruta | Quién | Qué hace |
+|---|---|---|
+| `POST /api/v1/aportes` | Cualquier cuenta activa | Crea un aporte pendiente. Se quitan correos y teléfonos de la descripción (D-24) |
+| `GET /api/v1/aportes/mis` | Cualquier cuenta activa | Aportes propios, paginados |
+| `GET /api/v1/admin/aportes` | Moderador, administrador | Cola por `estado` (por defecto `pendiente`) |
+| `PATCH /api/v1/admin/aportes/:id/revision` | Moderador, administrador | `aprobado` (crea o actualiza el punto; `titulo` obligatorio si es nuevo), `rechazado` (exige `motivo`) o `duplicado` (exige `duplicado_de`). El autor no puede revisar su propio aporte |
+| `POST /api/v1/admin/puntos` | Moderador, administrador | Crea un punto. El moderador solo en revisión |
+| `PATCH /api/v1/admin/puntos/:id/estado` | Moderador, administrador | Publica o archiva. Solo el administrador reabre un archivado |
+
+Cada cambio de estado queda en `auditoria` mediante triggers (D-23).
+
 ## Comandos
 
 | Comando | Qué hace |

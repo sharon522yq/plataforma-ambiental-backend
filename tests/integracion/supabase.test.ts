@@ -62,6 +62,18 @@ describe.skipIf(process.env.PRUEBAS_SUPABASE !== "1")("salud contra Supabase rea
     expect(JSON.stringify(organizaciones.body)).not.toMatch(/contacto/);
   });
 
+  it("las funciones de aportes y moderación existen y exigen sesión (migración 008)", async () => {
+    // Sin usuario, crear_aporte se niega con 42501. Si la migración faltara, el error sería otro.
+    const servicio = crearClienteServicio(entorno);
+    const r = await servicio.rpc("crear_aporte", { tipo: "otro", descripcion: "prueba sin sesion", lat: 0, lng: 0 });
+    expect(r.error?.code).toBe("42501");
+    // Un visitante no tiene permiso de ejecutar la cola de moderación.
+    const anon = await crearClienteAnon(entorno).rpc("cola_aportes", {});
+    expect(anon.error).not.toBeNull();
+    expect((await request(app).post("/api/v1/aportes").send({})).status).toBe(401);
+    expect((await request(app).get("/api/v1/admin/aportes")).status).toBe(401);
+  });
+
   it("GET /sesion responde 401 sin token y con la llave anon usada como token", async () => {
     expect((await request(app).get("/api/v1/sesion")).status).toBe(401);
     const r = await request(app).get("/api/v1/sesion").set("Authorization", `Bearer ${entorno.SUPABASE_ANON_KEY}`);

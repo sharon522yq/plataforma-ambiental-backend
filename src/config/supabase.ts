@@ -21,3 +21,14 @@ export function crearClienteAnon(entorno: Entorno) {
 export function crearClienteServicio(entorno: Entorno) {
   return createClient(entorno.SUPABASE_URL, entorno.SUPABASE_SERVICE_ROLE_KEY, OPCIONES);
 }
+
+/**
+ * Cliente que actúa como el usuario que inició sesión: lleva su token, así que
+ * RLS aplica sus permisos (D-15). Se crea uno por solicitud y no se guarda.
+ */
+export function crearClienteUsuario(entorno: Entorno, token: string) {
+  return createClient(entorno.SUPABASE_URL, entorno.SUPABASE_ANON_KEY, {
+    ...OPCIONES,
+    global: { headers: { Authorization: `Bearer ${token}` } },
+  });
+}

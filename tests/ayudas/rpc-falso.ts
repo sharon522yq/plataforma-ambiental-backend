@@ -5,7 +5,7 @@ export interface LlamadaRpc {
   parametros: Record<string, unknown>;
 }
 
-type Respuesta = { data: unknown; error: { code: string; message: string } | null };
+type Respuesta = { data: unknown; error: { code: string; message: string; hint?: string } | null };
 
 /**
  * Cliente falso que solo implementa rpc(). `respuestas` asigna una respuesta por función;
