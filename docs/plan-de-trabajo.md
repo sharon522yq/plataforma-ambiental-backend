@@ -78,6 +78,7 @@ Cada fase tiene: alcance, criterio de salida, pruebas y permisos que hay que ped
 - **Pruebas:** las siete categorías de la sección 8 del prompt; cada fallo se registra en `docs/incidencias.md`.
 
 ## Fase 10: Integración continua y despliegue
+- **Estado:** **Lista en código (2026-10-28); falta subirla a GitHub y crear el servicio en Render.** `.github/workflows/ci.yml` (typecheck, lint, build, pruebas con PostgreSQL 16 + PostGIS + pgvector desechable, `npm audit` crítico; job aparte contra Supabase de pruebas solo si hay secretos), validado con actionlint 1.7.7. `render.yaml` (Free, Virginia, `/api/v1/salud`), `.node-version` (22) y D-37. Simulación desde una copia limpia del repositorio: `npm ci`, typecheck, lint, build y 517 pruebas en verde con la contraseña en `PGPASSWORD`; compilación de Render con `NODE_ENV=production` (falla sin `--include=dev`, pasa con él) y `npm start` respondió 200 en `/api/v1/salud`. Historial revisado antes del primer push: `.env` nunca se guardó y no hay llaves en los 12 commits.
 - **Alcance:** `.github/workflows/ci.yml` (typecheck, lint, test en push a `main`), `render.yaml`, README final.
 - **Criterio de salida:** el workflow pasa en GitHub; `render.yaml` valida.
 - **Permisos:** **requerido** para hacer el primer push (el token de `gh` no es válido; ver paso M1).

@@ -141,6 +141,29 @@ La respuesta es texto generado por IA: el frontend debe mostrarla como texto (no
 - **Llaves:** la llave de servicio de Supabase y la de Gemini solo viven en el backend (`.env`, nunca en el repositorio ni en el frontend). La prueba `secretos.test.ts` falla si algún archivo trae una llave, un token o una contraseña.
 - **Dependencias:** `npm audit` debe quedar limpio, salvo lo anotado en D-36 (zod 4 pendiente).
 
+## Integración continua
+
+`.github/workflows/ci.yml` corre en cada push y pull request a `main`: `typecheck`, `lint`, `build`, todas las pruebas con cobertura y `npm audit` (falla solo con vulnerabilidades críticas, D-36). Las pruebas de base de datos usan un PostgreSQL 16 con PostGIS y pgvector que GitHub crea y borra en cada corrida; nunca tocan Supabase.
+
+Las pruebas contra Supabase corren solo si el repositorio tiene estos secretos de un proyecto **de pruebas** (Settings → Secrets and variables → Actions): `PRUEBAS_SUPABASE_URL`, `PRUEBAS_SUPABASE_ANON_KEY`, `PRUEBAS_SUPABASE_SERVICE_ROLE_KEY`, `PRUEBAS_SUPABASE_JWT_SECRET` y, opcionales, `PRUEBAS_SUPABASE_EMAIL` y `PRUEBAS_SUPABASE_CLAVE`. Sin ellos, ese paso se omite con un aviso. No pongas ahí las llaves de producción.
+
+## Despliegue en Render
+
+`render.yaml` define el servicio web (plan Free, región Virginia, cerca de la base):
+
+- Compila con `npm ci --include=dev && npm run build` y arranca con `npm start` (D-37).
+- Render comprueba `GET /api/v1/salud`. Responde 200 aunque la base falle (con `estado: "degradado"`), para que Render no reinicie el servicio por una caída de Supabase (D-07).
+- Node 22, fijado en `.node-version`.
+- `NODE_ENV=production` y `PROXIES_DE_CONFIANZA=1` vienen en el archivo. Los secretos no: Render los pide en el panel al crear el servicio.
+
+Pasos (los haces tú, con tu cuenta):
+
+1. En render.com → **New → Blueprint**, elige el repositorio. Render lee `render.yaml`.
+2. Escribe en el panel los valores de `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, `SUPABASE_JWT_SECRET`, `GEMINI_API_KEY` y `CORS_ORIGENES` (mientras no haya frontend, `http://localhost:5173`). `DATABASE_URL` **no** va en Render: solo sirve para migrar desde tu PC.
+3. Al terminar el despliegue, abre `https://<tu-servicio>.onrender.com/api/v1/salud`: debe responder `{"estado":"ok","base":"ok"}`.
+
+Cada push a `main` vuelve a desplegar. Las migraciones nuevas se siguen aplicando desde tu PC con `npm run migrar`, **antes** de subir el código que las usa.
+
 ## Comandos
 
 | Comando | Qué hace |
@@ -165,4 +188,5 @@ La respuesta es texto generado por IA: el frontend debe mostrarla como texto (no
 
 ## Riesgos conocidos
 
-- El plan gratuito de Render se duerme tras 15 minutos sin tráfico. La primera petición tarda más. Ver D-02.
+- El plan gratuito de Render se duerme tras 15 minutos sin tráfico. La primera petición después de eso puede tardar cerca de un minuto. Para el piloto se acepta; avísalo a quienes lo prueben. Ver D-02.
+- El límite de solicitudes se cuenta en memoria: se reinicia cuando Render duerme o redespliega el servicio (D-34).
