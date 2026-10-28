@@ -1,0 +1,34 @@
+# Despliegue en Render (sección 11 del prompt). Los valores secretos NO van aquí:
+# las variables con `sync: false` se llenan a mano en el panel de Render (paso M8).
+services:
+  - type: web
+    name: plataforma-ambiental-backend
+    runtime: node
+    plan: free
+    # Misma región que la base de Supabase (East US), para menos latencia.
+    region: virginia
+    branch: main
+    # --include=dev: TypeScript es dependencia de desarrollo y NODE_ENV=production la omitiría (D-37).
+    buildCommand: npm ci --include=dev && npm run build
+    startCommand: npm start
+    healthCheckPath: /api/v1/salud
+    autoDeploy: true
+    envVars:
+      # Configuración que no es secreta.
+      - key: NODE_ENV
+        value: production
+      - key: PROXIES_DE_CONFIANZA
+        value: "1"
+      # Secretos y valores propios: se escriben en el panel de Render.
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_ANON_KEY
+        sync: false
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false
+      - key: SUPABASE_JWT_SECRET
+        sync: false
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: CORS_ORIGENES
+        sync: false

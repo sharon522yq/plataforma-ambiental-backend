@@ -1,0 +1,108 @@
+# Integración continua (sección 10 del prompt): typecheck, lint, build y pruebas en cada push a main
+# y en cada pull request. Las pruebas de base de datos corren contra un PostgreSQL desechable con
+# PostGIS y pgvector, creado solo para esta corrida. Nunca se usa la base de producción.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  calidad:
+    name: Typecheck, lint y pruebas
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    services:
+      postgres:
+        image: postgis/postgis:16-3.4
+        env:
+          # Contraseña de una base desechable que solo existe dentro de esta corrida.
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      # La contraseña va aparte (PGPASSWORD, que pg lee solo) para que la URL no la lleve.
+      TEST_DATABASE_URL: postgresql://postgres@127.0.0.1:5432/postgres
+      PGPASSWORD: postgres
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .node-version
+          cache: npm
+
+      # La imagen de PostGIS no trae pgvector: se instala del repositorio de PostgreSQL que ya tiene configurado.
+      - name: Instalar pgvector en la base de pruebas
+        run: |
+          docker exec ${{ job.services.postgres.id }} bash -c \
+            "apt-get update -qq && apt-get install -y -qq postgresql-16-pgvector > /dev/null"
+          docker exec ${{ job.services.postgres.id }} psql -U postgres -tAc \
+            "select name, default_version from pg_available_extensions where name in ('postgis', 'vector', 'pgcrypto') order by name"
+
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm run lint
+      - run: npm run build
+      - run: npm run test:cobertura
+
+      - name: Revisar dependencias (falla solo con vulnerabilidades críticas; ver D-36)
+        run: npm audit --audit-level=critical
+
+  supabase:
+    name: Pruebas contra Supabase de pruebas
+    # Solo si el repositorio tiene los secretos de un proyecto de PRUEBAS (paso M9). Nunca producción.
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    needs: calidad
+    env:
+      PRUEBAS_SUPABASE: "1"
+      NODE_ENV: test
+      SUPABASE_URL: ${{ secrets.PRUEBAS_SUPABASE_URL }}
+      SUPABASE_ANON_KEY: ${{ secrets.PRUEBAS_SUPABASE_ANON_KEY }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.PRUEBAS_SUPABASE_SERVICE_ROLE_KEY }}
+      SUPABASE_JWT_SECRET: ${{ secrets.PRUEBAS_SUPABASE_JWT_SECRET }}
+      PRUEBAS_SUPABASE_EMAIL: ${{ secrets.PRUEBAS_SUPABASE_EMAIL }}
+      PRUEBAS_SUPABASE_CLAVE: ${{ secrets.PRUEBAS_SUPABASE_CLAVE }}
+      # Las pruebas contra Supabase no llaman a Gemini.
+      GEMINI_API_KEY: no-se-usa
+      CORS_ORIGENES: http://localhost:5173
+    steps:
+      - name: Comprobar si hay secretos de pruebas
+        id: secretos
+        run: |
+          if [ -n "$SUPABASE_URL" ] && [ -n "$SUPABASE_ANON_KEY" ] && [ -n "$SUPABASE_SERVICE_ROLE_KEY" ] && [ -n "$SUPABASE_JWT_SECRET" ]; then
+            echo "hay=si" >> "$GITHUB_OUTPUT"
+          else
+            echo "::notice::Sin secretos PRUEBAS_SUPABASE_*: se omiten las pruebas contra Supabase (paso M9)."
+            echo "hay=no" >> "$GITHUB_OUTPUT"
+          fi
+
+      - if: steps.secretos.outputs.hay == 'si'
+        uses: actions/checkout@v4
+
+      - if: steps.secretos.outputs.hay == 'si'
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .node-version
+          cache: npm
+
+      - if: steps.secretos.outputs.hay == 'si'
+        run: npm ci
+
+      - if: steps.secretos.outputs.hay == 'si'
+        run: npx vitest run tests/integracion/supabase.test.ts
