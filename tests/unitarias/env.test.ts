@@ -34,6 +34,25 @@ describe("cargarEntorno", () => {
     expect(e.LIMITE_AGENTE_POR_MINUTO).toBe(10);
   });
 
+  it("quita espacios y saltos de línea al inicio y al final de cada valor", () => {
+    const e = cargarEntorno({
+      ...base,
+      SUPABASE_URL: "https://ejemplo.supabase.co ",
+      SUPABASE_JWT_SECRET: " secreto\r\n",
+      GEMINI_API_KEY: "\tllave ",
+      PORT: " 8080 ",
+    });
+    expect(e.SUPABASE_URL).toBe("https://ejemplo.supabase.co");
+    expect(e.SUPABASE_JWT_SECRET).toBe("secreto");
+    expect(e.GEMINI_API_KEY).toBe("llave");
+    expect(e.PORT).toBe(8080);
+  });
+
+  it("con un espacio al final de SUPABASE_URL el verificador de tokens arranca", async () => {
+    const { crearVerificadorSupabase } = await import("../../src/config/jwt.js");
+    expect(() => crearVerificadorSupabase(cargarEntorno({ ...base, SUPABASE_URL: "https://ejemplo.supabase.co " }))).not.toThrow();
+  });
+
   it("PROXIES_DE_CONFIANZA acepta de 0 a 3", () => {
     expect(cargarEntorno({ ...base, PROXIES_DE_CONFIANZA: "1" }).PROXIES_DE_CONFIANZA).toBe(1);
     expect(() => cargarEntorno({ ...base, PROXIES_DE_CONFIANZA: "9" })).toThrow(/PROXIES_DE_CONFIANZA/);

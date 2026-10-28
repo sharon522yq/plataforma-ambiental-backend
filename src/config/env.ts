@@ -24,10 +24,14 @@ export type Entorno = z.infer<typeof esquema>;
 
 /** Valida el entorno. Si falta una variable obligatoria, lanza un error que indica cuál. */
 export function cargarEntorno(fuente: NodeJS.ProcessEnv = process.env): Entorno {
+  // Los espacios y saltos de línea al inicio o al final se quitan: suelen colarse al copiar un
+  // valor en un panel (en Render, `SUPABASE_URL` con un espacio rompía el arranque).
   // Una línea como `PORT=` en .env llega como "". Se trata igual que una variable ausente,
   // para que aplique su valor por defecto en lugar de convertirse en 0.
   const sinVacias = Object.fromEntries(
-    Object.entries(fuente).filter(([, valor]) => valor !== undefined && valor.trim() !== ""),
+    Object.entries(fuente)
+      .map(([nombre, valor]) => [nombre, valor?.trim()] as const)
+      .filter(([, valor]) => valor !== undefined && valor !== ""),
   );
   const resultado = esquema.safeParse(sinVacias);
   if (!resultado.success) {

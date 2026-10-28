@@ -20,3 +20,12 @@ Sin incidencias abiertas.
 - **Esperado:** 415 `FORMATO_NO_SOPORTADO` con la forma uniforme.
 - **Real:** 500 `ERROR_INTERNO`.
 - **Causa y solución:** las mismas de I-01 (`charset.unsupported` no estaba traducido).
+
+## I-03: el servidor no arrancaba en Render por un espacio en `SUPABASE_URL` (cerrada)
+
+- **Fecha:** 2026-10-28, fase 10, primer despliegue en Render.
+- **Pasos:** poner en el panel de Render `SUPABASE_URL` con un espacio al final y desplegar.
+- **Esperado:** el servidor arranca (o, si el valor fuera inválido, un mensaje claro de configuración).
+- **Real:** `TypeError: Invalid URL` en `crearVerificadorSupabase` al armar `https://<proyecto>.supabase.co /auth/v1/.well-known/jwks.json`; Render reiniciaba el servicio una y otra vez.
+- **Causa:** la validación de la URL la aceptaba (el estándar de URL ignora espacios al final), pero al concatenar `/auth/v1` el espacio quedaba en medio. El valor se copió con un espacio de más.
+- **Solución:** `cargarEntorno` quita espacios y saltos de línea al inicio y al final de cada variable. Pruebas nuevas en `tests/unitarias/env.test.ts`; sin el cambio, fallan con el mismo error de Render.
