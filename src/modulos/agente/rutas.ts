@@ -1,8 +1,8 @@
 import { Router, type RequestHandler } from "express";
-import { rateLimit } from "express-rate-limit";
 import { z } from "zod";
 import { sinCache } from "../../compartido/cache.js";
 import { quitarDatosPersonales } from "../../compartido/privacidad.js";
+import { crearLimitador } from "../../middleware/limitador.js";
 import { validar } from "../../middleware/validar.js";
 import type { RegistroConversaciones } from "./conversaciones.js";
 import type { ModeloIA } from "./gemini.js";
@@ -29,17 +29,7 @@ interface DependenciasAgente {
  */
 export function crearRutasAgente({ ia, conversaciones, limitePorMinuto, autenticarOpcional }: DependenciasAgente): Router {
   const rutas = Router();
-  const limitador = rateLimit({
-    windowMs: 60_000,
-    limit: limitePorMinuto,
-    standardHeaders: "draft-7",
-    legacyHeaders: false,
-    handler: (_req, res) => {
-      res.status(429).json({
-        error: { codigo: "LIMITE_EXCEDIDO", mensaje: "Hiciste muchas preguntas seguidas. Espera un minuto.", detalles: [] },
-      });
-    },
-  });
+  const limitador = crearLimitador({ porMinuto: limitePorMinuto, mensaje: "Hiciste muchas preguntas seguidas. Espera un minuto." });
 
   rutas.post("/consulta", sinCache, limitador, autenticarOpcional, validar({ body: cuerpoConsulta }), (req, res, siguiente) => {
     const { pregunta } = req.body as z.infer<typeof cuerpoConsulta>;

@@ -10,6 +10,8 @@ import { crearLectorPerfiles, type LectorPerfiles } from "./compartido/perfiles.
 import { crearAutenticar } from "./middleware/autenticar.js";
 import { crearAutenticarOpcional } from "./middleware/autenticar-opcional.js";
 import { crearAutorizar } from "./middleware/autorizar.js";
+import { crearLimitador } from "./middleware/limitador.js";
+import { crearRegistroSolicitudes } from "./middleware/registro-solicitudes.js";
 import { manejadorErrores } from "./middleware/manejador-errores.js";
 import { crearRutasAcciones } from "./modulos/acciones/rutas.js";
 import { crearRutasAdministracion } from "./modulos/administracion/rutas.js";
@@ -59,6 +61,7 @@ export function crearApp(entorno: Entorno, dependencias?: Dependencias) {
   // Detrás de un proxy (Render) hay que confiar en él para leer la IP real del cliente;
   // si no, el límite del agente sería uno solo para todos (D-32).
   app.set("trust proxy", entorno.PROXIES_DE_CONFIANZA);
+  app.use(crearRegistroSolicitudes(entorno.NODE_ENV !== "test"));
   app.use(helmet());
   app.use(
     cors({
@@ -93,7 +96,13 @@ export function crearApp(entorno: Entorno, dependencias?: Dependencias) {
     }),
   );
 
-  app.use("/api/v1", api);
+  // Límite general por IP (D-34). /salud no cuenta: Render la consulta seguido.
+  const limiteGeneral = crearLimitador({
+    porMinuto: entorno.LIMITE_SOLICITUDES_POR_MINUTO,
+    mensaje: "Demasiadas solicitudes, intenta en un minuto",
+    omitir: (req) => req.path === "/salud" || req.path === "/salud/",
+  });
+  app.use("/api/v1", limiteGeneral, api);
   app.use((_req, res) => {
     res.status(404).json({ error: { codigo: "NO_ENCONTRADO", mensaje: "Ruta no encontrada", detalles: [] } });
   });

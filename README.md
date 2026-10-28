@@ -130,6 +130,17 @@ Para comprobar la llave sin gastar cuota: `npm run verificar:gemini`. Muestra si
 
 La respuesta es texto generado por IA: el frontend debe mostrarla como texto (no como HTML) y con el aviso (D-33).
 
+## Seguridad
+
+- **Cabeceras:** helmet en todas las respuestas (CSP, HSTS, `nosniff`, sin `X-Powered-By`).
+- **CORS:** solo los orígenes de `CORS_ORIGENES`, separados por comas. Las solicitudes sin `Origin` (curl, el health check de Render) no son de navegador y pasan.
+- **Límites:** `LIMITE_SOLICITUDES_POR_MINUTO` por IP para toda la API, salvo `/salud` (D-34), y `LIMITE_AGENTE_POR_MINUTO` para el agente. Al pasarlos, 429 `LIMITE_EXCEDIDO`. Detrás de Render hay que poner `PROXIES_DE_CONFIANZA=1` (D-32).
+- **Cuerpos:** JSON de hasta 100 KB (413 si es más grande, 415 si el charset no es válido); fotos de hasta 8 MB.
+- **Errores:** siempre `{ error: { codigo, mensaje, detalles } }`. Un 500 nunca trae stack, rutas de archivos ni mensajes de la base.
+- **Registro:** cada respuesta lleva `X-Id-Solicitud`. El registro guarda id, método, ruta, código y duración; nunca cuerpos, tokens, correos ni teléfonos (D-35).
+- **Llaves:** la llave de servicio de Supabase y la de Gemini solo viven en el backend (`.env`, nunca en el repositorio ni en el frontend). La prueba `secretos.test.ts` falla si algún archivo trae una llave, un token o una contraseña.
+- **Dependencias:** `npm audit` debe quedar limpio, salvo lo anotado en D-36 (zod 4 pendiente).
+
 ## Comandos
 
 | Comando | Qué hace |
