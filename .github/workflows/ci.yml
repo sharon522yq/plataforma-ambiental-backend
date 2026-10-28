@@ -1,6 +1,6 @@
 # Integración continua (sección 10 del prompt): typecheck, lint, build y pruebas en cada push a main
 # y en cada pull request. Las pruebas de base de datos corren contra un PostgreSQL desechable con
-# PostGIS y pgvector, creado solo para esta corrida. Nunca se usa la base de producción.
+# PostGIS y pgvector, instalado solo para esta corrida. Nunca se usa la base de producción.
 name: CI
 
 on:
@@ -21,37 +21,28 @@ jobs:
     name: Typecheck, lint y pruebas
     runs-on: ubuntu-24.04
     timeout-minutes: 15
-    services:
-      postgres:
-        image: postgis/postgis:16-3.4
-        env:
-          # Contraseña de una base desechable que solo existe dentro de esta corrida.
-          POSTGRES_PASSWORD: postgres
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd "pg_isready -U postgres"
-          --health-interval 5s
-          --health-timeout 5s
-          --health-retries 10
     env:
       # La contraseña va aparte (PGPASSWORD, que pg lee solo) para que la URL no la lleve.
       TEST_DATABASE_URL: postgresql://postgres@127.0.0.1:5432/postgres
       PGPASSWORD: postgres
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v5
         with:
           node-version-file: .node-version
           cache: npm
 
-      # La imagen de PostGIS no trae pgvector: se instala del repositorio de PostgreSQL que ya tiene configurado.
-      - name: Instalar pgvector en la base de pruebas
+      # PostgreSQL 16 del propio runner (Ubuntu 24.04) con PostGIS y pgvector de Ubuntu:
+      # las mismas versiones con las que se prueba en local (D-12). La contraseña es de una
+      # base desechable que solo existe durante esta corrida.
+      - name: Preparar la base de pruebas
         run: |
-          docker exec ${{ job.services.postgres.id }} bash -c \
-            "apt-get update -qq && apt-get install -y -qq postgresql-16-pgvector > /dev/null"
-          docker exec ${{ job.services.postgres.id }} psql -U postgres -tAc \
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq postgresql-16 postgresql-16-postgis-3 postgresql-16-pgvector > /dev/null
+          sudo systemctl start postgresql
+          sudo -u postgres psql -qc "alter user postgres password '$PGPASSWORD'"
+          psql "$TEST_DATABASE_URL" -tAc \
             "select name, default_version from pg_available_extensions where name in ('postgis', 'vector', 'pgcrypto') order by name"
 
       - run: npm ci
@@ -93,10 +84,10 @@ jobs:
           fi
 
       - if: steps.secretos.outputs.hay == 'si'
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - if: steps.secretos.outputs.hay == 'si'
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v5
         with:
           node-version-file: .node-version
           cache: npm
