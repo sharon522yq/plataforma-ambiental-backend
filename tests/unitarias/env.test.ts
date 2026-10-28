@@ -16,6 +16,7 @@ describe("cargarEntorno", () => {
     const e = cargarEntorno(base);
     expect(e.PORT).toBe(3000);
     expect(e.GEMINI_MODELO).toBe("gemini-2.5-flash");
+    expect(e.PROXIES_DE_CONFIANZA).toBe(0);
     expect(e.CORS_ORIGENES).toEqual(["http://localhost:5173", "https://ejemplo.org"]);
   });
 
@@ -31,6 +32,11 @@ describe("cargarEntorno", () => {
     expect(e.GEMINI_MODELO).toBe("gemini-2.5-flash");
     expect(e.LIMITE_SOLICITUDES_POR_MINUTO).toBe(60);
     expect(e.LIMITE_AGENTE_POR_MINUTO).toBe(10);
+  });
+
+  it("PROXIES_DE_CONFIANZA acepta de 0 a 3", () => {
+    expect(cargarEntorno({ ...base, PROXIES_DE_CONFIANZA: "1" }).PROXIES_DE_CONFIANZA).toBe(1);
+    expect(() => cargarEntorno({ ...base, PROXIES_DE_CONFIANZA: "9" })).toThrow(/PROXIES_DE_CONFIANZA/);
   });
 
   it("una variable obligatoria vacía cuenta como faltante", () => {

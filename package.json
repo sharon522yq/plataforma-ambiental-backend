@@ -15,7 +15,8 @@
     "test:cobertura": "vitest run --coverage",
     "lint": "eslint . --max-warnings=0",
     "typecheck": "tsc --noEmit && tsc -p tsconfig.pruebas.json",
-    "migrar": "tsx src/migrar.ts"
+    "migrar": "tsx src/migrar.ts",
+    "verificar:gemini": "tsx src/verificar-gemini.ts"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.45.0",

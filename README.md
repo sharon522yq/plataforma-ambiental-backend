@@ -120,6 +120,16 @@ where id = (select id from auth.users where email = 'tu-correo@ejemplo.com');
 
 Después, ese administrador cambia los demás roles desde la API.
 
+## Agente
+
+`POST /api/v1/agente/consulta` con `{ "pregunta": "..." }` (de 3 a 1000 caracteres). Es público; si viene un token, la conversación se asocia al usuario. Responde `{ respuesta, modelo, aviso }`. Límite: `LIMITE_AGENTE_POR_MINUTO` consultas por minuto por persona (429 al pasarlo). Todavía no consulta documentos propios (RAG, fase posterior).
+
+`GET /api/v1/salud/ia` (solo administrador) comprueba que la llave y el modelo responden, sin generar texto.
+
+Para comprobar la llave sin gastar cuota: `npm run verificar:gemini`. Muestra si es válida, si el modelo de `GEMINI_MODELO` existe y qué modelos "flash" hay.
+
+La respuesta es texto generado por IA: el frontend debe mostrarla como texto (no como HTML) y con el aviso (D-33).
+
 ## Comandos
 
 | Comando | Qué hace |
@@ -129,6 +139,7 @@ Después, ese administrador cambia los demás roles desde la API.
 | `npm start` | Ejecuta `dist/server.js` |
 | `npm run typecheck` | Revisa tipos (src y pruebas) |
 | `npm run migrar` | Aplica las migraciones pendientes a `DATABASE_URL` |
+| `npm run verificar:gemini` | Comprueba la llave de Gemini sin gastar cuota |
 | `npm run lint` | Revisa estilo y errores |
 | `npm test` | Ejecuta las pruebas |
 | `npm run test:cobertura` | Pruebas con cobertura (meta 70 %) |

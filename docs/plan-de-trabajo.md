@@ -65,6 +65,7 @@ Cada fase tiene: alcance, criterio de salida, pruebas y permisos que hay que ped
 - **Pruebas:** conteo exacto de registros de auditoría; `telefono` nunca sale en listas.
 
 ## Fase 8: Agente con Gemini
+- **Estado:** **Completa en código y pruebas (2026-10-28).** Cliente de Gemini por API REST (D-31) en `src/modulos/agente`, `POST /agente/consulta` con límite por minuto y sesión opcional, `GET /salud/ia` solo administrador, `npm run verificar:gemini`, migración 011 (purga de conversaciones a los 7 días) y `PROXIES_DE_CONFIANZA` (D-32). Privacidad en D-33. Gemini simulado en todas las pruebas: 332 en verde con base local, 12 omitidas (Supabase real). Cobertura de líneas 97,5 %. Prueba de mutación: no limpiar la pregunta o la respuesta, quitar o mover el límite, abrir `/salud/ia` a cualquier rol, registrar el cuerpo del error de Google, quitar la llave de la cabecera, ignorar el bloqueo de Google, purgar todo o dar permiso de purga a PUBLIC hacen fallar las pruebas. D-01 (dimensión de embeddings) sigue abierta para la fase de RAG. **Pendiente:** `npm run verificar:gemini`, `npm run migrar` (011), prueba real y una consulta real con tu permiso.
 - **Alcance:** servicio de Gemini, `GET /salud/ia` (administrador), `POST /agente/consulta` (público, sin RAG todavía).
 - **Criterio de salida:** la llave no aparece en respuestas; `conversaciones_agente` no guarda datos personales; el límite `LIMITE_AGENTE_POR_MINUTO` responde 429.
 - **Pruebas:** Gemini simulado en pruebas automáticas; una prueba manual con la llave real.

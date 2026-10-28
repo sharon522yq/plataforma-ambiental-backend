@@ -16,6 +16,8 @@ const esquema = z.object({
     .transform((v) => v.split(",").map((o) => o.trim()).filter(Boolean)),
   LIMITE_SOLICITUDES_POR_MINUTO: z.coerce.number().int().positive().default(60),
   LIMITE_AGENTE_POR_MINUTO: z.coerce.number().int().positive().default(10),
+  /** Cuántos proxies hay delante del servidor (Render: 1). En la PC, 0. */
+  PROXIES_DE_CONFIANZA: z.coerce.number().int().min(0).max(3).default(0),
 });
 
 export type Entorno = z.infer<typeof esquema>;

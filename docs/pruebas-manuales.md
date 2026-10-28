@@ -11,3 +11,10 @@ Pendiente el resto. Ya se puede probar:
 4. Descarga la foto y revisa sus propiedades: no debe tener ubicación GPS ni modelo de cámara.
 5. Repite el paso 2: esperado 409 ("El aporte ya tiene evidencia").
 6. Con otra cuenta, repite el paso 2 con el mismo `id`: esperado 404.
+
+## Agente
+1. `POST /api/v1/agente/consulta`, Body → raw JSON: `{ "pregunta": "¿Cómo separo la basura en casa?" }`, sin token.
+2. Esperado: 200 con `respuesta`, `modelo` y `aviso`. La respuesta es en español y sobre el tema.
+3. Pregunta algo que no sea ambiental (por ejemplo, una receta): el asistente debe decir con amabilidad que solo ayuda con temas ambientales.
+4. Incluye tu correo en la pregunta: la respuesta no debe repetirlo.
+5. Repite la consulta 11 veces seguidas en menos de un minuto: la número 11 responde 429.

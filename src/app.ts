@@ -8,10 +8,14 @@ import { crearClienteAnon, crearClienteServicio, crearClienteUsuario } from "./c
 import { crearAlmacenSupabase, type AlmacenEvidencias } from "./compartido/evidencias.js";
 import { crearLectorPerfiles, type LectorPerfiles } from "./compartido/perfiles.js";
 import { crearAutenticar } from "./middleware/autenticar.js";
+import { crearAutenticarOpcional } from "./middleware/autenticar-opcional.js";
 import { crearAutorizar } from "./middleware/autorizar.js";
 import { manejadorErrores } from "./middleware/manejador-errores.js";
 import { crearRutasAcciones } from "./modulos/acciones/rutas.js";
 import { crearRutasAdministracion } from "./modulos/administracion/rutas.js";
+import { crearRegistroConversaciones, type RegistroConversaciones } from "./modulos/agente/conversaciones.js";
+import { crearGemini, type ModeloIA } from "./modulos/agente/gemini.js";
+import { crearRutasAgente } from "./modulos/agente/rutas.js";
 import { crearRutasAportes, type ClientePorUsuario } from "./modulos/aportes/rutas.js";
 import { crearRutasModeracion } from "./modulos/moderacion/rutas.js";
 import { crearRutasOrganizaciones } from "./modulos/organizaciones/rutas.js";
@@ -30,6 +34,10 @@ export interface Dependencias {
   clienteUsuario?: ClientePorUsuario;
   /** Fotos de evidencia. Por defecto, el bucket privado de Storage con el cliente de servicio. */
   almacen?: AlmacenEvidencias;
+  /** Gemini. Las pruebas usan uno simulado: nunca llaman a la API real. */
+  ia?: ModeloIA;
+  /** Dónde se guardan las conversaciones del agente. */
+  conversaciones?: RegistroConversaciones;
 }
 
 export function crearApp(entorno: Entorno, dependencias?: Dependencias) {
@@ -42,10 +50,15 @@ export function crearApp(entorno: Entorno, dependencias?: Dependencias) {
   const perfiles = dependencias?.perfiles ?? crearLectorPerfiles(clienteServicio());
   const almacen = dependencias?.almacen ?? crearAlmacenSupabase(clienteServicio());
   const clienteUsuario = dependencias?.clienteUsuario ?? ((token: string) => crearClienteUsuario(entorno, token));
+  const ia = dependencias?.ia ?? crearGemini({ llave: entorno.GEMINI_API_KEY, modelo: entorno.GEMINI_MODELO });
+  const conversaciones = dependencias?.conversaciones ?? crearRegistroConversaciones(clienteServicio());
   const autenticar = crearAutenticar(verificador);
   const autorizar = crearAutorizar(perfiles);
 
   app.disable("x-powered-by");
+  // Detrás de un proxy (Render) hay que confiar en él para leer la IP real del cliente;
+  // si no, el límite del agente sería uno solo para todos (D-32).
+  app.set("trust proxy", entorno.PROXIES_DE_CONFIANZA);
   app.use(helmet());
   app.use(
     cors({
@@ -59,7 +72,10 @@ export function crearApp(entorno: Entorno, dependencias?: Dependencias) {
   app.use(express.json({ limit: "100kb" }));
 
   const api = express.Router();
-  api.use("/salud", crearRutasSalud(publico));
+  api.use(
+    "/salud",
+    crearRutasSalud(publico, { ia, modelo: entorno.GEMINI_MODELO, soloAdministrador: [autenticar, autorizar("administrador")] }),
+  );
   api.use("/sesion", crearRutasSesion(autenticar, autorizar));
   api.use("/puntos", crearRutasPuntos(publico));
   api.use("/acciones", crearRutasAcciones(publico));
@@ -67,6 +83,15 @@ export function crearApp(entorno: Entorno, dependencias?: Dependencias) {
   api.use("/aportes", crearRutasAportes(autenticar, autorizar, clienteUsuario, almacen));
   api.use("/admin", crearRutasModeracion(autenticar, autorizar, clienteUsuario, almacen));
   api.use("/admin", crearRutasAdministracion(autenticar, autorizar, clienteUsuario));
+  api.use(
+    "/agente",
+    crearRutasAgente({
+      ia,
+      conversaciones,
+      limitePorMinuto: entorno.LIMITE_AGENTE_POR_MINUTO,
+      autenticarOpcional: crearAutenticarOpcional(autenticar),
+    }),
+  );
 
   app.use("/api/v1", api);
   app.use((_req, res) => {

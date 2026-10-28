@@ -113,6 +113,14 @@ describe.skipIf(process.env.PRUEBAS_SUPABASE !== "1")("salud contra Supabase rea
     }
   });
 
+  it("la purga de conversaciones del agente existe y solo la ejecuta el backend (migración 011)", async () => {
+    const r = await crearClienteServicio(entorno).rpc("purgar_conversaciones_agente");
+    expect(r.error).toBeNull();
+    expect(typeof r.data).toBe("number");
+    expect((await crearClienteAnon(entorno).rpc("purgar_conversaciones_agente")).error).not.toBeNull();
+    expect((await request(app).get("/api/v1/salud/ia")).status).toBe(401);
+  });
+
   it("GET /sesion responde 401 sin token y con la llave anon usada como token", async () => {
     expect((await request(app).get("/api/v1/sesion")).status).toBe(401);
     const r = await request(app).get("/api/v1/sesion").set("Authorization", `Bearer ${entorno.SUPABASE_ANON_KEY}`);
