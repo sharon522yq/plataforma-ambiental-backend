@@ -28,7 +28,7 @@ function app(respuestas: Parameters<typeof rpcFalso>[0]) {
 describe("GET /api/v1/puntos", () => {
   it("devuelve la página con coordenadas agrupadas y datos de paginación", async () => {
     const { app: a, llamadas } = app({ listar_puntos_publicos: ok({ total: 21, datos: [punto] }) });
-    const r = await request(a).get("/api/v1/puntos?pagina=2&limite=10&tipo=contaminacion_agua&gravedad_min=3");
+    const r = await request(a).get("/api/v1/puntos?pagina=2&limite=10&tipo=contaminacion_agua&gravedad_minima=3");
     expect(r.status).toBe(200);
     expect(r.body).toEqual({
       datos: [
@@ -66,7 +66,7 @@ describe("GET /api/v1/puntos", () => {
     ["pagina 0", "pagina=0"],
     ["pagina con texto", "pagina=dos"],
     ["tipo inexistente", "tipo=ruido"],
-    ["gravedad fuera de 1 a 5", "gravedad_min=6"],
+    ["gravedad fuera de 1 a 5", "gravedad_minima=6"],
   ])("400 con %s, sin llamar a la base", async (_caso, query) => {
     const { app: a, llamadas } = app({});
     const r = await request(a).get(`/api/v1/puntos?${query}`);
@@ -98,7 +98,7 @@ describe("GET /api/v1/puntos/cercanos", () => {
 
   it("envía lat, lng, radio y límite a la base y agrupa coordenadas", async () => {
     const { app: a, llamadas } = app({ puntos_cercanos_publicos: ok([cercano]) });
-    const r = await request(a).get("/api/v1/puntos/cercanos?lat=20.65&lng=-103.35&radio=10000&tipo=residuos&limite=5");
+    const r = await request(a).get("/api/v1/puntos/cercanos?lat=20.65&lng=-103.35&radio_metros=10000&tipo=residuos&limite=5");
     expect(r.status).toBe(200);
     expect(r.body).toEqual({
       datos: [{ id: ID, titulo: "x", tipo: "residuos", gravedad: 2, distancia_metros: 1234.5, ubicacion: { lat: 20.6, lng: -103.3 } }],
@@ -120,7 +120,7 @@ describe("GET /api/v1/puntos/cercanos", () => {
     ["sin lng", "lat=20"],
     ["lat fuera de rango", "lat=91&lng=0"],
     ["lng fuera de rango", "lat=0&lng=181"],
-    ["radio mayor a 50 km", "lat=0&lng=0&radio=50001"],
+    ["radio mayor a 50 km", "lat=0&lng=0&radio_metros=50001"],
     ["coordenadas con texto", "lat=norte&lng=0"],
   ])("400 %s", async (_caso, query) => {
     const { app: a, llamadas } = app({});

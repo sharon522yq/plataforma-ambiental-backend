@@ -7,7 +7,7 @@ import { puntoCercano, puntoDetalle, puntoResumen, type consultaCercanos, type c
 export async function listarPuntos(cliente: SupabaseClient, consulta: z.infer<typeof consultaListado>) {
   const respuesta = await llamarFuncion(cliente, "listar_puntos_publicos", {
     tipo_filtro: consulta.tipo ?? null,
-    gravedad_minima: consulta.gravedad_min ?? null,
+    gravedad_minima: consulta.gravedad_minima ?? null,
     limite: consulta.limite,
     desplazamiento: desplazamiento(consulta),
   });
@@ -18,7 +18,7 @@ export async function puntosCercanos(cliente: SupabaseClient, consulta: z.infer<
   const respuesta = await llamarFuncion(cliente, "puntos_cercanos_publicos", {
     lat: consulta.lat,
     lng: consulta.lng,
-    radio_metros: consulta.radio,
+    radio_metros: consulta.radio_metros,
     tipo_filtro: consulta.tipo ?? null,
     limite: consulta.limite,
   });

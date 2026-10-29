@@ -6,13 +6,13 @@ export const TIPOS_PUNTO = ["contaminacion_agua", "contaminacion_aire", "defores
 
 export const consultaListado = esquemaPaginacion.extend({
   tipo: z.enum(TIPOS_PUNTO).optional(),
-  gravedad_min: z.coerce.number().int().min(1).max(5).optional(),
+  gravedad_minima: z.coerce.number().int().min(1).max(5).optional(),
 });
 
 export const consultaCercanos = z.object({
   lat: z.coerce.number().min(-90).max(90),
   lng: z.coerce.number().min(-180).max(180),
-  radio: z.coerce.number().int().min(1).max(50000).default(5000),
+  radio_metros: z.coerce.number().int().min(1).max(50000).default(5000),
   tipo: z.enum(TIPOS_PUNTO).optional(),
   limite: z.coerce.number().int().min(1).max(100).default(20),
 });

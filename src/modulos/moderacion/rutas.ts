@@ -45,7 +45,7 @@ export function crearRutasModeracion(
     llamarFuncion(cliente(req.usuario?.token), "revisar_aporte", {
       aporte_id: id,
       decision: cuerpo.decision,
-      motivo: cuerpo.motivo ?? null,
+      motivo: cuerpo.motivo_revision ?? null,
       titulo: cuerpo.decision === "aprobado" ? (cuerpo.titulo ?? null) : null,
       gravedad: cuerpo.decision === "aprobado" ? (cuerpo.gravedad ?? null) : null,
       publicar: cuerpo.decision === "aprobado" ? cuerpo.publicar : false,

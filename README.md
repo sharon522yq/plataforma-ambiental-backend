@@ -60,8 +60,8 @@ No requieren sesión. Los listados aceptan `?pagina` (desde 1) y `?limite` (1 a 
 
 | Ruta | Filtros |
 |---|---|
-| `GET /api/v1/puntos` | `tipo`, `gravedad_min` (1 a 5) |
-| `GET /api/v1/puntos/cercanos` | `lat`, `lng` (obligatorios), `radio` en metros (1 a 50000, por defecto 5000), `tipo`, `limite` |
+| `GET /api/v1/puntos` | `tipo`, `gravedad_minima` (1 a 5) |
+| `GET /api/v1/puntos/cercanos` | `lat`, `lng` (obligatorios), `radio_metros` (1 a 50000, por defecto 5000), `tipo`, `limite` |
 | `GET /api/v1/puntos/:id` | Incluye las acciones activas del punto. 404 si no existe o no está publicado |
 | `GET /api/v1/acciones` | `tipo` (denuncia, firma, donacion, voluntariado), `punto_id` |
 | `GET /api/v1/organizaciones` | `zona` (búsqueda parcial). Nunca incluye el contacto |
@@ -78,7 +78,7 @@ Requieren `Authorization: Bearer <token>`. Corren con la sesión del usuario, as
 | `GET /api/v1/aportes/mis` | Cualquier cuenta activa | Aportes propios, paginados |
 | `POST /api/v1/aportes/:id/evidencia` | El autor del aporte | Foto de evidencia (multipart, campo `foto`; JPG, PNG o WebP de hasta 8 MB). Una sola por aporte y solo si está pendiente |
 | `GET /api/v1/admin/aportes` | Moderador, administrador | Cola por `estado` (por defecto `pendiente`) |
-| `PATCH /api/v1/admin/aportes/:id/revision` | Moderador, administrador | `aprobado` (crea o actualiza el punto; `titulo` obligatorio si es nuevo), `rechazado` (exige `motivo`) o `duplicado` (exige `duplicado_de`). El autor no puede revisar su propio aporte |
+| `PATCH /api/v1/admin/aportes/:id/revision` | Moderador, administrador | `aprobado` (crea o actualiza el punto; `titulo` obligatorio si es nuevo), `rechazado` (exige `motivo_revision`) o `duplicado` (exige `duplicado_de`). El autor no puede revisar su propio aporte |
 | `POST /api/v1/admin/puntos` | Moderador, administrador | Crea un punto. El moderador solo en revisión |
 | `PATCH /api/v1/admin/puntos/:id/estado` | Moderador, administrador | Publica o archiva. Solo el administrador reabre un archivado |
 

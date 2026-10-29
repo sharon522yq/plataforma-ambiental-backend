@@ -74,10 +74,10 @@ describe("validación de coordenadas", () => {
   });
 
   it("cercanos: lat y lng son obligatorias y el radio va de 1 a 50 km", () => {
-    expect(consultaCercanos.parse({ lat: "20.67", lng: "-103.35" })).toMatchObject({ lat: 20.67, lng: -103.35, radio: 5000 });
+    expect(consultaCercanos.parse({ lat: "20.67", lng: "-103.35" })).toMatchObject({ lat: 20.67, lng: -103.35, radio_metros: 5000 });
     expect(consultaCercanos.safeParse({ lat: "20.67" }).success).toBe(false);
-    expect(consultaCercanos.safeParse({ lat: "20.67", lng: "-103.35", radio: "50001" }).success).toBe(false);
-    expect(consultaCercanos.safeParse({ lat: "20.67", lng: "-103.35", radio: "0" }).success).toBe(false);
+    expect(consultaCercanos.safeParse({ lat: "20.67", lng: "-103.35", radio_metros: "50001" }).success).toBe(false);
+    expect(consultaCercanos.safeParse({ lat: "20.67", lng: "-103.35", radio_metros: "0" }).success).toBe(false);
   });
 });
 

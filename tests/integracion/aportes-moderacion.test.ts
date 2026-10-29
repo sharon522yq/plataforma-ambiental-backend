@@ -164,7 +164,7 @@ describe("moderación de aportes", () => {
     ["rechazar sin motivo", { decision: "rechazado" }],
     ["duplicado sin el punto original", { decision: "duplicado" }],
     ["una decisión inexistente", { decision: "ignorar" }],
-    ["campos de otra decisión", { decision: "rechazado", motivo: "No aplica", titulo: "x" }],
+    ["campos de otra decisión", { decision: "rechazado", motivo_revision: "No aplica", titulo: "x" }],
   ])("400 al %s", async (_caso, cuerpo) => {
     const { app: a, llamadas } = app({});
     const r = await request(a).patch(`/api/v1/admin/aportes/${APORTE}/revision`).set("Authorization", await bearer(MODERADOR)).send(cuerpo);
@@ -181,7 +181,7 @@ describe("moderación de aportes", () => {
     const r = await request(a)
       .patch(`/api/v1/admin/aportes/${APORTE}/revision`)
       .set("Authorization", await bearer(MODERADOR))
-      .send({ decision: "rechazado", motivo: "No es ambiental" });
+      .send({ decision: "rechazado", motivo_revision: "No es ambiental" });
     expect(r.status).toBe(estado);
     expect(r.body).toMatchObject({ error: { mensaje: message } });
   });

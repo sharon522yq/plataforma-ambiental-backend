@@ -7,7 +7,7 @@ Para conseguir un token: inicia sesión en Supabase Auth y copia el `access_toke
 ## Consultas públicas (sin token)
 1. `GET /api/v1/salud`: esperado 200 con `estado: "ok"` y `base: "ok"`.
 2. `GET /api/v1/puntos?limite=5`: esperado 200 con `datos` (máximo 5) y `paginacion`.
-3. `GET /api/v1/puntos/cercanos?lat=20.67&lng=-103.35&radio=3000`: esperado 200, cada punto con `distancia_metros`.
+3. `GET /api/v1/puntos/cercanos?lat=20.67&lng=-103.35&radio_metros=3000`: esperado 200, cada punto con `distancia_metros`.
 4. `GET /api/v1/puntos/cercanos?lat=95&lng=-103.35`: esperado 400 con `detalles` que mencionan `lat`.
 5. `GET /api/v1/organizaciones`: ninguna organización trae `contacto`.
 

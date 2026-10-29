@@ -84,6 +84,18 @@ Cada fase tiene: alcance, criterio de salida, pruebas y permisos que hay que ped
 - **Permisos:** **requerido** para hacer el primer push (el token de `gh` no es válido; ver paso M1).
 
 ## Fase 11: Cierre
+- **Estado:** **FASE 11 CERRADA (2026-10-29).** Revisión de los diez puntos de la sección 13:
+  1. `npm run dev` levanta y `/salud` responde 200: sí (en la PC de sharon y en Render).
+  2. El arranque falla con mensaje claro si falta una variable: sí (`Configuración inválida. Revisa: GEMINI_API_KEY (Required)`, comprobado con `dist/server.js`).
+  3. `npm run migrar` aplica las migraciones sin errores en Supabase: sí, 001 a 011 (el prompt hablaba de cinco; el proyecto creció a once).
+  4. RLS activo; un anónimo no lee `aportes`: sí (`rls.test.ts`).
+  5. Todos los endpoints de la sección 7 con validación y permisos: sí, los 19, más `/sesion` y la foto de evidencia. Se alinearon tres nombres de parámetros con la especificación (D-38).
+  6. `npm test` completo, con la matriz de permisos: sí.
+  7. `typecheck` y `lint` sin errores: sí.
+  8. Sin secretos en código, historial ni registros: sí (`secretos.test.ts` y revisión de `git log -p`; `.env` nunca se guardó).
+  9. `docs/pruebas-manuales.md` permite probar sin programar: sí.
+  10. Desplegado en Render y `/salud` responde desde internet: sí, `{"estado":"ok","base":"ok"}`.
+- **Además:** umbral de cobertura del 70 % activo en el CI (D-11); faltaban las historias de usuario de la sección 9 y se escribieron en `docs/historias/`, una por módulo, con cada criterio ligado a su prueba; la carpeta de la PC coincide con el repositorio (sin archivos sobrantes).
 - **Alcance:** `docs/pruebas-manuales.md` completo, cobertura de al menos 70 %, revisión de secretos (`git log -p | grep -i key`), eliminación de carpetas vacías que no se usaron, resumen final de 10 líneas como pide el prompt.
 - **Criterio de salida:** se cumplen los diez puntos de la sección 13 del prompt.
 - **Permisos:** **requerido** para cualquier commit o push final.

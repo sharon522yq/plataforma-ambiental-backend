@@ -11,23 +11,23 @@ export const consultaCola = esquemaPaginacion.extend({
 
 export const parametrosId = z.object({ id: z.string().uuid() });
 
-/** Cada decisión pide sus propios datos: rechazar exige motivo y duplicado exige el punto. */
+/** Cada decisión pide sus propios datos: rechazar exige motivo_revision y duplicado exige el punto. */
 export const cuerpoRevision = z.discriminatedUnion("decision", [
   z.object({
     decision: z.literal("aprobado"),
     titulo: z.string().trim().min(3).max(120).optional(),
     gravedad: z.number().int().min(1).max(5).optional(),
     publicar: z.boolean().default(true),
-    motivo: z.string().trim().max(500).optional(),
+    motivo_revision: z.string().trim().max(500).optional(),
   }).strict(),
   z.object({
     decision: z.literal("rechazado"),
-    motivo: z.string().trim().min(3).max(500),
+    motivo_revision: z.string().trim().min(3).max(500),
   }).strict(),
   z.object({
     decision: z.literal("duplicado"),
     duplicado_de: z.string().uuid(),
-    motivo: z.string().trim().max(500).optional(),
+    motivo_revision: z.string().trim().max(500).optional(),
   }).strict(),
 ]);
 

@@ -44,3 +44,18 @@
 - A-01 y A-02 resueltos. `npm audit`: 0 vulnerabilidades.
 - Se detectó un cambio de requisito: Vitest 5 exige Node 22.12 o superior (ver D-10).
 - La cobertura actual es 52 %. La meta de 70 % queda para la fase 11 (ver D-11).
+
+## Cierre (fase 11, 2026-10-29)
+
+| ID | Estado final |
+|---|---|
+| A-01, A-02 | Resueltos en F1 |
+| A-03 | Resuelto: 11 migraciones con RLS, aplicadas en Supabase |
+| A-04 | Resuelto en F4: verificación de tokens y rol leído de `perfiles` |
+| A-05 | Resuelto en F5 a F8: los 19 endpoints de la sección 7 existen (ver `docs/historias/`) |
+| A-06 | Resuelto en F3: `/salud` responde `base: "ok"`, también desde Render |
+| A-07 | Resuelto en F8 (agente) y F9 (límite general) |
+| A-08 | Resuelto en F10: `ci.yml`, `render.yaml` y README |
+| A-09 | Resuelto: todos los documentos existen, incluidas las historias de usuario (fase 11) |
+| A-10 | Resuelto en F3: `npm run migrar` |
+| A-11 | Resuelto: sin carpetas vacías; `docs/historias/` tiene una historia por módulo |

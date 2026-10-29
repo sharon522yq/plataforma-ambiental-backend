@@ -46,7 +46,7 @@ describe.skipIf(process.env.PRUEBAS_SUPABASE !== "1")("salud contra Supabase rea
     const cuerpo = lista.body as { datos: { id: string }[] };
     expect(cuerpo.datos.length).toBeGreaterThan(0);
 
-    const cercanos = await request(app).get("/api/v1/puntos/cercanos?lat=20.6597&lng=-103.3496&radio=50000");
+    const cercanos = await request(app).get("/api/v1/puntos/cercanos?lat=20.6597&lng=-103.3496&radio_metros=50000");
     expect(cercanos.status).toBe(200);
 
     const detalle = await request(app).get(`/api/v1/puntos/${cuerpo.datos[0]?.id ?? ""}`);
