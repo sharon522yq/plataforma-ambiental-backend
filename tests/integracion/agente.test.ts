@@ -5,6 +5,7 @@ import { crearApp } from "../../src/app.js";
 import { ErrorAplicacion } from "../../src/compartido/errores.js";
 import type { Perfil } from "../../src/compartido/perfiles.js";
 import { crearVerificadorJwt } from "../../src/config/jwt.js";
+import { PREGUNTA_DE_PRUEBA } from "../../src/modulos/salud/rutas.js";
 import { almacenFalso } from "../ayudas/almacen-falso.js";
 import { clienteFalso } from "../ayudas/cliente-falso.js";
 import { entornoDePrueba } from "../ayudas/entorno.js";
@@ -113,6 +114,48 @@ describe("GET /api/v1/salud/ia", () => {
     expect(r.status).toBe(200);
     expect(r.body).toEqual({ ia: "no_disponible", modelo: "gemini-prueba" });
     expect(r.headers["cache-control"]).toBe("no-store");
+  });
+
+  it("con ?generar=1 pide una respuesta corta real y la muestra", async () => {
+    const { app: a, preguntas, guardadas } = app({ texto: "Porque así se puede reciclar más." });
+    const r = await request(a).get("/api/v1/salud/ia?generar=1").set("Authorization", await bearer(ADMIN));
+    expect(r.status).toBe(200);
+    expect(r.body).toEqual({ ia: "ok", modelo: "modelo-prueba", prueba: "Porque así se puede reciclar más." });
+    expect(preguntas).toEqual([PREGUNTA_DE_PRUEBA]);
+    // Es una prueba del administrador, no una conversación: no se guarda.
+    expect(guardadas).toEqual([]);
+  });
+
+  it("sin ?generar=1 no gasta cuota", async () => {
+    const { app: a, preguntas } = app();
+    await request(a).get("/api/v1/salud/ia").set("Authorization", await bearer(ADMIN));
+    expect(preguntas).toEqual([]);
+  });
+
+  it("si la generación falla responde 200 con no_disponible y solo el código", async () => {
+    const { app: a } = app({ error: new ErrorAplicacion(503, "AGENTE_NO_DISPONIBLE", "x") }, { GEMINI_MODELO: "gemini-prueba" });
+    const r = await request(a).get("/api/v1/salud/ia?generar=1").set("Authorization", await bearer(ADMIN));
+    expect(r.status).toBe(200);
+    expect(r.body).toEqual({ ia: "no_disponible", modelo: "gemini-prueba", prueba: null, motivo: "AGENTE_NO_DISPONIBLE" });
+  });
+
+  it("un error inesperado sigue siendo un 500 sin detalles", async () => {
+    const { app: a } = app({ error: new TypeError("fallo interno con llave-secreta") });
+    const r = await request(a).get("/api/v1/salud/ia?generar=1").set("Authorization", await bearer(ADMIN));
+    expect(r.status).toBe(500);
+    expect(r.text).not.toContain("llave-secreta");
+  });
+
+  it.each(["generar=si", "generar=1&otro=2"])("400 con ?%s", async (consulta) => {
+    const { app: a, preguntas } = app();
+    expect((await request(a).get(`/api/v1/salud/ia?${consulta}`).set("Authorization", await bearer(ADMIN))).status).toBe(400);
+    expect(preguntas).toEqual([]);
+  });
+
+  it("?generar=1 tampoco está abierto a otros roles", async () => {
+    const { app: a, preguntas } = app();
+    expect((await request(a).get("/api/v1/salud/ia?generar=1").set("Authorization", await bearer(MODERADOR))).status).toBe(403);
+    expect(preguntas).toEqual([]);
   });
 
   it("GET /salud sigue siendo público", async () => {

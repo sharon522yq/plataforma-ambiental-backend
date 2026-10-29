@@ -197,3 +197,14 @@ describe("GET /api/v1/organizaciones", () => {
     expect((await request(a).get(`/api/v1/organizaciones?zona=${"x".repeat(81)}`)).status).toBe(400);
   });
 });
+
+describe("mensajes de validación", () => {
+  it("los detalles de un 400 vienen en español, con la parte y el campo", async () => {
+    const { app: a } = app({});
+    const r = await request(a).get("/api/v1/puntos/cercanos?lat=95&lng=-103.35");
+    expect(r.status).toBe(400);
+    expect(r.body).toMatchObject({
+      error: { codigo: "SOLICITUD_INVALIDA", detalles: [{ parte: "query", campo: "lat", mensaje: expect.stringMatching(/^Demasiado grande/) as unknown }] },
+    });
+  });
+});

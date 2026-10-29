@@ -10,17 +10,17 @@ export const TIPOS_ACCION = ["denuncia", "firma", "donacion", "voluntariado"] as
 
 const consulta = esquemaPaginacion.extend({
   tipo: z.enum(TIPOS_ACCION).optional(),
-  punto_id: z.string().uuid().optional(),
+  punto_id: z.uuid().optional(),
 });
 
 const accion = z.object({
-  id: z.string().uuid(),
+  id: z.uuid(),
   tipo: z.enum(TIPOS_ACCION),
   nombre: z.string(),
   descripcion: z.string().nullable(),
   enlace: z.string().nullable(),
-  punto_id: z.string().uuid().nullable(),
-  organizacion: z.object({ id: z.string().uuid(), nombre: z.string() }).nullable(),
+  punto_id: z.uuid().nullable(),
+  organizacion: z.object({ id: z.uuid(), nombre: z.string() }).nullable(),
 });
 
 /** GET /acciones: catálogo de cómo ayudar. Solo acciones activas (RLS). */

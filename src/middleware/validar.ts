@@ -1,11 +1,14 @@
 import type { NextFunction, Request, Response } from "express";
-import type { ZodTypeAny } from "zod";
+import { z, type ZodType } from "zod";
 import { SolicitudInvalida } from "../compartido/errores.js";
 
+// Los mensajes de validación que ve el cliente (en `detalles`) salen en español.
+z.config(z.locales.es());
+
 interface Esquemas {
-  body?: ZodTypeAny;
-  query?: ZodTypeAny;
-  params?: ZodTypeAny;
+  body?: ZodType;
+  query?: ZodType;
+  params?: ZodType;
 }
 
 /** Valida body, query y params con Zod antes de llegar al controlador. */

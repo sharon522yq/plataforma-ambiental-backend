@@ -17,7 +17,7 @@ export const consultaCercanos = z.object({
   limite: z.coerce.number().int().min(1).max(100).default(20),
 });
 
-export const parametrosId = z.object({ id: z.string().uuid() });
+export const parametrosId = z.object({ id: z.uuid() });
 
 // Respuestas. Las coordenadas salen agrupadas en `ubicacion`. Las llaves que no estén
 // aquí se descartan, así que un campo interno nunca llega al cliente por accidente.
@@ -28,7 +28,7 @@ const agruparUbicacion = <T extends { lat: number; lng: number }>({ lat, lng, ..
 });
 
 const base = {
-  id: z.string().uuid(),
+  id: z.uuid(),
   titulo: z.string(),
   tipo: z.enum(TIPOS_PUNTO),
   gravedad: z.number().int(),
@@ -48,7 +48,7 @@ export const puntoDetalle = z.object({
   actualizado_en: z.string(),
   acciones: z.array(
     z.object({
-      id: z.string().uuid(),
+      id: z.uuid(),
       tipo: z.string(),
       nombre: z.string(),
       descripcion: z.string().nullable(),

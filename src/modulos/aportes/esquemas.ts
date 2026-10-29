@@ -15,12 +15,12 @@ export const cuerpoNuevoAporte = z.object({
   descripcion: z.string().trim().min(10).max(2000),
   ubicacion: esquemaUbicacion,
   gravedad_sugerida: z.number().int().min(1).max(5).optional(),
-  punto_id: z.string().uuid().optional(),
+  punto_id: z.uuid().optional(),
 }).strict();
 
 export const consultaMisAportes = esquemaPaginacion;
 
-export const parametrosAporte = z.object({ id: z.string().uuid() });
+export const parametrosAporte = z.object({ id: z.uuid() });
 
 const agruparUbicacion = <T extends { lat: number; lng: number }>({ lat, lng, ...resto }: T) => ({
   ...resto,
@@ -28,8 +28,8 @@ const agruparUbicacion = <T extends { lat: number; lng: number }>({ lat, lng, ..
 });
 
 const camposAporte = {
-  id: z.string().uuid(),
-  punto_id: z.string().uuid().nullable(),
+  id: z.uuid(),
+  punto_id: z.uuid().nullable(),
   tipo: z.enum(TIPOS_PUNTO),
   gravedad_sugerida: z.number().int().nullable(),
   descripcion: z.string(),
@@ -48,5 +48,5 @@ export const aportePropio = z.object(camposAporte).transform(agruparUbicacion);
 
 /** Lo que ve un moderador: además, quién lo envió y quién lo revisó. */
 export const aporteModeracion = z
-  .object({ ...camposAporte, autor_id: z.string().uuid(), revisor_id: z.string().uuid().nullable() })
+  .object({ ...camposAporte, autor_id: z.uuid(), revisor_id: z.uuid().nullable() })
   .transform(agruparUbicacion);

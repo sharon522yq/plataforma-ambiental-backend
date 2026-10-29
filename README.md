@@ -124,7 +124,7 @@ Después, ese administrador cambia los demás roles desde la API.
 
 `POST /api/v1/agente/consulta` con `{ "pregunta": "..." }` (de 3 a 1000 caracteres). Es público; si viene un token, la conversación se asocia al usuario. Responde `{ respuesta, modelo, aviso }`. Límite: `LIMITE_AGENTE_POR_MINUTO` consultas por minuto por persona (429 al pasarlo). Todavía no consulta documentos propios (RAG, fase posterior).
 
-`GET /api/v1/salud/ia` (solo administrador) comprueba que la llave y el modelo responden, sin generar texto.
+`GET /api/v1/salud/ia` (solo administrador) comprueba que la llave y el modelo responden, sin generar texto. Con `?generar=1` además pide una respuesta corta real (gasta un poco de cuota) y la muestra en `prueba`.
 
 Para comprobar la llave sin gastar cuota: `npm run verificar:gemini`. Muestra si es válida, si el modelo de `GEMINI_MODELO` existe y qué modelos "flash" hay.
 

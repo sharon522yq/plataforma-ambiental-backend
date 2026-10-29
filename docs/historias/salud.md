@@ -12,4 +12,4 @@
 
 ## Diferencia con la especificación
 
-La sección 7 pide que `/salud/ia` haga "una llamada de prueba a Gemini" y responda "texto breve". Se comprueba el modelo sin generar texto, para no gastar cuota cada vez que se consulta (D-38).
+La sección 7 pide que `/salud/ia` haga "una llamada de prueba a Gemini" y responda "texto breve". Por defecto se comprueba el modelo sin generar texto, para no gastar cuota cada vez que se consulta; con `?generar=1` se hace la llamada de prueba con texto breve que pide la especificación (D-38). *Prueba:* `agente.test.ts` → "con ?generar=1 pide una respuesta corta real…", "sin ?generar=1 no gasta cuota".

@@ -9,7 +9,7 @@ export const consultaCola = esquemaPaginacion.extend({
   estado: z.enum(ESTADOS_APORTE).default("pendiente"),
 });
 
-export const parametrosId = z.object({ id: z.string().uuid() });
+export const parametrosId = z.object({ id: z.uuid() });
 
 /** Cada decisión pide sus propios datos: rechazar exige motivo_revision y duplicado exige el punto. */
 export const cuerpoRevision = z.discriminatedUnion("decision", [
@@ -26,7 +26,7 @@ export const cuerpoRevision = z.discriminatedUnion("decision", [
   }).strict(),
   z.object({
     decision: z.literal("duplicado"),
-    duplicado_de: z.string().uuid(),
+    duplicado_de: z.uuid(),
     motivo_revision: z.string().trim().max(500).optional(),
   }).strict(),
 ]);
@@ -44,7 +44,7 @@ export const cuerpoEstadoPunto = z.object({ estado: z.enum(ESTADOS_PUNTO) }).str
 
 export const puntoModeracion = z
   .object({
-    id: z.string().uuid(),
+    id: z.uuid(),
     titulo: z.string(),
     tipo: z.enum(TIPOS_PUNTO),
     gravedad: z.number().int(),

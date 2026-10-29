@@ -10,7 +10,7 @@ const consulta = esquemaPaginacion.extend({
 });
 
 // Sin `contacto`: es un dato interno y no sale en la API pública.
-const organizacion = z.object({ id: z.string().uuid(), nombre: z.string(), zona: z.string().nullable() });
+const organizacion = z.object({ id: z.uuid(), nombre: z.string(), zona: z.string().nullable() });
 
 /** GET /organizaciones: organizaciones activas (RLS). */
 export function crearRutasOrganizaciones(publico: SupabaseClient): Router {

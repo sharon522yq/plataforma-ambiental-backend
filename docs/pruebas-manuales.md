@@ -53,3 +53,4 @@ Para conseguir un token: inicia sesión en Supabase Auth y copia el `access_toke
 3. Pregunta algo que no sea ambiental (por ejemplo, una receta): el asistente debe decir con amabilidad que solo ayuda con temas ambientales.
 4. Incluye tu correo en la pregunta: la respuesta no debe repetirlo.
 5. Repite la consulta 11 veces seguidas en menos de un minuto: la número 11 responde 429.
+6. Administrador: `GET /api/v1/salud/ia`: esperado `{ "ia": "ok", "modelo": ... }`. Con `?generar=1` (gasta un poco de cuota) trae además `prueba` con una frase sobre separar la basura.

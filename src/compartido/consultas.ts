@@ -55,7 +55,7 @@ export function desplazamiento({ pagina, limite }: Paginacion): number {
 }
 
 /** Valida la respuesta { total, datos } de una función de listado y arma la página. */
-export function armarPagina<T>(respuesta: unknown, elemento: z.ZodType<T, z.ZodTypeDef, unknown>, paginacion: Paginacion): Pagina<T> {
+export function armarPagina<T>(respuesta: unknown, elemento: z.ZodType<T>, paginacion: Paginacion): Pagina<T> {
   const { total, datos } = z.object({ total: z.number().int().min(0), datos: z.array(elemento) }).parse(respuesta);
   return {
     datos,
