@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import request from "supertest";
-import { describe, expect, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { crearApp } from "../../src/app.js";
 import type { Perfil } from "../../src/compartido/perfiles.js";
 import type { Rol } from "../../src/compartido/sesion.js";
@@ -94,6 +94,16 @@ const filas = protegidos.flatMap(([metodo, ruta, permitidos]) =>
 
 describe("matriz de permisos", () => {
   const a = app();
+
+  // Los clientes falsos no devuelven datos, así que una ruta que deja pasar la sesión termina en 500
+  // al validar la respuesta y el manejador lo registra como error_no_controlado. Aquí solo importa la
+  // puerta (401/403), por eso se silencia ese registro para no confundirlo con un fallo real.
+  beforeAll(() => {
+    vi.spyOn(console, "error").mockImplementation(() => undefined);
+  });
+  afterAll(() => {
+    vi.restoreAllMocks();
+  });
 
   it("cubre todos los endpoints protegidos de la API", () => {
     expect(protegidos).toHaveLength(14);
