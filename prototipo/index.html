@@ -1,0 +1,1724 @@
+<title>Plataforma Ambiental</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<meta name="description" content="Prototipo navegable del frontend de la plataforma geoespacial ambiental.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700&family=IBM+Plex+Mono:wght@400;500&family=Public+Sans:wght@400;500;600&display=swap">
+<style>
+/* Leaflet 1.9.4, (c) Volodymyr Agafonkin y colaboradores, licencia BSD-2 */
+/* required styles */
+
+.leaflet-pane,
+.leaflet-tile,
+.leaflet-marker-icon,
+.leaflet-marker-shadow,
+.leaflet-tile-container,
+.leaflet-pane > svg,
+.leaflet-pane > canvas,
+.leaflet-zoom-box,
+.leaflet-image-layer,
+.leaflet-layer {
+	position: absolute;
+	left: 0;
+	top: 0;
+	}
+.leaflet-container {
+	overflow: hidden;
+	}
+.leaflet-tile,
+.leaflet-marker-icon,
+.leaflet-marker-shadow {
+	-webkit-user-select: none;
+	   -moz-user-select: none;
+	        user-select: none;
+	  -webkit-user-drag: none;
+	}
+/* Prevents IE11 from highlighting tiles in blue */
+.leaflet-tile::selection {
+	background: transparent;
+}
+/* Safari renders non-retina tile on retina better with this, but Chrome is worse */
+.leaflet-safari .leaflet-tile {
+	image-rendering: -webkit-optimize-contrast;
+	}
+/* hack that prevents hw layers "stretching" when loading new tiles */
+.leaflet-safari .leaflet-tile-container {
+	width: 1600px;
+	height: 1600px;
+	-webkit-transform-origin: 0 0;
+	}
+.leaflet-marker-icon,
+.leaflet-marker-shadow {
+	display: block;
+	}
+/* .leaflet-container svg: reset svg max-width decleration shipped in Joomla! (joomla.org) 3.x */
+/* .leaflet-container img: map is broken in FF if you have max-width: 100% on tiles */
+.leaflet-container .leaflet-overlay-pane svg {
+	max-width: none !important;
+	max-height: none !important;
+	}
+.leaflet-container .leaflet-marker-pane img,
+.leaflet-container .leaflet-shadow-pane img,
+.leaflet-container .leaflet-tile-pane img,
+.leaflet-container img.leaflet-image-layer,
+.leaflet-container .leaflet-tile {
+	max-width: none !important;
+	max-height: none !important;
+	width: auto;
+	padding: 0;
+	}
+
+.leaflet-container img.leaflet-tile {
+	/* See: https://bugs.chromium.org/p/chromium/issues/detail?id=600120 */
+	mix-blend-mode: plus-lighter;
+}
+
+.leaflet-container.leaflet-touch-zoom {
+	-ms-touch-action: pan-x pan-y;
+	touch-action: pan-x pan-y;
+	}
+.leaflet-container.leaflet-touch-drag {
+	-ms-touch-action: pinch-zoom;
+	/* Fallback for FF which doesn't support pinch-zoom */
+	touch-action: none;
+	touch-action: pinch-zoom;
+}
+.leaflet-container.leaflet-touch-drag.leaflet-touch-zoom {
+	-ms-touch-action: none;
+	touch-action: none;
+}
+.leaflet-container {
+	-webkit-tap-highlight-color: transparent;
+}
+.leaflet-container a {
+	-webkit-tap-highlight-color: rgba(51, 181, 229, 0.4);
+}
+.leaflet-tile {
+	filter: inherit;
+	visibility: hidden;
+	}
+.leaflet-tile-loaded {
+	visibility: inherit;
+	}
+.leaflet-zoom-box {
+	width: 0;
+	height: 0;
+	-moz-box-sizing: border-box;
+	     box-sizing: border-box;
+	z-index: 800;
+	}
+/* workaround for https://bugzilla.mozilla.org/show_bug.cgi?id=888319 */
+.leaflet-overlay-pane svg {
+	-moz-user-select: none;
+	}
+
+.leaflet-pane         { z-index: 400; }
+
+.leaflet-tile-pane    { z-index: 200; }
+.leaflet-overlay-pane { z-index: 400; }
+.leaflet-shadow-pane  { z-index: 500; }
+.leaflet-marker-pane  { z-index: 600; }
+.leaflet-tooltip-pane   { z-index: 650; }
+.leaflet-popup-pane   { z-index: 700; }
+
+.leaflet-map-pane canvas { z-index: 100; }
+.leaflet-map-pane svg    { z-index: 200; }
+
+.leaflet-vml-shape {
+	width: 1px;
+	height: 1px;
+	}
+.lvml {
+	display: inline-block;
+	position: absolute;
+	}
+
+
+/* control positioning */
+
+.leaflet-control {
+	position: relative;
+	z-index: 800;
+	pointer-events: visiblePainted; /* IE 9-10 doesn't have auto */
+	pointer-events: auto;
+	}
+.leaflet-top,
+.leaflet-bottom {
+	position: absolute;
+	z-index: 1000;
+	pointer-events: none;
+	}
+.leaflet-top {
+	top: 0;
+	}
+.leaflet-right {
+	right: 0;
+	}
+.leaflet-bottom {
+	bottom: 0;
+	}
+.leaflet-left {
+	left: 0;
+	}
+.leaflet-control {
+	float: left;
+	clear: both;
+	}
+.leaflet-right .leaflet-control {
+	float: right;
+	}
+.leaflet-top .leaflet-control {
+	margin-top: 10px;
+	}
+.leaflet-bottom .leaflet-control {
+	margin-bottom: 10px;
+	}
+.leaflet-left .leaflet-control {
+	margin-left: 10px;
+	}
+.leaflet-right .leaflet-control {
+	margin-right: 10px;
+	}
+
+
+/* zoom and fade animations */
+
+.leaflet-fade-anim .leaflet-popup {
+	opacity: 0;
+	-webkit-transition: opacity 0.2s linear;
+	   -moz-transition: opacity 0.2s linear;
+	        transition: opacity 0.2s linear;
+	}
+.leaflet-fade-anim .leaflet-map-pane .leaflet-popup {
+	opacity: 1;
+	}
+.leaflet-zoom-animated {
+	-webkit-transform-origin: 0 0;
+	    -ms-transform-origin: 0 0;
+	        transform-origin: 0 0;
+	}
+svg.leaflet-zoom-animated {
+	will-change: transform;
+}
+
+.leaflet-zoom-anim .leaflet-zoom-animated {
+	-webkit-transition: -webkit-transform 0.25s cubic-bezier(0,0,0.25,1);
+	   -moz-transition:    -moz-transform 0.25s cubic-bezier(0,0,0.25,1);
+	        transition:         transform 0.25s cubic-bezier(0,0,0.25,1);
+	}
+.leaflet-zoom-anim .leaflet-tile,
+.leaflet-pan-anim .leaflet-tile {
+	-webkit-transition: none;
+	   -moz-transition: none;
+	        transition: none;
+	}
+
+.leaflet-zoom-anim .leaflet-zoom-hide {
+	visibility: hidden;
+	}
+
+
+/* cursors */
+
+.leaflet-interactive {
+	cursor: pointer;
+	}
+.leaflet-grab {
+	cursor: -webkit-grab;
+	cursor:    -moz-grab;
+	cursor:         grab;
+	}
+.leaflet-crosshair,
+.leaflet-crosshair .leaflet-interactive {
+	cursor: crosshair;
+	}
+.leaflet-popup-pane,
+.leaflet-control {
+	cursor: auto;
+	}
+.leaflet-dragging .leaflet-grab,
+.leaflet-dragging .leaflet-grab .leaflet-interactive,
+.leaflet-dragging .leaflet-marker-draggable {
+	cursor: move;
+	cursor: -webkit-grabbing;
+	cursor:    -moz-grabbing;
+	cursor:         grabbing;
+	}
+
+/* marker & overlays interactivity */
+.leaflet-marker-icon,
+.leaflet-marker-shadow,
+.leaflet-image-layer,
+.leaflet-pane > svg path,
+.leaflet-tile-container {
+	pointer-events: none;
+	}
+
+.leaflet-marker-icon.leaflet-interactive,
+.leaflet-image-layer.leaflet-interactive,
+.leaflet-pane > svg path.leaflet-interactive,
+svg.leaflet-image-layer.leaflet-interactive path {
+	pointer-events: visiblePainted; /* IE 9-10 doesn't have auto */
+	pointer-events: auto;
+	}
+
+/* visual tweaks */
+
+.leaflet-container {
+	background: #ddd;
+	outline-offset: 1px;
+	}
+.leaflet-container a {
+	color: #0078A8;
+	}
+.leaflet-zoom-box {
+	border: 2px dotted #38f;
+	background: rgba(255,255,255,0.5);
+	}
+
+
+/* general typography */
+.leaflet-container {
+	font-family: "Helvetica Neue", Arial, Helvetica, sans-serif;
+	font-size: 12px;
+	font-size: 0.75rem;
+	line-height: 1.5;
+	}
+
+
+/* general toolbar styles */
+
+.leaflet-bar {
+	box-shadow: 0 1px 5px rgba(0,0,0,0.65);
+	border-radius: 4px;
+	}
+.leaflet-bar a {
+	background-color: #fff;
+	border-bottom: 1px solid #ccc;
+	width: 26px;
+	height: 26px;
+	line-height: 26px;
+	display: block;
+	text-align: center;
+	text-decoration: none;
+	color: black;
+	}
+.leaflet-bar a,
+.leaflet-control-layers-toggle {
+	background-position: 50% 50%;
+	background-repeat: no-repeat;
+	display: block;
+	}
+.leaflet-bar a:hover,
+.leaflet-bar a:focus {
+	background-color: #f4f4f4;
+	}
+.leaflet-bar a:first-child {
+	border-top-left-radius: 4px;
+	border-top-right-radius: 4px;
+	}
+.leaflet-bar a:last-child {
+	border-bottom-left-radius: 4px;
+	border-bottom-right-radius: 4px;
+	border-bottom: none;
+	}
+.leaflet-bar a.leaflet-disabled {
+	cursor: default;
+	background-color: #f4f4f4;
+	color: #bbb;
+	}
+
+.leaflet-touch .leaflet-bar a {
+	width: 30px;
+	height: 30px;
+	line-height: 30px;
+	}
+.leaflet-touch .leaflet-bar a:first-child {
+	border-top-left-radius: 2px;
+	border-top-right-radius: 2px;
+	}
+.leaflet-touch .leaflet-bar a:last-child {
+	border-bottom-left-radius: 2px;
+	border-bottom-right-radius: 2px;
+	}
+
+/* zoom control */
+
+.leaflet-control-zoom-in,
+.leaflet-control-zoom-out {
+	font: bold 18px 'Lucida Console', Monaco, monospace;
+	text-indent: 1px;
+	}
+
+.leaflet-touch .leaflet-control-zoom-in, .leaflet-touch .leaflet-control-zoom-out  {
+	font-size: 22px;
+	}
+
+
+/* layers control */
+
+.leaflet-control-layers {
+	box-shadow: 0 1px 5px rgba(0,0,0,0.4);
+	background: #fff;
+	border-radius: 5px;
+	}
+.leaflet-control-layers-toggle {
+	width: 36px;
+	height: 36px;
+	}
+.leaflet-retina .leaflet-control-layers-toggle {
+	background-size: 26px 26px;
+	}
+.leaflet-touch .leaflet-control-layers-toggle {
+	width: 44px;
+	height: 44px;
+	}
+.leaflet-control-layers .leaflet-control-layers-list,
+.leaflet-control-layers-expanded .leaflet-control-layers-toggle {
+	display: none;
+	}
+.leaflet-control-layers-expanded .leaflet-control-layers-list {
+	display: block;
+	position: relative;
+	}
+.leaflet-control-layers-expanded {
+	padding: 6px 10px 6px 6px;
+	color: #333;
+	background: #fff;
+	}
+.leaflet-control-layers-scrollbar {
+	overflow-y: scroll;
+	overflow-x: hidden;
+	padding-right: 5px;
+	}
+.leaflet-control-layers-selector {
+	margin-top: 2px;
+	position: relative;
+	top: 1px;
+	}
+.leaflet-control-layers label {
+	display: block;
+	font-size: 13px;
+	font-size: 1.08333em;
+	}
+.leaflet-control-layers-separator {
+	height: 0;
+	border-top: 1px solid #ddd;
+	margin: 5px -10px 5px -6px;
+	}
+
+/* Default icon URLs */
+.leaflet-default-icon-path { /* used only in path-guessing heuristic, see L.Icon.Default */
+	}
+
+
+/* attribution and scale controls */
+
+.leaflet-container .leaflet-control-attribution {
+	background: #fff;
+	background: rgba(255, 255, 255, 0.8);
+	margin: 0;
+	}
+.leaflet-control-attribution,
+.leaflet-control-scale-line {
+	padding: 0 5px;
+	color: #333;
+	line-height: 1.4;
+	}
+.leaflet-control-attribution a {
+	text-decoration: none;
+	}
+.leaflet-control-attribution a:hover,
+.leaflet-control-attribution a:focus {
+	text-decoration: underline;
+	}
+.leaflet-attribution-flag {
+	display: inline !important;
+	vertical-align: baseline !important;
+	width: 1em;
+	height: 0.6669em;
+	}
+.leaflet-left .leaflet-control-scale {
+	margin-left: 5px;
+	}
+.leaflet-bottom .leaflet-control-scale {
+	margin-bottom: 5px;
+	}
+.leaflet-control-scale-line {
+	border: 2px solid #777;
+	border-top: none;
+	line-height: 1.1;
+	padding: 2px 5px 1px;
+	white-space: nowrap;
+	-moz-box-sizing: border-box;
+	     box-sizing: border-box;
+	background: rgba(255, 255, 255, 0.8);
+	text-shadow: 1px 1px #fff;
+	}
+.leaflet-control-scale-line:not(:first-child) {
+	border-top: 2px solid #777;
+	border-bottom: none;
+	margin-top: -2px;
+	}
+.leaflet-control-scale-line:not(:first-child):not(:last-child) {
+	border-bottom: 2px solid #777;
+	}
+
+.leaflet-touch .leaflet-control-attribution,
+.leaflet-touch .leaflet-control-layers,
+.leaflet-touch .leaflet-bar {
+	box-shadow: none;
+	}
+.leaflet-touch .leaflet-control-layers,
+.leaflet-touch .leaflet-bar {
+	border: 2px solid rgba(0,0,0,0.2);
+	background-clip: padding-box;
+	}
+
+
+/* popup */
+
+.leaflet-popup {
+	position: absolute;
+	text-align: center;
+	margin-bottom: 20px;
+	}
+.leaflet-popup-content-wrapper {
+	padding: 1px;
+	text-align: left;
+	border-radius: 12px;
+	}
+.leaflet-popup-content {
+	margin: 13px 24px 13px 20px;
+	line-height: 1.3;
+	font-size: 13px;
+	font-size: 1.08333em;
+	min-height: 1px;
+	}
+.leaflet-popup-content p {
+	margin: 17px 0;
+	margin: 1.3em 0;
+	}
+.leaflet-popup-tip-container {
+	width: 40px;
+	height: 20px;
+	position: absolute;
+	left: 50%;
+	margin-top: -1px;
+	margin-left: -20px;
+	overflow: hidden;
+	pointer-events: none;
+	}
+.leaflet-popup-tip {
+	width: 17px;
+	height: 17px;
+	padding: 1px;
+
+	margin: -10px auto 0;
+	pointer-events: auto;
+
+	-webkit-transform: rotate(45deg);
+	   -moz-transform: rotate(45deg);
+	    -ms-transform: rotate(45deg);
+	        transform: rotate(45deg);
+	}
+.leaflet-popup-content-wrapper,
+.leaflet-popup-tip {
+	background: white;
+	color: #333;
+	box-shadow: 0 3px 14px rgba(0,0,0,0.4);
+	}
+.leaflet-container a.leaflet-popup-close-button {
+	position: absolute;
+	top: 0;
+	right: 0;
+	border: none;
+	text-align: center;
+	width: 24px;
+	height: 24px;
+	font: 16px/24px Tahoma, Verdana, sans-serif;
+	color: #757575;
+	text-decoration: none;
+	background: transparent;
+	}
+.leaflet-container a.leaflet-popup-close-button:hover,
+.leaflet-container a.leaflet-popup-close-button:focus {
+	color: #585858;
+	}
+.leaflet-popup-scrolled {
+	overflow: auto;
+	}
+
+.leaflet-oldie .leaflet-popup-content-wrapper {
+	-ms-zoom: 1;
+	}
+.leaflet-oldie .leaflet-popup-tip {
+	width: 24px;
+	margin: 0 auto;
+
+	-ms-filter: "progid:DXImageTransform.Microsoft.Matrix(M11=0.70710678, M12=0.70710678, M21=-0.70710678, M22=0.70710678)";
+	filter: progid:DXImageTransform.Microsoft.Matrix(M11=0.70710678, M12=0.70710678, M21=-0.70710678, M22=0.70710678);
+	}
+
+.leaflet-oldie .leaflet-control-zoom,
+.leaflet-oldie .leaflet-control-layers,
+.leaflet-oldie .leaflet-popup-content-wrapper,
+.leaflet-oldie .leaflet-popup-tip {
+	border: 1px solid #999;
+	}
+
+
+/* div icon */
+
+.leaflet-div-icon {
+	background: #fff;
+	border: 1px solid #666;
+	}
+
+
+/* Tooltip */
+/* Base styles for the element that has a tooltip */
+.leaflet-tooltip {
+	position: absolute;
+	padding: 6px;
+	background-color: #fff;
+	border: 1px solid #fff;
+	border-radius: 3px;
+	color: #222;
+	white-space: nowrap;
+	-webkit-user-select: none;
+	-moz-user-select: none;
+	-ms-user-select: none;
+	user-select: none;
+	pointer-events: none;
+	box-shadow: 0 1px 3px rgba(0,0,0,0.4);
+	}
+.leaflet-tooltip.leaflet-interactive {
+	cursor: pointer;
+	pointer-events: auto;
+	}
+.leaflet-tooltip-top:before,
+.leaflet-tooltip-bottom:before,
+.leaflet-tooltip-left:before,
+.leaflet-tooltip-right:before {
+	position: absolute;
+	pointer-events: none;
+	border: 6px solid transparent;
+	background: transparent;
+	content: "";
+	}
+
+/* Directions */
+
+.leaflet-tooltip-bottom {
+	margin-top: 6px;
+}
+.leaflet-tooltip-top {
+	margin-top: -6px;
+}
+.leaflet-tooltip-bottom:before,
+.leaflet-tooltip-top:before {
+	left: 50%;
+	margin-left: -6px;
+	}
+.leaflet-tooltip-top:before {
+	bottom: 0;
+	margin-bottom: -12px;
+	border-top-color: #fff;
+	}
+.leaflet-tooltip-bottom:before {
+	top: 0;
+	margin-top: -12px;
+	margin-left: -6px;
+	border-bottom-color: #fff;
+	}
+.leaflet-tooltip-left {
+	margin-left: -6px;
+}
+.leaflet-tooltip-right {
+	margin-left: 6px;
+}
+.leaflet-tooltip-left:before,
+.leaflet-tooltip-right:before {
+	top: 50%;
+	margin-top: -6px;
+	}
+.leaflet-tooltip-left:before {
+	right: 0;
+	margin-right: -12px;
+	border-left-color: #fff;
+	}
+.leaflet-tooltip-right:before {
+	left: 0;
+	margin-left: -12px;
+	border-right-color: #fff;
+	}
+
+/* Printing */
+
+@media print {
+	/* Prevent printers from removing background-images of controls. */
+	.leaflet-control {
+		-webkit-print-color-adjust: exact;
+		print-color-adjust: exact;
+		}
+	}
+
+</style>
+<style>
+/* Diseño: barra superior de app cívica; el mapa manda, el panel lateral lista y detalla. Severidad 1–5 en escala ámbar→rojo, acento verde azulado de institución ambiental. */
+:root {
+  --bg: #eef2ef;
+  --surface: #ffffff;
+  --surface-2: #f6f8f6;
+  --ink: #15211d;
+  --muted: #56665f;
+  --line: #d3dbd6;
+  --accent: #0d6a5a;
+  --accent-ink: #ffffff;
+  --accent-soft: #dcefe9;
+  --map-bg: #e3e9e4;
+  --grid: #c3cec7;
+  --sev-1: #c7a92b;
+  --sev-2: #db8d2a;
+  --sev-3: #d4692b;
+  --sev-4: #c0432c;
+  --sev-5: #8f2228;
+  --ok: #2f7d4a;
+  --warn: #a8660b;
+  --bad: #b03a2e;
+  --focus: #1b7fd1;
+  --shadow: 0 1px 2px rgba(20, 35, 30, .08), 0 4px 14px rgba(20, 35, 30, .08);
+  --f-display: "Bricolage Grotesque", "Segoe UI", system-ui, sans-serif;
+  --f-body: "Public Sans", "Segoe UI", system-ui, sans-serif;
+  --f-mono: "IBM Plex Mono", ui-monospace, "Cascadia Mono", Consolas, monospace;
+  --hdr: 112px;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0e1513; --surface: #151f1c; --surface-2: #1a2622; --ink: #e2eae6; --muted: #98aaa2; --line: #2a3a35;
+    --accent: #3db39a; --accent-ink: #06201a; --accent-soft: #173a32; --map-bg: #17211e; --grid: #2c3b36;
+    --sev-1: #d8bd45; --sev-2: #e9a043; --sev-3: #ec7f45; --sev-4: #e25a45; --sev-5: #c2424a;
+    --ok: #5cbf7d; --warn: #e0a24a; --bad: #e46a5c; --focus: #63adf0;
+    --shadow: 0 1px 2px rgba(0, 0, 0, .4), 0 4px 14px rgba(0, 0, 0, .35);
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0e1513; --surface: #151f1c; --surface-2: #1a2622; --ink: #e2eae6; --muted: #98aaa2; --line: #2a3a35;
+  --accent: #3db39a; --accent-ink: #06201a; --accent-soft: #173a32; --map-bg: #17211e; --grid: #2c3b36;
+  --sev-1: #d8bd45; --sev-2: #e9a043; --sev-3: #ec7f45; --sev-4: #e25a45; --sev-5: #c2424a;
+  --ok: #5cbf7d; --warn: #e0a24a; --bad: #e46a5c; --focus: #63adf0;
+  --shadow: 0 1px 2px rgba(0, 0, 0, .4), 0 4px 14px rgba(0, 0, 0, .35);
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+html, body { height: 100%; }
+body { background: var(--bg); color: var(--ink); font: 15px/1.5 var(--f-body); }
+body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 1000; background: var(--surface); }
+.gutter { padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+h1, h2, h3 { font-family: var(--f-display); font-weight: 700; line-height: 1.15; text-wrap: balance; margin: 0; }
+h2 { font-size: 1.45rem; }
+h3 { font-size: 1.05rem; font-weight: 600; }
+p { margin: 0; }
+a { color: var(--accent); }
+button, input, select, textarea { font: inherit; color: inherit; }
+:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+.mono { font-family: var(--f-mono); font-size: .86em; font-variant-numeric: tabular-nums; }
+.muted { color: var(--muted); }
+.small { font-size: .85rem; }
+
+/* Barra superior */
+.topbar { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 900; background: var(--surface); border-bottom: 1px solid var(--line); }
+.topbar-row { display: flex; align-items: center; gap: 12px 20px; flex-wrap: wrap; padding-block: 10px; }
+.brand { display: flex; align-items: center; gap: 10px; margin-right: auto; min-width: 0; }
+.brand-mark { width: 30px; height: 30px; flex: none; }
+.brand h1 { font-size: 1.2rem; letter-spacing: -.01em; }
+.brand .tag { font: 500 .68rem/1 var(--f-mono); text-transform: uppercase; letter-spacing: .08em; padding: 4px 6px; border-radius: 4px; background: var(--accent-soft); color: var(--accent); }
+.controls { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+.control { display: flex; align-items: center; gap: 6px; font-size: .82rem; color: var(--muted); }
+.control select { padding: 6px 8px; border: 1px solid var(--line); border-radius: 6px; background: var(--surface-2); color: var(--ink); font-size: .85rem; }
+.salud { display: inline-flex; align-items: center; gap: 6px; font-size: .8rem; color: var(--muted); }
+.dot { width: 8px; height: 8px; border-radius: 50%; background: var(--muted); flex: none; }
+.dot.ok { background: var(--ok); } .dot.warn { background: var(--warn); } .dot.bad { background: var(--bad); }
+nav.tabs { display: flex; gap: 2px; overflow-x: auto; scrollbar-width: none; }
+nav.tabs::-webkit-scrollbar { display: none; }
+.tab { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; padding: 9px 12px 10px; border: 0; border-bottom: 3px solid transparent; background: none; color: var(--muted); font-weight: 500; font-size: .92rem; cursor: pointer; text-decoration: none; }
+.tab:hover { color: var(--ink); }
+.tab[aria-current="page"] { color: var(--ink); border-bottom-color: var(--accent); }
+.tab svg { width: 13px; height: 13px; }
+.banner { background: var(--accent-soft); color: var(--ink); font-size: .84rem; padding-block: 7px; border-bottom: 1px solid var(--line); }
+.banner b { font-weight: 600; }
+
+/* Vistas */
+main { min-height: 0; }
+.view { padding-block: 20px 40px; }
+.view.full { padding: 0; }
+.wrap { max-width: 1120px; margin: 0 auto; }
+.view-head { display: flex; gap: 8px 16px; align-items: end; justify-content: space-between; flex-wrap: wrap; margin-bottom: 16px; }
+.view-head p { max-width: 62ch; color: var(--muted); margin-top: 4px; }
+
+/* Mapa */
+.mapa-layout { display: grid; grid-template-columns: minmax(300px, 360px) 1fr; height: calc(100dvh - var(--hdr) - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px)); min-height: 520px; }
+.panel { background: var(--surface); border-right: 1px solid var(--line); overflow-y: auto; min-width: 0; display: flex; flex-direction: column; }
+.panel-sec { padding: 16px; border-bottom: 1px solid var(--line); display: grid; gap: 12px; }
+.panel-sec:last-child { border-bottom: 0; }
+.label { font: 500 .7rem/1.2 var(--f-mono); text-transform: uppercase; letter-spacing: .08em; color: var(--muted); }
+.field { display: grid; gap: 5px; }
+.field input[type="text"], .field input[type="url"], .field input[type="search"], .field select, .field textarea, .inp { width: 100%; padding: 8px 10px; border: 1px solid var(--line); border-radius: 6px; background: var(--surface-2); color: var(--ink); }
+.field textarea { resize: vertical; min-height: 96px; }
+.hint { font-size: .8rem; color: var(--muted); }
+.err { font-size: .8rem; color: var(--bad); }
+.seg { display: flex; border: 1px solid var(--line); border-radius: 6px; overflow: hidden; }
+.seg button { flex: 1; padding: 6px 0; border: 0; border-right: 1px solid var(--line); background: var(--surface-2); cursor: pointer; font-size: .85rem; font-variant-numeric: tabular-nums; }
+.seg button:last-child { border-right: 0; }
+.seg button[aria-pressed="true"] { background: var(--accent); color: var(--accent-ink); font-weight: 600; }
+.row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; padding: 8px 14px; border-radius: 6px; border: 1px solid var(--line); background: var(--surface); color: var(--ink); font-weight: 500; cursor: pointer; font-size: .9rem; text-decoration: none; }
+.btn:hover { border-color: var(--muted); }
+.btn.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+.btn.primary:hover { filter: brightness(1.08); }
+.btn.danger { color: var(--bad); }
+.btn.ghost { border-color: transparent; background: none; padding-inline: 6px; justify-self: start; }
+.btn[disabled] { opacity: .55; cursor: not-allowed; }
+.lista { list-style: none; margin: 0; padding: 0; }
+.item { display: grid; grid-template-columns: 6px 1fr; gap: 12px; padding: 12px 16px; border-bottom: 1px solid var(--line); cursor: pointer; background: none; width: 100%; text-align: left; border-left: 0; border-right: 0; border-top: 0; }
+.item:hover, .item[aria-selected="true"] { background: var(--surface-2); }
+.item .stripe { border-radius: 3px; }
+.item h3 { font-family: var(--f-body); font-size: .93rem; font-weight: 600; line-height: 1.3; }
+.meta { display: flex; gap: 6px 10px; flex-wrap: wrap; align-items: center; margin-top: 5px; font-size: .78rem; color: var(--muted); }
+.chip { display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; border-radius: 999px; border: 1px solid var(--line); font-size: .75rem; color: var(--ink); background: var(--surface-2); white-space: nowrap; }
+.sev { display: inline-flex; align-items: center; gap: 5px; font: 500 .75rem/1 var(--f-mono); white-space: nowrap; }
+.sev i { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
+.estado { display: inline-block; padding: 2px 8px; border-radius: 4px; font: 500 .72rem/1.5 var(--f-mono); text-transform: uppercase; letter-spacing: .05em; }
+.estado.pendiente { background: color-mix(in srgb, var(--warn) 18%, transparent); color: var(--warn); }
+.estado.aprobado { background: color-mix(in srgb, var(--ok) 18%, transparent); color: var(--ok); }
+.estado.rechazado { background: color-mix(in srgb, var(--bad) 16%, transparent); color: var(--bad); }
+.estado.duplicado { background: var(--surface-2); color: var(--muted); border: 1px solid var(--line); }
+.vacio { padding: 24px 16px; color: var(--muted); font-size: .9rem; }
+.mapa-wrap { position: relative; min-width: 0; }
+.mapa { position: absolute; inset: 0; background: var(--map-bg); }
+.leyenda { position: absolute; z-index: 500; right: max(12px, env(safe-area-inset-right, 0px)); bottom: 24px; background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; box-shadow: var(--shadow); font-size: .78rem; display: grid; gap: 6px; }
+.leyenda .esc { display: flex; gap: 4px; align-items: center; }
+.leyenda .esc span { display: grid; place-items: center; width: 22px; height: 22px; border-radius: 50%; color: #fff; font: 600 .72rem/1 var(--f-mono); }
+.aviso-mapa { position: absolute; z-index: 500; left: 54px; top: 10px; max-width: min(360px, calc(100% - 66px)); background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; font-size: .78rem; color: var(--muted); box-shadow: var(--shadow); }
+.leaflet-top, .leaflet-bottom { z-index: 500; }
+.leaflet-container { background: var(--map-bg); font-family: var(--f-body); }
+.leaflet-control-attribution { font-size: 10px; }
+.leaflet-tooltip.etq { background: var(--surface); color: var(--ink); border: 1px solid var(--line); box-shadow: var(--shadow); font: 500 .75rem/1.3 var(--f-body); padding: 4px 8px; }
+.leaflet-tooltip.etq::before { display: none; }
+.detalle { display: grid; gap: 14px; }
+.detalle h2 { font-size: 1.25rem; }
+.kv { display: grid; grid-template-columns: auto 1fr; gap: 4px 12px; font-size: .85rem; }
+.kv dt { color: var(--muted); }
+.kv dd { margin: 0; }
+.accion { display: grid; gap: 4px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface-2); }
+.accion .tipo { font: 500 .7rem/1 var(--f-mono); text-transform: uppercase; letter-spacing: .08em; color: var(--accent); }
+
+/* Tarjetas y formularios */
+.grid-2 { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 20px; }
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 18px; display: grid; gap: 14px; align-content: start; min-width: 0; }
+.card.flat { box-shadow: none; }
+.minimapa { height: 340px; border-radius: 8px; overflow: hidden; border: 1px solid var(--line); position: relative; }
+.minimapa .mapa { position: absolute; inset: 0; }
+.foto-prev { display: flex; gap: 12px; align-items: center; }
+.foto-prev img { width: 96px; height: 72px; object-fit: cover; border-radius: 6px; border: 1px solid var(--line); }
+.bloqueo { max-width: 560px; margin: 40px auto; text-align: left; display: grid; gap: 12px; }
+.bloqueo .codigo { font: 500 .8rem/1.4 var(--f-mono); background: var(--surface-2); border: 1px solid var(--line); border-radius: 6px; padding: 10px 12px; overflow-x: auto; white-space: pre; }
+.tabla-wrap { overflow-x: auto; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); }
+table { border-collapse: collapse; width: 100%; font-size: .88rem; }
+th, td { text-align: left; padding: 10px 12px; border-bottom: 1px solid var(--line); vertical-align: top; }
+th { font: 500 .7rem/1.2 var(--f-mono); text-transform: uppercase; letter-spacing: .08em; color: var(--muted); background: var(--surface-2); }
+tr:last-child td { border-bottom: 0; }
+td.num { font-variant-numeric: tabular-nums; }
+.cola { display: grid; gap: 14px; }
+.decision { display: grid; gap: 10px; border-top: 1px solid var(--line); padding-top: 12px; }
+.subtabs { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 16px; }
+.subtabs button { padding: 6px 12px; border-radius: 999px; border: 1px solid var(--line); background: var(--surface); cursor: pointer; font-size: .85rem; }
+.subtabs button[aria-pressed="true"] { background: var(--ink); color: var(--bg); border-color: var(--ink); }
+
+/* Asistente */
+.chat { max-width: 760px; margin: 0 auto; display: grid; gap: 16px; }
+.mensajes { display: grid; gap: 14px; }
+.msg { padding: 12px 14px; border-radius: 10px; max-width: 92%; min-width: 0; }
+.msg.yo { justify-self: end; background: var(--accent); color: var(--accent-ink); }
+.msg.ia { justify-self: start; background: var(--surface); border: 1px solid var(--line); display: grid; gap: 8px; }
+.msg.ia ul, .msg.ia ol { margin: 0; padding-left: 20px; display: grid; gap: 4px; }
+.msg.ia .pie { border-top: 1px dashed var(--line); padding-top: 8px; font-size: .76rem; color: var(--muted); display: grid; gap: 2px; }
+.sugerencias { display: flex; gap: 8px; flex-wrap: wrap; }
+.sugerencias button { padding: 6px 12px; border-radius: 999px; border: 1px solid var(--line); background: var(--surface); cursor: pointer; font-size: .84rem; text-align: left; }
+.composer { display: grid; gap: 6px; position: sticky; bottom: env(safe-area-inset-bottom, 0px); background: var(--bg); padding-block: 10px; }
+.composer .row { flex-wrap: nowrap; align-items: stretch; }
+.composer textarea { flex: 1; min-width: 0; min-height: 48px; resize: vertical; padding: 10px 12px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); }
+
+.toast { position: fixed; z-index: 2000; left: 50%; transform: translateX(-50%); bottom: calc(20px + env(safe-area-inset-bottom, 0px)); background: var(--ink); color: var(--bg); padding: 10px 16px; border-radius: 8px; box-shadow: var(--shadow); font-size: .9rem; max-width: calc(100% - 32px); }
+.api-config { display: grid; gap: 6px; }
+
+@media (max-width: 900px) {
+  .mapa-layout { grid-template-columns: 1fr; height: auto; min-height: 0; }
+  .mapa-wrap { height: 58vh; order: -1; }
+  .panel { border-right: 0; border-top: 1px solid var(--line); overflow: visible; }
+  .grid-2 { grid-template-columns: 1fr; }
+}
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
+</style>
+
+<header class="topbar" id="topbar">
+  <div class="topbar-row gutter">
+    <div class="brand">
+      <svg class="brand-mark" viewBox="0 0 32 32" aria-hidden="true"><circle cx="16" cy="16" r="15" fill="var(--accent)"/><path d="M16 7c-4.4 0-8 3.5-8 7.9 0 5.6 8 11.1 8 11.1s8-5.5 8-11.1C24 10.5 20.4 7 16 7Z" fill="var(--accent-ink)"/><path d="M12.5 15.5c2.5-3.6 5.6-4.3 7.2-4.4-.1 1.7-.8 4.8-4.4 7.2-.9.6-2 .6-2.8-.2-.8-.8-.8-1.8 0-2.6Z" fill="var(--accent)"/></svg>
+      <h1>Plataforma Ambiental</h1>
+      <span class="tag">prototipo</span>
+    </div>
+    <div class="controls">
+      <span class="salud" id="salud" title="Estado de la API"><span class="dot"></span><span>Datos de ejemplo</span></span>
+      <label class="control" for="fuente">Datos
+        <select id="fuente">
+          <option value="demo">De ejemplo</option>
+          <option value="vivo">API en vivo</option>
+        </select>
+      </label>
+      <label class="control" for="rol">Ver como
+        <select id="rol">
+          <option value="visitante">Visitante (sin sesión)</option>
+          <option value="ciudadano">Ciudadano</option>
+          <option value="moderador">Moderador</option>
+          <option value="editor">Editor</option>
+          <option value="administrador">Administrador</option>
+        </select>
+      </label>
+    </div>
+  </div>
+  <nav class="tabs gutter" id="tabs" aria-label="Secciones"></nav>
+  <div class="banner gutter" id="banner"></div>
+</header>
+
+<main id="main"></main>
+<div class="toast" id="toast" role="status" hidden></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js"></script>
+<script>
+"use strict";
+
+/* ---------- Constantes que reflejan el backend ---------- */
+const API_POR_DEFECTO = "https://plataforma-ambiental-backend.onrender.com/api/v1";
+const AVISO_IA = "Respuesta generada por inteligencia artificial. Puede contener errores: verifica con fuentes oficiales.";
+const MODELO = "gemini-2.5-flash";
+const CENTRO = [20.668, -103.355]; // Área Metropolitana de Guadalajara
+const TIPOS = {
+  contaminacion_agua: "Contaminación del agua",
+  contaminacion_aire: "Contaminación del aire",
+  deforestacion: "Deforestación",
+  residuos: "Residuos",
+  tala_ilegal: "Tala ilegal",
+  otro: "Otro",
+};
+const TIPOS_ACCION = { denuncia: "Denuncia", firma: "Firma", donacion: "Donación", voluntariado: "Voluntariado" };
+const ROLES = { visitante: "Visitante", ciudadano: "Ciudadano", moderador: "Moderador", editor: "Editor", administrador: "Administrador" };
+const GRAVEDAD = { 1: "Muy baja", 2: "Baja", 3: "Media", 4: "Alta", 5: "Muy alta" };
+
+const VISTAS = [
+  { id: "mapa", nombre: "Mapa", roles: null },
+  { id: "reportar", nombre: "Reportar", roles: ["ciudadano", "moderador", "editor", "administrador"] },
+  { id: "mis-aportes", nombre: "Mis aportes", roles: ["ciudadano", "moderador", "editor", "administrador"] },
+  { id: "moderacion", nombre: "Moderación", roles: ["moderador", "administrador"] },
+  { id: "administracion", nombre: "Administración", roles: ["editor", "administrador"] },
+  { id: "asistente", nombre: "Asistente", roles: null },
+];
+const RUTA_API = {
+  reportar: "POST /api/v1/aportes",
+  "mis-aportes": "GET /api/v1/aportes/mis",
+  moderacion: "GET /api/v1/admin/aportes",
+  administracion: "POST /api/v1/admin/acciones",
+};
+
+/* ---------- Datos de ejemplo (misma forma que las respuestas de la API) ---------- */
+let nId = 100;
+const uid = () => `0000000${(nId++).toString(16)}`.slice(-8) + "-0000-4000-8000-000000000000";
+const USUARIOS = [
+  { id: "u-ana", nombre: "Ana R. (ejemplo)", rol: "ciudadano", activo: true },
+  { id: "u-luis", nombre: "Luis M. (ejemplo)", rol: "ciudadano", activo: true },
+  { id: "u-mod", nombre: "Moderador de ejemplo", rol: "moderador", activo: true },
+  { id: "u-edi", nombre: "Editora de ejemplo", rol: "editor", activo: true },
+  { id: "u-adm", nombre: "Administradora de ejemplo", rol: "administrador", activo: true },
+];
+const USUARIO_POR_ROL = { ciudadano: "u-ana", moderador: "u-mod", editor: "u-edi", administrador: "u-adm" };
+
+const demo = {
+  puntos: [
+    { id: "p-001", titulo: "[PRUEBA] Descarga de aguas residuales en arroyo de Tlaquepaque", tipo: "contaminacion_agua", gravedad: 3,
+      descripcion: "Dato de prueba. Se observa espuma y mal olor en la orilla del arroyo.", ubicacion: { lat: 20.6408, lng: -103.2972 },
+      creado_en: "2026-10-22T17:05:00Z", actualizado_en: "2026-10-22T17:05:00Z" },
+    { id: "p-002", titulo: "[PRUEBA] Humo industrial sobre Periférico Sur", tipo: "contaminacion_aire", gravedad: 4,
+      descripcion: "Dato de prueba. Columna de humo visible en horas de la tarde.", ubicacion: { lat: 20.61, lng: -103.37 },
+      creado_en: "2026-10-22T17:05:00Z", actualizado_en: "2026-10-22T17:05:00Z" },
+    { id: "p-003", titulo: "[PRUEBA] Tala en zona de Bosque Los Colomos", tipo: "tala_ilegal", gravedad: 4,
+      descripcion: "Dato de prueba. Árboles derribados en el perímetro norte.", ubicacion: { lat: 20.7115, lng: -103.393 },
+      creado_en: "2026-10-22T17:05:00Z", actualizado_en: "2026-10-22T17:05:00Z" },
+    { id: "p-004", titulo: "[EJEMPLO] Residuos acumulados en lote baldío", tipo: "residuos", gravedad: 2,
+      descripcion: "Ejemplo para la demo. Bolsas y escombro acumulados desde hace semanas.", ubicacion: { lat: 20.672, lng: -103.348 },
+      creado_en: "2026-10-25T15:20:00Z", actualizado_en: "2026-10-25T15:20:00Z" },
+    { id: "p-005", titulo: "[EJEMPLO] Quema de basura a cielo abierto", tipo: "contaminacion_aire", gravedad: 3,
+      descripcion: "Ejemplo para la demo. Humo negro por las noches en un terreno.", ubicacion: { lat: 20.701, lng: -103.315 },
+      creado_en: "2026-10-26T02:40:00Z", actualizado_en: "2026-10-26T02:40:00Z" },
+    { id: "p-006", titulo: "[EJEMPLO] Escurrimiento de aceite en canal pluvial", tipo: "contaminacion_agua", gravedad: 5,
+      descripcion: "Ejemplo para la demo. Mancha oscura y brillante en el agua del canal.", ubicacion: { lat: 20.625, lng: -103.326 },
+      creado_en: "2026-10-27T18:10:00Z", actualizado_en: "2026-10-27T18:10:00Z" },
+    { id: "p-007", titulo: "[EJEMPLO] Retiro de arbolado sin permiso visible", tipo: "deforestacion", gravedad: 2,
+      descripcion: "Ejemplo para la demo. Varios árboles retirados en una banqueta.", ubicacion: { lat: 20.689, lng: -103.418 },
+      creado_en: "2026-10-28T13:00:00Z", actualizado_en: "2026-10-28T13:00:00Z" },
+    { id: "p-008", titulo: "[EJEMPLO] Llantas abandonadas junto a vialidad", tipo: "residuos", gravedad: 1,
+      descripcion: "Ejemplo para la demo. Una docena de llantas en el camellón.", ubicacion: { lat: 20.652, lng: -103.402 },
+      creado_en: "2026-10-28T20:30:00Z", actualizado_en: "2026-10-28T20:30:00Z" },
+  ],
+  organizaciones: [
+    { id: "o-001", nombre: "[PRUEBA] Colectivo Agua Limpia", zona: "Tlaquepaque" },
+    { id: "o-002", nombre: "[PRUEBA] Red de voluntarios verdes", zona: "Guadalajara" },
+  ],
+  acciones: [
+    { id: "x-001", tipo: "denuncia", nombre: "[PRUEBA] Canal de denuncia ambiental", descripcion: "Dato de prueba.", enlace: "https://ejemplo.org/denuncia",
+      punto_id: "p-001", organizacion: { id: "o-001", nombre: "[PRUEBA] Colectivo Agua Limpia" } },
+    { id: "x-002", tipo: "firma", nombre: "[PRUEBA] Firma para proteger el arbolado", descripcion: "Dato de prueba.", enlace: "https://ejemplo.org/firma",
+      punto_id: "p-003", organizacion: { id: "o-002", nombre: "[PRUEBA] Red de voluntarios verdes" } },
+    { id: "x-003", tipo: "voluntariado", nombre: "[PRUEBA] Jornada de limpieza", descripcion: "Dato de prueba.", enlace: "https://ejemplo.org/voluntariado",
+      punto_id: null, organizacion: { id: "o-002", nombre: "[PRUEBA] Red de voluntarios verdes" } },
+  ],
+  aportes: [
+    { id: "a-001", autor_id: "u-ana", punto_id: null, tipo: "residuos", gravedad_sugerida: 2, descripcion: "Bolsas de basura acumuladas en la esquina desde hace una semana.",
+      ubicacion: { lat: 20.6655, lng: -103.359 }, estado: "pendiente", motivo_revision: null, foto: true, creado_en: "2026-10-28T16:12:00Z" },
+    { id: "a-002", autor_id: "u-ana", punto_id: "p-001", tipo: "contaminacion_agua", gravedad_sugerida: 3, descripcion: "El arroyo huele mal y tiene espuma en la orilla.",
+      ubicacion: { lat: 20.6411, lng: -103.2969 }, estado: "aprobado", motivo_revision: null, foto: false, creado_en: "2026-10-23T14:02:00Z" },
+    { id: "a-003", autor_id: "u-ana", punto_id: null, tipo: "otro", gravedad_sugerida: null, descripcion: "Hay mucho ruido de una obra por las noches.",
+      ubicacion: { lat: 20.6802, lng: -103.371 }, estado: "rechazado", motivo_revision: "El ruido no entra en las categorías de la plataforma.", foto: false, creado_en: "2026-10-24T03:30:00Z" },
+    { id: "a-004", autor_id: "u-luis", punto_id: null, tipo: "contaminacion_agua", gravedad_sugerida: 4, descripcion: "Olor fuerte a químicos y agua de color verde en el canal junto a la avenida.",
+      ubicacion: { lat: 20.6305, lng: -103.331 }, estado: "pendiente", motivo_revision: null, foto: true, creado_en: "2026-10-29T09:45:00Z" },
+  ],
+  auditoria: [
+    { id: uid(), tabla: "puntos", accion: "insertar", usuario: "Moderador de ejemplo", registro: "p-008", creado_en: "2026-10-28T20:30:00Z" },
+    { id: uid(), tabla: "aportes", accion: "revisar", usuario: "Moderador de ejemplo", registro: "a-003", creado_en: "2026-10-24T18:00:00Z" },
+    { id: uid(), tabla: "perfiles", accion: "cambiar_rol", usuario: "Administradora de ejemplo", registro: "u-edi", creado_en: "2026-10-23T12:00:00Z" },
+  ],
+};
+
+const RESPUESTAS_DEMO = [
+  { pregunta: "¿Cómo denuncio una descarga de aguas residuales?",
+    respuesta: "Para denunciar una descarga de aguas residuales:\n\n1. **Documenta** el lugar: fecha, hora, una foto y la ubicación exacta.\n2. **Repórtala aquí** en la sección Reportar, para que quede en el mapa.\n3. **Presenta la denuncia** ante la autoridad ambiental de tu municipio o estado. Revisa en el mapa si el punto ya tiene un canal de denuncia en «Cómo ayudar».\n\nNo te acerques a la descarga ni toques el agua." },
+  { pregunta: "¿Qué hago si veo tala ilegal?",
+    respuesta: "Si ves árboles derribados sin permiso visible:\n\n- **No confrontes** a quienes están cortando.\n- **Toma fotos** desde un lugar seguro y anota la hora.\n- **Reporta el punto** en la plataforma con la ubicación.\n- **Consulta** si la obra tiene un permiso publicado por el municipio.\n\nUn moderador revisa cada aporte antes de publicarlo." },
+  { pregunta: "¿Cómo separo la basura en casa?",
+    respuesta: "Una forma sencilla es usar tres contenedores:\n\n- **Orgánicos:** restos de comida y jardín.\n- **Reciclables:** papel, cartón, PET, vidrio y latas, limpios y secos.\n- **Sanitarios y no reciclables:** lo demás.\n\nRevisa el reglamento de tu municipio, porque los días de recolección cambian por zona." },
+];
+
+/* ---------- Estado ---------- */
+const estado = {
+  fuente: "demo",
+  api: API_POR_DEFECTO,
+  rol: "visitante",
+  vista: "mapa",
+  filtros: { tipo: "", gravedad: 1 },
+  cerca: null, // { lat, lng, radio }
+  seleccionado: null,
+  puntosVivo: [],
+  chat: [],
+  modTab: "pendiente",
+  adminTab: "catalogo",
+  saludVivo: null,
+};
+const guardar = (k, v) => { try { localStorage.setItem("pa-" + k, v); } catch (e) { /* sin almacenamiento */ } };
+const leer = (k) => { try { return localStorage.getItem("pa-" + k); } catch (e) { return null; } };
+
+/* ---------- Utilidades ---------- */
+function h(tag, attrs, ...hijos) {
+  const el = document.createElement(tag);
+  for (const [k, v] of Object.entries(attrs || {})) {
+    if (v === null || v === undefined || v === false) continue;
+    if (k === "class") el.className = v;
+    else if (k.startsWith("on")) el.addEventListener(k.slice(2), v);
+    else if (k === "style") el.setAttribute("style", v);
+    else el.setAttribute(k, v === true ? "" : v);
+  }
+  for (const c of hijos.flat(Infinity)) {
+    if (c === null || c === undefined || c === false) continue;
+    el.append(c instanceof Node ? c : document.createTextNode(String(c)));
+  }
+  return el;
+}
+const fecha = (iso) => new Date(iso).toLocaleDateString("es-MX", { day: "numeric", month: "short", year: "numeric" });
+const fechaHora = (iso) => new Date(iso).toLocaleString("es-MX", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
+const coord = (u) => `${u.lat.toFixed(4)}, ${u.lng.toFixed(4)}`;
+const sevColor = (g) => getComputedStyle(document.documentElement).getPropertyValue(`--sev-${g}`).trim() || "#c0432c";
+function sevBadge(g) {
+  if (!g) return h("span", { class: "sev muted" }, "sin gravedad");
+  return h("span", { class: "sev" }, h("i", { style: `background: var(--sev-${g})` }), `${g} · ${GRAVEDAD[g]}`);
+}
+function distancia(a, b) {
+  const R = 6371000, rad = Math.PI / 180;
+  const dLat = (b.lat - a.lat) * rad, dLng = (b.lng - a.lng) * rad;
+  const x = Math.sin(dLat / 2) ** 2 + Math.cos(a.lat * rad) * Math.cos(b.lat * rad) * Math.sin(dLng / 2) ** 2;
+  return 2 * R * Math.asin(Math.sqrt(x));
+}
+let toastT = null;
+function toast(texto) {
+  const t = document.getElementById("toast");
+  t.textContent = texto; t.hidden = false;
+  clearTimeout(toastT); toastT = setTimeout(() => { t.hidden = true; }, 3800);
+}
+function usuarioActual() { return USUARIOS.find((u) => u.id === USUARIO_POR_ROL[estado.rol]) || null; }
+function auditar(tabla, accion, registro) {
+  const u = usuarioActual();
+  demo.auditoria.unshift({ id: uid(), tabla, accion, usuario: u ? u.nombre : "sistema", registro, creado_en: new Date().toISOString() });
+}
+function puede(vista) {
+  const v = VISTAS.find((x) => x.id === vista);
+  return !v.roles || v.roles.includes(estado.rol);
+}
+
+/* Markdown mínimo y seguro: negritas y listas, sin HTML (el backend devuelve Markdown). */
+function markdownSeguro(texto) {
+  const frag = document.createDocumentFragment();
+  const enLinea = (linea) => linea.split(/(\*\*[^*]+\*\*)/g).filter(Boolean)
+    .map((p) => p.startsWith("**") && p.endsWith("**") ? h("strong", null, p.slice(2, -2)) : document.createTextNode(p));
+  let lista = null;
+  for (const linea of texto.split("\n")) {
+    const ul = linea.match(/^\s*[-*]\s+(.*)$/), ol = linea.match(/^\s*\d+\.\s+(.*)$/);
+    if (ul || ol) {
+      const tipo = ul ? "ul" : "ol";
+      if (!lista || lista.tagName.toLowerCase() !== tipo) { lista = h(tipo); frag.append(lista); }
+      lista.append(h("li", null, enLinea((ul || ol)[1])));
+    } else if (linea.trim() === "") { lista = null; }
+    else { lista = null; frag.append(h("p", null, enLinea(linea))); }
+  }
+  return frag;
+}
+
+/* ---------- API en vivo ---------- */
+async function api(ruta, opciones) {
+  const r = await fetch(estado.api + ruta, Object.assign({ headers: { Accept: "application/json" } }, opciones));
+  let cuerpo = null;
+  try { cuerpo = await r.json(); } catch (e) { /* sin cuerpo */ }
+  if (!r.ok) {
+    const msg = cuerpo && cuerpo.error ? `${cuerpo.error.codigo}: ${cuerpo.error.mensaje}` : `HTTP ${r.status}`;
+    throw new Error(msg);
+  }
+  return cuerpo;
+}
+async function revisarSalud() {
+  const el = document.getElementById("salud");
+  const pintar = (cls, texto) => { el.replaceChildren(h("span", { class: "dot " + cls }), h("span", null, texto)); };
+  if (estado.fuente === "demo") { pintar("", "Datos de ejemplo"); return; }
+  pintar("warn", "Conectando…");
+  try {
+    const s = await api("/salud");
+    estado.saludVivo = s;
+    pintar(s.estado === "ok" ? "ok" : "warn", s.estado === "ok" ? "API ok · base ok" : `API ${s.estado} · base ${s.base}`);
+  } catch (e) {
+    estado.saludVivo = null;
+    pintar("bad", "Sin conexión con la API");
+  }
+}
+
+/* ---------- Encabezado ---------- */
+function pintarTabs() {
+  const nav = document.getElementById("tabs");
+  nav.replaceChildren(...VISTAS.map((v) => {
+    const bloqueada = !puede(v.id);
+    return h("a", { class: "tab", href: "#" + v.id, "aria-current": estado.vista === v.id ? "page" : null, title: bloqueada ? "Requiere otro rol" : null },
+      bloqueada ? candado() : null, v.nombre);
+  }));
+}
+function candado() {
+  const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+  svg.setAttribute("viewBox", "0 0 16 16"); svg.setAttribute("aria-hidden", "true");
+  const p = document.createElementNS("http://www.w3.org/2000/svg", "path");
+  p.setAttribute("d", "M4.5 7V5a3.5 3.5 0 0 1 7 0v2h.5a1 1 0 0 1 1 1v6a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V8a1 1 0 0 1 1-1h.5Zm1.5 0h4V5a2 2 0 0 0-4 0v2Z");
+  p.setAttribute("fill", "currentColor"); svg.append(p); return svg;
+}
+function pintarBanner() {
+  const b = document.getElementById("banner");
+  if (estado.fuente === "demo") {
+    b.replaceChildren(h("b", null, "Modo de ejemplo. "),
+      "Los puntos [PRUEBA] son los de la migración 005; los [EJEMPLO] y los aportes son inventados para la demo. Nada se guarda: al recargar vuelve al inicio. ",
+      "El selector «Ver como» simula el rol que daría el inicio de sesión.");
+  } else {
+    b.replaceChildren(h("b", null, "API en vivo. "),
+      "El mapa y el asistente leen ", h("span", { class: "mono" }, estado.api), ". Cada pregunta al asistente usa cuota de Gemini. ",
+      "Las secciones con sesión siguen en modo de ejemplo hasta conectar el inicio de sesión de Supabase.");
+  }
+}
+
+/* ---------- Mapa ---------- */
+let mapa = null, capaPuntos = null, capaCerca = null, marcadores = new Map();
+function crearMapa(contenedor, opciones) {
+  if (!window.L) { contenedor.replaceChildren(h("div", { class: "vacio" }, "No se pudo cargar la biblioteca del mapa (Leaflet). Revisa la conexión a internet.")); return null; }
+  const m = L.map(contenedor, Object.assign({ zoomControl: true, attributionControl: true }, opciones)).setView(CENTRO, 12);
+  let fallo = false;
+  const teselas = L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+    maxZoom: 18, attribution: "&copy; colaboradores de OpenStreetMap",
+  });
+  teselas.on("tileerror", () => {
+    if (fallo) return; fallo = true;
+    m.removeLayer(teselas);
+    cuadricula(m);
+    const aviso = h("div", { class: "aviso-mapa" }, "Sin mapa base: esta vista no permite cargar OpenStreetMap. Se muestra una cuadrícula de coordenadas reales. Abre el prototipo desde tu PC para ver las calles.");
+    contenedor.append(aviso);
+  });
+  teselas.addTo(m);
+  return m;
+}
+function cuadricula(m) {
+  const color = getComputedStyle(document.documentElement).getPropertyValue("--grid").trim();
+  const g = L.layerGroup().addTo(m);
+  for (let lat = 20.5; lat <= 20.86; lat += 0.02) L.polyline([[lat, -103.56], [lat, -103.16]], { color, weight: 1, interactive: false }).addTo(g);
+  for (let lng = -103.56; lng <= -103.16; lng += 0.02) L.polyline([[20.5, lng], [20.86, lng]], { color, weight: 1, interactive: false }).addTo(g);
+  for (let lat = 20.6; lat <= 20.76; lat += 0.04) {
+    L.marker([lat, -103.46], { interactive: false, icon: L.divIcon({ className: "", html: `<span class="mono small muted">${lat.toFixed(2)}°N</span>`, iconSize: [60, 14] }) }).addTo(g);
+  }
+  for (let lng = -103.44; lng <= -103.26; lng += 0.04) {
+    L.marker([20.585, lng], { interactive: false, icon: L.divIcon({ className: "", html: `<span class="mono small muted">${Math.abs(lng).toFixed(2)}°O</span>`, iconSize: [64, 14] }) }).addTo(g);
+  }
+}
+
+function puntosVisibles() {
+  if (estado.fuente === "vivo") return estado.puntosVivo;
+  let lista = demo.puntos.filter((p) => (!estado.filtros.tipo || p.tipo === estado.filtros.tipo) && p.gravedad >= estado.filtros.gravedad);
+  if (estado.cerca) {
+    lista = lista.map((p) => Object.assign({}, p, { distancia_metros: distancia(estado.cerca, p.ubicacion) }))
+      .filter((p) => p.distancia_metros <= estado.cerca.radio).sort((a, b) => a.distancia_metros - b.distancia_metros);
+  }
+  return lista;
+}
+async function cargarPuntosVivo() {
+  const q = new URLSearchParams();
+  if (estado.filtros.tipo) q.set("tipo", estado.filtros.tipo);
+  try {
+    if (estado.cerca) {
+      q.set("lat", estado.cerca.lat.toFixed(5)); q.set("lng", estado.cerca.lng.toFixed(5));
+      q.set("radio_metros", String(estado.cerca.radio)); q.set("limite", "100");
+      const r = await api("/puntos/cercanos?" + q);
+      estado.puntosVivo = r.datos.filter((p) => p.gravedad >= estado.filtros.gravedad);
+    } else {
+      q.set("limite", "100");
+      if (estado.filtros.gravedad > 1) q.set("gravedad_minima", String(estado.filtros.gravedad));
+      const r = await api("/puntos?" + q);
+      estado.puntosVivo = r.datos;
+    }
+    estado.errorVivo = null;
+  } catch (e) {
+    estado.puntosVivo = [];
+    estado.errorVivo = e.message === "Failed to fetch"
+      ? "No se pudo conectar. Si abriste el prototipo desde un archivo o desde esta vista publicada, el navegador bloquea la llamada: sírvelo en http://localhost:5173 y agrega ese origen a CORS_ORIGENES en Render."
+      : e.message;
+  }
+}
+async function detallePunto(id) {
+  if (estado.fuente === "vivo") return api("/puntos/" + encodeURIComponent(id));
+  const p = demo.puntos.find((x) => x.id === id);
+  return Object.assign({}, p, { acciones: demo.acciones.filter((a) => a.punto_id === id).map(({ id, tipo, nombre, descripcion, enlace }) => ({ id, tipo, nombre, descripcion, enlace })) });
+}
+
+function vistaMapa(raiz) {
+  raiz.className = "view full";
+  const panel = h("aside", { class: "panel", "aria-label": "Puntos" });
+  const mapaEl = h("div", { class: "mapa", id: "mapa-principal" });
+  const leyenda = h("div", { class: "leyenda", "aria-hidden": "true" },
+    h("span", { class: "label" }, "Gravedad"),
+    h("div", { class: "esc" }, [1, 2, 3, 4, 5].map((g) => h("span", { style: `background: var(--sev-${g})` }, g))));
+  raiz.replaceChildren(h("div", { class: "mapa-layout" }, panel, h("div", { class: "mapa-wrap" }, mapaEl, leyenda)));
+
+  mapa = crearMapa(mapaEl);
+  if (mapa) {
+    capaPuntos = L.layerGroup().addTo(mapa);
+    capaCerca = L.layerGroup().addTo(mapa);
+    setTimeout(() => { if (mapa) mapa.invalidateSize(); }, 50);
+  }
+  pintarPanel(panel);
+  refrescarPuntos(panel);
+}
+async function refrescarPuntos(panel) {
+  if (estado.fuente === "vivo") {
+    const lista = panel.querySelector("#lista-puntos");
+    if (lista) lista.replaceChildren(h("li", { class: "vacio" }, "Cargando puntos…"));
+    await cargarPuntosVivo();
+  }
+  if (estado.vista !== "mapa") return;
+  pintarMarcadores();
+  pintarLista(panel);
+}
+function pintarMarcadores() {
+  if (!mapa) return;
+  capaPuntos.clearLayers(); capaCerca.clearLayers(); marcadores.clear();
+  for (const p of puntosVisibles()) {
+    const sel = estado.seleccionado === p.id;
+    const m = L.circleMarker([p.ubicacion.lat, p.ubicacion.lng], {
+      radius: 6 + p.gravedad * 1.6, color: sel ? sevColor(5) : "#ffffff", weight: sel ? 3 : 2,
+      fillColor: sevColor(p.gravedad), fillOpacity: .9,
+    }).addTo(capaPuntos);
+    m.bindTooltip(p.titulo, { className: "etq", direction: "top", offset: [0, -8] });
+    m.on("click", () => seleccionar(p.id));
+    marcadores.set(p.id, m);
+  }
+  if (estado.cerca) {
+    const c = estado.cerca, color = getComputedStyle(document.documentElement).getPropertyValue("--accent").trim();
+    L.circle([c.lat, c.lng], { radius: c.radio, color, weight: 1.5, dashArray: "5 5", fillColor: color, fillOpacity: .06, interactive: false }).addTo(capaCerca);
+    L.circleMarker([c.lat, c.lng], { radius: 4, color, fillColor: color, fillOpacity: 1, interactive: false }).addTo(capaCerca);
+  }
+}
+function pintarPanel(panel) {
+  if (estado.seleccionado) { pintarDetalle(panel); return; }
+  const tipoSel = h("select", { id: "f-tipo", onchange: (e) => { estado.filtros.tipo = e.target.value; refrescarPuntos(panel); } },
+    h("option", { value: "" }, "Todos los tipos"),
+    Object.entries(TIPOS).map(([k, v]) => h("option", { value: k, selected: estado.filtros.tipo === k }, v)));
+  const seg = h("div", { class: "seg", role: "group", "aria-label": "Gravedad mínima" },
+    [1, 2, 3, 4, 5].map((g) => h("button", { type: "button", "aria-pressed": String(estado.filtros.gravedad === g),
+      onclick: () => { estado.filtros.gravedad = g; pintarPanel(panel); refrescarPuntos(panel); } }, `${g}+`)));
+  const radioActual = estado.cerca ? estado.cerca.radio : 3000;
+  const radio = h("input", { type: "range", id: "f-radio", min: "1000", max: "20000", step: "1000", value: String(radioActual), class: "inp", style: "padding: 0" });
+  const radioTxt = h("span", { class: "mono" }, `${(radioActual / 1000).toFixed(0)} km`);
+  radio.addEventListener("input", () => { radioTxt.textContent = `${(Number(radio.value) / 1000).toFixed(0)} km`; });
+  const buscar = h("button", { class: "btn", type: "button", onclick: () => {
+    const c = mapa ? mapa.getCenter() : { lat: CENTRO[0], lng: CENTRO[1] };
+    estado.cerca = { lat: c.lat, lng: c.lng, radio: Number(radio.value) };
+    pintarPanel(panel); refrescarPuntos(panel);
+  } }, "Buscar cerca del centro del mapa");
+  const quitar = estado.cerca ? h("button", { class: "btn ghost", type: "button", onclick: () => { estado.cerca = null; pintarPanel(panel); refrescarPuntos(panel); } }, "Quitar") : null;
+
+  panel.replaceChildren(
+    h("div", { class: "panel-sec" },
+      h("div", { class: "field" }, h("label", { class: "label", for: "f-tipo" }, "Tipo de problema"), tipoSel),
+      h("div", { class: "field" }, h("span", { class: "label" }, "Gravedad mínima"), seg)),
+    h("div", { class: "panel-sec" },
+      h("div", { class: "row", style: "justify-content: space-between" }, h("label", { class: "label", for: "f-radio" }, "Radio de búsqueda"), radioTxt),
+      radio,
+      h("div", { class: "row" }, buscar, quitar),
+      estado.cerca ? h("p", { class: "hint" }, "Centro: ", h("span", { class: "mono" }, coord(estado.cerca))) : h("p", { class: "hint" }, "Mueve el mapa y busca los puntos dentro del radio (PostGIS en el backend).")),
+    h("div", { style: "min-height: 0" },
+      h("div", { class: "panel-sec", style: "padding-block: 12px; border-bottom: 1px solid var(--line)" }, h("span", { class: "label", id: "conteo" }, "Puntos")),
+      h("ul", { class: "lista", id: "lista-puntos" })));
+  pintarLista(panel);
+}
+function pintarLista(panel) {
+  const ul = panel.querySelector("#lista-puntos");
+  if (!ul) return;
+  const lista = puntosVisibles();
+  const conteo = panel.querySelector("#conteo");
+  if (conteo) conteo.textContent = `${lista.length} ${lista.length === 1 ? "punto publicado" : "puntos publicados"}${estado.cerca ? " en el radio" : ""}`;
+  if (estado.fuente === "vivo" && estado.errorVivo) { ul.replaceChildren(h("li", { class: "vacio err" }, estado.errorVivo)); return; }
+  if (!lista.length) { ul.replaceChildren(h("li", { class: "vacio" }, "Ningún punto cumple los filtros. Baja la gravedad mínima o amplía el radio.")); return; }
+  ul.replaceChildren(...lista.map((p) => h("li", null,
+    h("button", { class: "item", type: "button", "aria-selected": String(estado.seleccionado === p.id), onclick: () => seleccionar(p.id),
+      onmouseenter: () => { const m = marcadores.get(p.id); if (m) m.openTooltip(); }, onmouseleave: () => { const m = marcadores.get(p.id); if (m) m.closeTooltip(); } },
+      h("span", { class: "stripe", style: `background: var(--sev-${p.gravedad})` }),
+      h("span", null, h("h3", null, p.titulo),
+        h("span", { class: "meta" }, h("span", { class: "chip" }, TIPOS[p.tipo] || p.tipo), sevBadge(p.gravedad),
+          p.distancia_metros !== undefined ? h("span", { class: "mono" }, `${(p.distancia_metros / 1000).toFixed(1)} km`) : p.creado_en ? h("span", null, fecha(p.creado_en)) : null))))));
+}
+async function seleccionar(id) {
+  estado.seleccionado = id;
+  const panel = document.querySelector(".panel");
+  pintarMarcadores();
+  const p = puntosVisibles().find((x) => x.id === id);
+  if (p && mapa) mapa.flyTo([p.ubicacion.lat, p.ubicacion.lng], Math.max(mapa.getZoom(), 14), { duration: .6 });
+  if (panel) pintarPanel(panel);
+}
+async function pintarDetalle(panel) {
+  const volver = h("button", { class: "btn ghost", type: "button", onclick: () => { estado.seleccionado = null; pintarMarcadores(); pintarPanel(panel); } }, "← Volver a la lista");
+  panel.replaceChildren(h("div", { class: "panel-sec" }, volver, h("p", { class: "muted" }, "Cargando…")));
+  let p;
+  try { p = await detallePunto(estado.seleccionado); }
+  catch (e) { panel.replaceChildren(h("div", { class: "panel-sec" }, volver, h("p", { class: "err" }, "No se pudo cargar el punto: " + e.message))); return; }
+  if (!p) { estado.seleccionado = null; pintarPanel(panel); return; }
+  const generales = estado.fuente === "demo" ? demo.acciones.filter((a) => a.punto_id === null) : [];
+  panel.replaceChildren(h("div", { class: "panel-sec detalle" },
+    volver,
+    h("div", { class: "row" }, h("span", { class: "chip" }, TIPOS[p.tipo] || p.tipo), sevBadge(p.gravedad)),
+    h("h2", null, p.titulo),
+    h("p", null, p.descripcion),
+    h("dl", { class: "kv" },
+      h("dt", null, "Ubicación"), h("dd", { class: "mono" }, coord(p.ubicacion)),
+      h("dt", null, "Publicado"), h("dd", null, fecha(p.creado_en)),
+      h("dt", null, "Actualizado"), h("dd", null, fecha(p.actualizado_en)))),
+    h("div", { class: "panel-sec" },
+      h("h3", null, "Cómo ayudar"),
+      p.acciones.length ? p.acciones.map(tarjetaAccion) : h("p", { class: "hint" }, "Este punto todavía no tiene acciones propias."),
+      generales.length ? [h("span", { class: "label" }, "Acciones generales"), generales.map(tarjetaAccion)] : null,
+      puede("reportar")
+        ? h("a", { class: "btn", href: "#reportar", onclick: () => { estado.reportePunto = p; } }, "Aportar información sobre este punto")
+        : h("p", { class: "hint" }, "Inicia sesión para aportar información sobre este punto.")));
+}
+function tarjetaAccion(a) {
+  return h("div", { class: "accion" },
+    h("span", { class: "tipo" }, TIPOS_ACCION[a.tipo] || a.tipo),
+    h("strong", null, a.nombre),
+    a.descripcion ? h("span", { class: "small muted" }, a.descripcion) : null,
+    a.organizacion ? h("span", { class: "small" }, a.organizacion.nombre) : null,
+    a.enlace ? h("a", { href: a.enlace, target: "_blank", rel: "noopener noreferrer", class: "small" }, a.enlace.replace(/^https:\/\//, "")) : null);
+}
+
+/* ---------- Pantalla de acceso restringido (refleja 401 / 403 del backend) ---------- */
+function vistaBloqueo(raiz, vista) {
+  raiz.className = "view gutter";
+  const sinSesion = estado.rol === "visitante";
+  const v = VISTAS.find((x) => x.id === vista);
+  const codigo = sinSesion
+    ? `${RUTA_API[vista]}\n→ 401 { "error": { "codigo": "NO_AUTENTICADO" } }`
+    : `${RUTA_API[vista]}\n→ 403 { "error": { "codigo": "PROHIBIDO" } }`;
+  raiz.replaceChildren(h("div", { class: "bloqueo" },
+    h("span", { class: "label" }, sinSesion ? "Requiere iniciar sesión" : "Tu rol no tiene acceso"),
+    h("h2", null, sinSesion ? `Inicia sesión para entrar a ${v.nombre}` : `${v.nombre} es solo para ${v.roles.filter((r) => r !== "ciudadano").map((r) => ROLES[r].toLowerCase()).join(" y ")}`),
+    h("p", { class: "muted" }, sinSesion
+      ? "En la versión final aquí aparece el inicio de sesión de Supabase. En el prototipo, elige un rol en «Ver como» arriba a la derecha."
+      : "El backend responde igual que esta pantalla: la matriz de permisos se prueba en cada push."),
+    h("div", { class: "codigo" }, codigo)));
+}
+
+/* ---------- Reportar ---------- */
+let miniMapa = null, miniMarcador = null;
+function vistaReportar(raiz) {
+  raiz.className = "view gutter";
+  const ref = estado.reportePunto || null;
+  estado.reportePunto = null;
+  const form = h("form", { class: "card", novalidate: true });
+  const tipo = h("select", { id: "r-tipo", required: true }, h("option", { value: "" }, "Elige un tipo"),
+    Object.entries(TIPOS).map(([k, v]) => h("option", { value: k, selected: ref && ref.tipo === k }, v)));
+  const desc = h("textarea", { id: "r-desc", maxlength: "2000", placeholder: "Qué viste, desde cuándo y cualquier detalle útil. No escribas teléfonos ni correos." });
+  const cuenta = h("span", { class: "hint mono" }, "0 / 2000");
+  desc.addEventListener("input", () => { cuenta.textContent = `${desc.value.trim().length} / 2000`; });
+  let grav = null;
+  const segG = h("div", { class: "seg", role: "group", "aria-label": "Gravedad sugerida" },
+    [1, 2, 3, 4, 5].map((g) => h("button", { type: "button", "aria-pressed": "false", title: GRAVEDAD[g], onclick: (e) => {
+      grav = grav === g ? null : g;
+      segG.querySelectorAll("button").forEach((b, i) => b.setAttribute("aria-pressed", String(grav === i + 1)));
+    } }, String(g))));
+  let ubic = ref ? { lat: ref.ubicacion.lat, lng: ref.ubicacion.lng } : null;
+  const ubicTxt = h("span", { class: "mono" }, ubic ? coord(ubic) : "Haz clic en el mapa para marcar el lugar");
+  const foto = h("input", { type: "file", id: "r-foto", accept: "image/jpeg,image/png,image/webp" });
+  const prev = h("div", { class: "foto-prev" });
+  foto.addEventListener("change", () => {
+    prev.replaceChildren();
+    const f = foto.files[0];
+    if (!f) return;
+    if (!["image/jpeg", "image/png", "image/webp"].includes(f.type)) { prev.append(h("span", { class: "err" }, "Solo JPG, PNG o WebP.")); foto.value = ""; return; }
+    if (f.size > 8 * 1024 * 1024) { prev.append(h("span", { class: "err" }, "La foto pesa más de 8 MB.")); foto.value = ""; return; }
+    const url = URL.createObjectURL(f);
+    prev.append(h("img", { src: url, alt: "Vista previa de la foto" }), h("span", { class: "hint" }, `${f.name} · ${(f.size / 1024 / 1024).toFixed(1)} MB`));
+  });
+  const errores = h("div", { class: "err", role: "alert" });
+
+  form.append(...[
+    h("h3", null, "Datos del reporte"),
+    ref ? h("p", { class: "hint" }, "Aporte sobre el punto: ", h("strong", null, ref.titulo)) : null,
+    h("div", { class: "field" }, h("label", { class: "label", for: "r-tipo" }, "Tipo de problema"), tipo),
+    h("div", { class: "field" }, h("div", { class: "row", style: "justify-content: space-between" }, h("label", { class: "label", for: "r-desc" }, "Descripción"), cuenta), desc,
+      h("span", { class: "hint" }, "Entre 10 y 2000 caracteres. El texto público pasa por un filtro que quita datos personales.")),
+    h("div", { class: "field" }, h("span", { class: "label" }, "Gravedad sugerida (opcional)"), segG, h("span", { class: "hint" }, "1 es muy baja y 5 muy alta. La decide al final quien modera.")),
+    h("div", { class: "field" }, h("span", { class: "label" }, "Ubicación"), ubicTxt),
+    h("div", { class: "field" }, h("label", { class: "label", for: "r-foto" }, "Foto de evidencia (opcional)"), foto, prev,
+      h("span", { class: "hint" }, "JPG, PNG o WebP de hasta 8 MB. El servidor quita la ubicación GPS y los datos de la cámara, y la reduce a 1600 px.")),
+    errores,
+    h("div", { class: "row" }, h("button", { class: "btn primary", type: "submit" }, "Enviar reporte"), h("span", { class: "hint" }, "Queda pendiente hasta que un moderador lo revise."))].filter(Boolean));
+
+  form.addEventListener("submit", (e) => {
+    e.preventDefault();
+    const fallos = [];
+    if (!tipo.value) fallos.push("Elige el tipo de problema.");
+    const d = desc.value.trim();
+    if (d.length < 10) fallos.push("La descripción debe tener al menos 10 caracteres.");
+    if (d.length > 2000) fallos.push("La descripción no puede pasar de 2000 caracteres.");
+    if (!ubic) fallos.push("Marca la ubicación en el mapa.");
+    errores.replaceChildren(...fallos.map((f) => h("div", null, f)));
+    if (fallos.length) return;
+    const nuevo = { id: "a-" + uid().slice(0, 8), autor_id: usuarioActual().id, punto_id: ref ? ref.id : null, tipo: tipo.value, gravedad_sugerida: grav,
+      descripcion: d, ubicacion: ubic, estado: "pendiente", motivo_revision: null, foto: !!foto.files[0], creado_en: new Date().toISOString() };
+    demo.aportes.unshift(nuevo);
+    auditar("aportes", "insertar", nuevo.id);
+    toast("Reporte enviado. Queda pendiente de revisión.");
+    location.hash = "#mis-aportes";
+  });
+
+  const mapaEl = h("div", { class: "mapa" });
+  raiz.replaceChildren(h("div", { class: "wrap" },
+    h("div", { class: "view-head" }, h("div", null, h("h2", null, "Reportar un problema ambiental"),
+      h("p", null, "Tu reporte llega a moderación antes de aparecer en el mapa. En el backend corresponde a POST /aportes y, si hay foto, a POST /aportes/:id/evidencia."))),
+    h("div", { class: "grid-2" }, form,
+      h("div", { class: "card" }, h("h3", null, "¿Dónde está?"), h("div", { class: "minimapa" }, mapaEl),
+        h("p", { class: "hint" }, "Haz clic para marcar el lugar. Puedes moverlo después arrastrando el marcador.")))));
+
+  miniMapa = crearMapa(mapaEl);
+  if (miniMapa) {
+    const poner = (latlng) => {
+      ubic = { lat: Math.round(latlng.lat * 1e6) / 1e6, lng: Math.round(latlng.lng * 1e6) / 1e6 };
+      ubicTxt.textContent = coord(ubic);
+      if (miniMarcador) miniMarcador.setLatLng(latlng);
+      else {
+        miniMarcador = L.marker(latlng, { draggable: true, icon: L.divIcon({ className: "", html: `<svg width="26" height="34" viewBox="0 0 26 34"><path d="M13 1C6.4 1 1 6.2 1 12.7 1 21.4 13 33 13 33s12-11.6 12-20.3C25 6.2 19.6 1 13 1Z" fill="${getComputedStyle(document.documentElement).getPropertyValue("--accent").trim()}" stroke="#fff" stroke-width="2"/><circle cx="13" cy="13" r="4.5" fill="#fff"/></svg>`, iconSize: [26, 34], iconAnchor: [13, 33] }) }).addTo(miniMapa);
+        miniMarcador.on("dragend", () => poner(miniMarcador.getLatLng()));
+      }
+    };
+    miniMarcador = null;
+    miniMapa.on("click", (e) => poner(e.latlng));
+    if (ubic) { poner(L.latLng(ubic.lat, ubic.lng)); miniMapa.setView([ubic.lat, ubic.lng], 15); }
+    setTimeout(() => { if (miniMapa) miniMapa.invalidateSize(); }, 50);
+  }
+}
+
+/* ---------- Mis aportes ---------- */
+function vistaMisAportes(raiz) {
+  raiz.className = "view gutter";
+  const yo = usuarioActual();
+  const mios = demo.aportes.filter((a) => a.autor_id === yo.id);
+  const cuerpo = mios.length
+    ? h("div", { class: "tabla-wrap" }, h("table", null,
+        h("thead", null, h("tr", null, ["Fecha", "Tipo", "Descripción", "Estado", "Foto"].map((t) => h("th", null, t)))),
+        h("tbody", null, mios.map((a) => h("tr", null,
+          h("td", { class: "num", style: "white-space: nowrap" }, fecha(a.creado_en)),
+          h("td", null, TIPOS[a.tipo]),
+          h("td", { style: "min-width: 220px" }, a.descripcion, a.motivo_revision ? h("div", { class: "hint", style: "margin-top: 4px" }, "Motivo: " + a.motivo_revision) : null),
+          h("td", null, h("span", { class: "estado " + a.estado }, a.estado)),
+          h("td", { class: "small muted" }, a.foto ? "Sí (enlace de 10 min)" : "No"))))))
+    : h("div", { class: "card" }, h("p", null, "Todavía no has enviado reportes."), h("a", { class: "btn primary", href: "#reportar" }, "Reportar un problema"));
+  raiz.replaceChildren(h("div", { class: "wrap" },
+    h("div", { class: "view-head" }, h("div", null, h("h2", null, "Mis aportes"),
+      h("p", null, `Sesión simulada: ${yo.nombre}. Solo ves tus propios aportes; la base lo garantiza con RLS.`)),
+      h("a", { class: "btn primary", href: "#reportar" }, "Nuevo reporte")),
+    cuerpo));
+}
+
+/* ---------- Moderación ---------- */
+function vistaModeracion(raiz) {
+  raiz.className = "view gutter";
+  const yo = usuarioActual();
+  const estados = ["pendiente", "aprobado", "rechazado", "duplicado"];
+  const lista = demo.aportes.filter((a) => a.estado === estado.modTab);
+  const cola = h("div", { class: "cola" });
+  if (!lista.length) cola.append(h("div", { class: "card" }, h("p", { class: "muted" }, estado.modTab === "pendiente" ? "No hay aportes pendientes. Buen trabajo." : `No hay aportes en estado ${estado.modTab}.`)));
+  for (const a of lista) cola.append(tarjetaModeracion(a, yo));
+  raiz.replaceChildren(h("div", { class: "wrap" },
+    h("div", { class: "view-head" }, h("div", null, h("h2", null, "Moderación"),
+      h("p", null, "Revisa cada aporte antes de publicarlo. Nadie puede revisar su propio aporte, y rechazar exige un motivo que verá quien lo envió."))),
+    h("div", { class: "subtabs", role: "group", "aria-label": "Estado" }, estados.map((s) => h("button", { type: "button", "aria-pressed": String(estado.modTab === s),
+      onclick: () => { estado.modTab = s; vistaModeracion(raiz); } }, `${s} (${demo.aportes.filter((a) => a.estado === s).length})`))),
+    cola));
+}
+function tarjetaModeracion(a, yo) {
+  const autor = USUARIOS.find((u) => u.id === a.autor_id);
+  const propio = a.autor_id === yo.id;
+  const card = h("article", { class: "card" },
+    h("div", { class: "row", style: "justify-content: space-between" },
+      h("div", { class: "row" }, h("span", { class: "chip" }, TIPOS[a.tipo]), a.gravedad_sugerida ? sevBadge(a.gravedad_sugerida) : h("span", { class: "hint" }, "sin gravedad sugerida")),
+      h("span", { class: "estado " + a.estado }, a.estado)),
+    h("p", null, a.descripcion),
+    h("dl", { class: "kv" },
+      h("dt", null, "Autor"), h("dd", null, autor ? autor.nombre : "—"),
+      h("dt", null, "Enviado"), h("dd", null, fechaHora(a.creado_en)),
+      h("dt", null, "Ubicación"), h("dd", { class: "mono" }, coord(a.ubicacion)),
+      h("dt", null, "Foto"), h("dd", null, a.foto ? "Sí, se ve con un enlace temporal de 10 minutos" : "No"),
+      a.motivo_revision ? [h("dt", null, "Motivo"), h("dd", null, a.motivo_revision)] : null));
+  if (a.estado !== "pendiente") return card;
+  if (propio) { card.append(h("p", { class: "hint" }, "Este aporte es tuyo: otra persona debe revisarlo.")); return card; }
+
+  const titulo = h("input", { type: "text", class: "inp", id: "t-" + a.id, maxlength: "120", value: tituloSugerido(a) });
+  let grav = a.gravedad_sugerida || 3;
+  const segG = h("div", { class: "seg", role: "group", "aria-label": "Gravedad final" },
+    [1, 2, 3, 4, 5].map((g) => h("button", { type: "button", "aria-pressed": String(grav === g), onclick: () => {
+      grav = g; segG.querySelectorAll("button").forEach((b, i) => b.setAttribute("aria-pressed", String(grav === i + 1)));
+    } }, String(g))));
+  const motivo = h("input", { type: "text", class: "inp", id: "m-" + a.id, maxlength: "500", placeholder: "Obligatorio para rechazar" });
+  const dup = h("select", { class: "inp", id: "d-" + a.id }, h("option", { value: "" }, "Elige el punto existente"),
+    demo.puntos.map((p) => h("option", { value: p.id }, p.titulo)));
+  const err = h("div", { class: "err", role: "alert" });
+  const decidir = (decision) => {
+    err.textContent = "";
+    if (decision === "aprobado" && titulo.value.trim().length < 3) { err.textContent = "El título necesita al menos 3 caracteres."; return; }
+    if (decision === "rechazado" && motivo.value.trim().length < 3) { err.textContent = "Escribe el motivo del rechazo (mínimo 3 caracteres)."; motivo.focus(); return; }
+    if (decision === "duplicado" && !dup.value) { err.textContent = "Elige de qué punto es duplicado."; return; }
+    a.estado = decision;
+    a.motivo_revision = motivo.value.trim() || null;
+    if (decision === "duplicado") a.punto_id = dup.value;
+    if (decision === "aprobado") {
+      const p = { id: "p-" + uid().slice(0, 8), titulo: titulo.value.trim(), tipo: a.tipo, gravedad: grav, descripcion: a.descripcion, ubicacion: a.ubicacion,
+        creado_en: new Date().toISOString(), actualizado_en: new Date().toISOString() };
+      demo.puntos.push(p); a.punto_id = p.id;
+      auditar("puntos", "insertar", p.id);
+    }
+    auditar("aportes", "revisar", a.id);
+    toast(decision === "aprobado" ? "Aporte aprobado y publicado en el mapa." : decision === "rechazado" ? "Aporte rechazado. Quien lo envió verá el motivo." : "Aporte marcado como duplicado.");
+    vistaModeracion(document.getElementById("main"));
+  };
+  card.append(h("div", { class: "decision" },
+    h("div", { class: "field" }, h("label", { class: "label", for: "t-" + a.id }, "Título público"), titulo),
+    h("div", { class: "field" }, h("span", { class: "label" }, "Gravedad final"), segG),
+    h("div", { class: "field" }, h("label", { class: "label", for: "m-" + a.id }, "Motivo de revisión"), motivo),
+    h("div", { class: "field" }, h("label", { class: "label", for: "d-" + a.id }, "Duplicado de"), dup),
+    err,
+    h("div", { class: "row" },
+      h("button", { class: "btn primary", type: "button", onclick: () => decidir("aprobado") }, "Aprobar y publicar"),
+      h("button", { class: "btn danger", type: "button", onclick: () => decidir("rechazado") }, "Rechazar"),
+      h("button", { class: "btn", type: "button", onclick: () => decidir("duplicado") }, "Marcar duplicado"))));
+  return card;
+}
+function tituloSugerido(a) {
+  const base = TIPOS[a.tipo];
+  return a.descripcion.length > 50 ? `${base}: ${a.descripcion.slice(0, 50).trim()}…` : `${base}: ${a.descripcion}`;
+}
+
+/* ---------- Administración ---------- */
+function vistaAdministracion(raiz) {
+  raiz.className = "view gutter";
+  const esAdmin = estado.rol === "administrador";
+  const tabs = [["catalogo", "Catálogo", true], ["usuarios", "Usuarios y roles", esAdmin], ["auditoria", "Auditoría", esAdmin]];
+  if (!esAdmin && estado.adminTab !== "catalogo") estado.adminTab = "catalogo";
+  const cont = h("div");
+  if (estado.adminTab === "catalogo") cont.append(panelCatalogo());
+  if (estado.adminTab === "usuarios") cont.append(panelUsuarios());
+  if (estado.adminTab === "auditoria") cont.append(panelAuditoria());
+  raiz.replaceChildren(h("div", { class: "wrap" },
+    h("div", { class: "view-head" }, h("div", null, h("h2", null, "Administración"),
+      h("p", null, esAdmin ? "Catálogo de acciones y organizaciones, roles de usuario y registro de auditoría." : "Con el rol de editor administras el catálogo de acciones y organizaciones. Usuarios y auditoría son solo para administración."))),
+    h("div", { class: "subtabs", role: "group", "aria-label": "Apartado" }, tabs.map(([id, nombre, ok]) => h("button", { type: "button", "aria-pressed": String(estado.adminTab === id), disabled: !ok,
+      title: ok ? null : "Solo administración", onclick: () => { estado.adminTab = id; vistaAdministracion(raiz); } }, ok ? nombre : [candado(), " ", nombre]))),
+    cont));
+}
+function panelCatalogo() {
+  const fA = h("form", { class: "card", novalidate: true });
+  const tipo = h("select", { id: "c-tipo" }, Object.entries(TIPOS_ACCION).map(([k, v]) => h("option", { value: k }, v)));
+  const nombre = h("input", { type: "text", id: "c-nombre", maxlength: "120" });
+  const enlace = h("input", { type: "url", id: "c-enlace", placeholder: "https://" });
+  const org = h("select", { id: "c-org" }, h("option", { value: "" }, "Sin organización"), demo.organizaciones.map((o) => h("option", { value: o.id }, o.nombre)));
+  const punto = h("select", { id: "c-punto" }, h("option", { value: "" }, "Acción general (sin punto)"), demo.puntos.map((p) => h("option", { value: p.id }, p.titulo)));
+  const errA = h("div", { class: "err", role: "alert" });
+  fA.append(h("h3", null, "Nueva acción"),
+    h("div", { class: "field" }, h("label", { class: "label", for: "c-tipo" }, "Tipo"), tipo),
+    h("div", { class: "field" }, h("label", { class: "label", for: "c-nombre" }, "Nombre"), nombre),
+    h("div", { class: "field" }, h("label", { class: "label", for: "c-enlace" }, "Enlace (opcional)"), enlace, h("span", { class: "hint" }, "Solo enlaces https, para no exponer a nadie a un sitio inseguro.")),
+    h("div", { class: "field" }, h("label", { class: "label", for: "c-org" }, "Organización"), org),
+    h("div", { class: "field" }, h("label", { class: "label", for: "c-punto" }, "Punto"), punto),
+    errA, h("div", null, h("button", { class: "btn primary", type: "submit" }, "Crear acción")));
+  fA.addEventListener("submit", (e) => {
+    e.preventDefault(); errA.textContent = "";
+    if (nombre.value.trim().length < 3) { errA.textContent = "El nombre necesita al menos 3 caracteres."; return; }
+    if (enlace.value.trim() && !/^https:\/\/\S+$/.test(enlace.value.trim())) { errA.textContent = "El enlace debe empezar con https://"; return; }
+    const o = demo.organizaciones.find((x) => x.id === org.value);
+    const a = { id: "x-" + uid().slice(0, 8), tipo: tipo.value, nombre: nombre.value.trim(), descripcion: null, enlace: enlace.value.trim() || null,
+      punto_id: punto.value || null, organizacion: o ? { id: o.id, nombre: o.nombre } : null };
+    demo.acciones.push(a); auditar("acciones", "insertar", a.id);
+    toast("Acción creada. Ya aparece en «Cómo ayudar»."); vistaAdministracion(document.getElementById("main"));
+  });
+
+  const fO = h("form", { class: "card", novalidate: true });
+  const oNombre = h("input", { type: "text", id: "o-nombre", maxlength: "120" });
+  const oZona = h("input", { type: "text", id: "o-zona", maxlength: "120" });
+  const errO = h("div", { class: "err", role: "alert" });
+  fO.append(h("h3", null, "Nueva organización"),
+    h("div", { class: "field" }, h("label", { class: "label", for: "o-nombre" }, "Nombre"), oNombre),
+    h("div", { class: "field" }, h("label", { class: "label", for: "o-zona" }, "Zona (opcional)"), oZona),
+    h("p", { class: "hint" }, "El contacto de la organización es interno y no se publica."),
+    errO, h("div", null, h("button", { class: "btn primary", type: "submit" }, "Crear organización")),
+    h("div", { class: "tabla-wrap" }, h("table", null, h("thead", null, h("tr", null, h("th", null, "Organización"), h("th", null, "Zona"))),
+      h("tbody", null, demo.organizaciones.map((o) => h("tr", null, h("td", null, o.nombre), h("td", null, o.zona || "—")))))));
+  fO.addEventListener("submit", (e) => {
+    e.preventDefault(); errO.textContent = "";
+    if (oNombre.value.trim().length < 3) { errO.textContent = "El nombre necesita al menos 3 caracteres."; return; }
+    const o = { id: "o-" + uid().slice(0, 8), nombre: oNombre.value.trim(), zona: oZona.value.trim() || null };
+    demo.organizaciones.push(o); auditar("organizaciones", "insertar", o.id);
+    toast("Organización creada."); vistaAdministracion(document.getElementById("main"));
+  });
+  return h("div", { class: "grid-2" }, fA, fO);
+}
+function panelUsuarios() {
+  const yo = usuarioActual();
+  return h("div", { class: "tabla-wrap" }, h("table", null,
+    h("thead", null, h("tr", null, h("th", null, "Usuario"), h("th", null, "Rol"), h("th", null, "Estado"))),
+    h("tbody", null, USUARIOS.map((u) => {
+      const propio = u.id === yo.id;
+      const sel = h("select", { class: "inp", "aria-label": "Rol de " + u.nombre, disabled: propio, style: "max-width: 200px",
+        onchange: (e) => { u.rol = e.target.value; auditar("perfiles", "cambiar_rol", u.id); toast(`Rol de ${u.nombre} cambiado a ${ROLES[u.rol].toLowerCase()}.`); } },
+        ["ciudadano", "moderador", "editor", "administrador"].map((r) => h("option", { value: r, selected: u.rol === r }, ROLES[r])));
+      return h("tr", null, h("td", null, u.nombre, propio ? h("div", { class: "hint" }, "No puedes cambiar tu propio rol.") : null), h("td", null, sel),
+        h("td", null, h("span", { class: "estado " + (u.activo ? "aprobado" : "rechazado") }, u.activo ? "activo" : "inactivo")));
+    }))));
+}
+function panelAuditoria() {
+  return h("div", { class: "tabla-wrap" }, h("table", null,
+    h("thead", null, h("tr", null, ["Fecha", "Tabla", "Acción", "Usuario", "Registro"].map((t) => h("th", null, t)))),
+    h("tbody", null, demo.auditoria.map((r) => h("tr", null,
+      h("td", { class: "num", style: "white-space: nowrap" }, fechaHora(r.creado_en)), h("td", { class: "mono" }, r.tabla), h("td", { class: "mono" }, r.accion),
+      h("td", null, r.usuario), h("td", { class: "mono" }, r.registro))))));
+}
+
+/* ---------- Asistente ---------- */
+function vistaAsistente(raiz) {
+  raiz.className = "view gutter";
+  const mensajes = h("div", { class: "mensajes", "aria-live": "polite" });
+  const pintarMensajes = () => {
+    mensajes.replaceChildren(...estado.chat.map((m) => m.de === "yo"
+      ? h("div", { class: "msg yo" }, m.texto)
+      : h("div", { class: "msg ia" + (m.error ? " err" : "") }, m.error ? m.texto : markdownSeguro(m.texto),
+          m.error ? null : h("div", { class: "pie" }, h("span", null, "Modelo: ", h("span", { class: "mono" }, m.modelo), m.demo ? " · respuesta de ejemplo" : ""), h("span", null, m.aviso)))));
+  };
+  const txt = h("textarea", { id: "a-pregunta", maxlength: "1000", placeholder: "Pregunta sobre un problema ambiental, cómo reportarlo o cómo ayudar" });
+  const cuenta = h("span", { class: "hint mono" }, "0 / 1000");
+  txt.addEventListener("input", () => { cuenta.textContent = `${txt.value.trim().length} / 1000`; });
+  const enviar = h("button", { class: "btn primary", type: "submit" }, "Preguntar");
+  const form = h("form", { class: "composer" }, h("div", { class: "row" }, txt, enviar), h("div", { class: "row", style: "justify-content: space-between" },
+    h("span", { class: "hint" }, "No escribas datos personales: el servidor quita correos y teléfonos antes de enviar la pregunta."), cuenta));
+  const preguntar = async (pregunta) => {
+    pregunta = pregunta.trim();
+    if (pregunta.length < 3) { toast("Escribe al menos 3 caracteres."); return; }
+    estado.chat.push({ de: "yo", texto: pregunta }); pintarMensajes();
+    txt.value = ""; cuenta.textContent = "0 / 1000"; enviar.disabled = true;
+    if (estado.fuente === "vivo") {
+      try {
+        const r = await api("/agente/consulta", { method: "POST", headers: { "Content-Type": "application/json", Accept: "application/json" }, body: JSON.stringify({ pregunta }) });
+        estado.chat.push({ de: "ia", texto: r.respuesta, modelo: r.modelo, aviso: r.aviso });
+      } catch (e) {
+        estado.chat.push({ de: "ia", error: true, texto: e.message === "Failed to fetch" ? "No se pudo conectar con la API. Revisa CORS_ORIGENES y que el servicio esté despierto." : "La API respondió con un error: " + e.message });
+      }
+    } else {
+      const r = RESPUESTAS_DEMO.find((x) => x.pregunta === pregunta);
+      await new Promise((ok) => setTimeout(ok, 500));
+      estado.chat.push(r ? { de: "ia", texto: r.respuesta, modelo: MODELO, aviso: AVISO_IA, demo: true }
+        : { de: "ia", texto: "En el modo de ejemplo solo hay respuestas preparadas para las preguntas sugeridas. Cambia «Datos» a **API en vivo** para preguntarle a Gemini de verdad.", modelo: "—", aviso: "Mensaje del prototipo, no de la IA.", demo: true });
+    }
+    enviar.disabled = false; pintarMensajes();
+    window.scrollTo({ top: document.body.scrollHeight, behavior: "smooth" });
+  };
+  form.addEventListener("submit", (e) => { e.preventDefault(); preguntar(txt.value); });
+  txt.addEventListener("keydown", (e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); preguntar(txt.value); } });
+  raiz.replaceChildren(h("div", { class: "chat" },
+    h("div", { class: "view-head" }, h("div", null, h("h2", null, "Asistente ambiental"),
+      h("p", null, "Responde dudas sobre problemas ambientales y cómo actuar. Usa Gemini desde el backend; la llave nunca llega al navegador."))),
+    h("div", { class: "sugerencias" }, RESPUESTAS_DEMO.map((r) => h("button", { type: "button", onclick: () => preguntar(r.pregunta) }, r.pregunta))),
+    mensajes, form));
+  pintarMensajes();
+}
+
+/* ---------- Enrutador ---------- */
+function mostrar() {
+  const id = (location.hash || "#mapa").slice(1);
+  estado.vista = VISTAS.some((v) => v.id === id) ? id : "mapa";
+  if (mapa) { mapa.remove(); mapa = null; }
+  if (miniMapa) { miniMapa.remove(); miniMapa = null; miniMarcador = null; }
+  const raiz = document.getElementById("main");
+  pintarTabs(); pintarBanner();
+  if (!puede(estado.vista)) vistaBloqueo(raiz, estado.vista);
+  else ({ mapa: vistaMapa, reportar: vistaReportar, "mis-aportes": vistaMisAportes, moderacion: vistaModeracion, administracion: vistaAdministracion, asistente: vistaAsistente })[estado.vista](raiz);
+  const hdr = document.getElementById("topbar").offsetHeight;
+  document.documentElement.style.setProperty("--hdr", hdr + "px");
+}
+
+function iniciar() {
+  const rolGuardado = leer("rol"), fuenteGuardada = leer("fuente");
+  if (rolGuardado && ROLES[rolGuardado]) estado.rol = rolGuardado;
+  if (fuenteGuardada === "vivo" || fuenteGuardada === "demo") estado.fuente = fuenteGuardada;
+  const selRol = document.getElementById("rol"), selFuente = document.getElementById("fuente");
+  selRol.value = estado.rol; selFuente.value = estado.fuente;
+  selRol.addEventListener("change", () => { estado.rol = selRol.value; guardar("rol", estado.rol); mostrar(); });
+  selFuente.addEventListener("change", () => { estado.fuente = selFuente.value; estado.seleccionado = null; estado.cerca = null; guardar("fuente", estado.fuente); revisarSalud(); mostrar(); });
+  window.addEventListener("hashchange", mostrar);
+  window.addEventListener("resize", () => { document.documentElement.style.setProperty("--hdr", document.getElementById("topbar").offsetHeight + "px"); });
+  revisarSalud();
+  mostrar();
+}
+iniciar();
+</script>
