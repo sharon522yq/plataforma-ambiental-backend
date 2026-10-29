@@ -20,7 +20,7 @@ Las reglas de validación son las mismas del backend (descripción de 10 a 2000 
 ## Dos modos de datos
 
 - **De ejemplo** (por defecto): no llama a ningún servidor. Los puntos `[PRUEBA]` son los de la migración `005`; los `[EJEMPLO]`, los aportes y los usuarios son inventados para la demo. El selector «Ver como» simula el rol que daría el inicio de sesión. Nada se guarda: al recargar vuelve al inicio.
-- **API en vivo**: el mapa, el detalle de cada punto y el asistente llaman a `https://plataforma-ambiental-backend.onrender.com/api/v1`. Cada pregunta al asistente usa cuota de Gemini. Las secciones con sesión siguen en modo de ejemplo, porque falta conectar el inicio de sesión de Supabase.
+- **API en vivo**: todo lee y escribe en `https://plataforma-ambiental-backend.onrender.com/api/v1`, con una sesión real de Supabase Auth (botón «Iniciar sesión» arriba a la derecha; también se puede crear una cuenta). El rol sale de `GET /sesion`. Lo que se envía queda en la base de producción y cada pregunta al asistente usa cuota de Gemini.
 
 ## Cómo abrirlo en tu PC
 
@@ -34,8 +34,15 @@ npx --yes serve -l 5173 prototipo
 
 y abre `http://localhost:5173`. El plan gratuito de Render puede tardar unos 50 segundos en despertar con la primera llamada.
 
+## Iniciar sesión de verdad
+
+1. Abre el prototipo en `http://localhost:5173` (ver arriba) y cambia «Datos» a **API en vivo**.
+2. Pulsa **Iniciar sesión → No tengo cuenta** y crea tu cuenta. Las cuentas nuevas empiezan como ciudadano.
+3. Si Supabase pide confirmar el correo, el enlace del correo te lleva a la *Site URL* del proyecto. Ponla en `http://localhost:5173` en Supabase → Authentication → URL Configuration, o desactiva «Confirm email» mientras dure el piloto.
+4. Para entrar como administrador, nombra tu cuenta desde el SQL Editor como explica el README del backend («Nombrar al primer administrador»). Después cambias los demás roles desde Administración → Usuarios y roles.
+
 ## Límites conocidos
 
 - La versión publicada en claude.ai no puede cargar el mapa base de OpenStreetMap ni llamar a la API (la página está aislada); allí se ve una cuadrícula de coordenadas reales y el modo de ejemplo.
-- No hay inicio de sesión real. Para el frontend definitivo hace falta la llave pública (*anon*) de Supabase en el navegador, que está pensada para eso y la protege RLS; es una decisión pendiente porque hoy la regla del proyecto es no poner llaves en el frontend.
+- El navegador recibe la llave pública *anon* de Supabase desde `GET /configuracion-publica` (D-39). Ninguna llave secreta llega al frontend.
 - Leaflet 1.9.4 se carga desde cdnjs; su hoja de estilos va copiada dentro del archivo (licencia BSD-2).

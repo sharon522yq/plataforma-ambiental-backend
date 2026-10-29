@@ -73,6 +73,7 @@ const protegidos: [Metodo, string, Rol[]][] = [
 
 const publicos: [Metodo, string][] = [
   ["get", "/api/v1/salud"],
+  ["get", "/api/v1/configuracion-publica"],
   ["get", "/api/v1/puntos"],
   ["get", "/api/v1/puntos/cercanos?lat=20.67&lng=-103.35"],
   ["get", `/api/v1/puntos/${ID}`],

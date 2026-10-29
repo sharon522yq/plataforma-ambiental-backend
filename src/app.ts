@@ -18,6 +18,7 @@ import { crearRutasAdministracion } from "./modulos/administracion/rutas.js";
 import { crearRegistroConversaciones, type RegistroConversaciones } from "./modulos/agente/conversaciones.js";
 import { crearGemini, type ModeloIA } from "./modulos/agente/gemini.js";
 import { crearRutasAgente } from "./modulos/agente/rutas.js";
+import { crearRutasConfiguracion } from "./modulos/configuracion/rutas.js";
 import { crearRutasAportes, type ClientePorUsuario } from "./modulos/aportes/rutas.js";
 import { crearRutasModeracion } from "./modulos/moderacion/rutas.js";
 import { crearRutasOrganizaciones } from "./modulos/organizaciones/rutas.js";
@@ -78,6 +79,10 @@ export function crearApp(entorno: Entorno, dependencias?: Dependencias) {
   api.use(
     "/salud",
     crearRutasSalud(publico, { ia, modelo: entorno.GEMINI_MODELO, soloAdministrador: [autenticar, autorizar("administrador")] }),
+  );
+  api.use(
+    "/configuracion-publica",
+    crearRutasConfiguracion({ supabaseUrl: entorno.SUPABASE_URL, supabaseAnonKey: entorno.SUPABASE_ANON_KEY }),
   );
   api.use("/sesion", crearRutasSesion(autenticar, autorizar));
   api.use("/puntos", crearRutasPuntos(publico));

@@ -53,6 +53,7 @@ Para probar un inicio de sesión real, crea un usuario de prueba en **Authentica
 - El token se verifica con `SUPABASE_JWT_SECRET` (HS256) o con las llaves públicas del proyecto (`/auth/v1/.well-known/jwks.json`, ES256/RS256), según cómo lo firme Supabase (D-16).
 - El rol se lee de `perfiles` en cada solicitud, nunca del token. Una cuenta desactivada o sin perfil recibe 403, igual que un rol insuficiente.
 - `GET /api/v1/sesion` devuelve `{ id, rol }` del usuario que inició sesión (D-19).
+- `GET /api/v1/configuracion-publica` devuelve `{ supabase_url, supabase_anon_key }` para que el navegador inicie sesión con Supabase Auth (D-39). Es pública y nunca incluye llaves secretas.
 
 ## Endpoints públicos
 
@@ -138,7 +139,7 @@ La respuesta es texto generado por IA: el frontend debe mostrarla como texto (no
 - **Cuerpos:** JSON de hasta 100 KB (413 si es más grande, 415 si el charset no es válido); fotos de hasta 8 MB.
 - **Errores:** siempre `{ error: { codigo, mensaje, detalles } }`. Un 500 nunca trae stack, rutas de archivos ni mensajes de la base.
 - **Registro:** cada respuesta lleva `X-Id-Solicitud`. El registro guarda id, método, ruta, código y duración; nunca cuerpos, tokens, correos ni teléfonos (D-35).
-- **Llaves:** la llave de servicio de Supabase y la de Gemini solo viven en el backend (`.env`, nunca en el repositorio ni en el frontend). La prueba `secretos.test.ts` falla si algún archivo trae una llave, un token o una contraseña.
+- **Llaves:** la llave de servicio de Supabase, el secreto JWT y la llave de Gemini solo viven en el backend (`.env`, nunca en el repositorio ni en el frontend). La única que llega al navegador es la llave pública *anon* de Supabase, que está hecha para eso y queda limitada por RLS (D-39). La prueba `secretos.test.ts` falla si algún archivo trae una llave, un token o una contraseña.
 - **Dependencias:** `npm audit` debe quedar limpio, salvo lo anotado en D-36 (zod 4 pendiente).
 
 ## Integración continua

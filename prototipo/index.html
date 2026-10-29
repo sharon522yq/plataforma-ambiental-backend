@@ -714,6 +714,7 @@ svg.leaflet-image-layer.leaflet-interactive path {
 }
 
 * { box-sizing: border-box; }
+[hidden] { display: none !important; }
 html, body { height: 100%; }
 body { background: var(--bg); color: var(--ink); font: 15px/1.5 var(--f-body); }
 body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 1000; background: var(--surface); }
@@ -879,7 +880,8 @@ td.num { font-variant-numeric: tabular-nums; }
           <option value="vivo">API en vivo</option>
         </select>
       </label>
-      <label class="control" for="rol">Ver como
+      <span class="controls" id="cuenta" hidden></span>
+      <label class="control" for="rol" id="ctl-rol">Ver como
         <select id="rol">
           <option value="visitante">Visitante (sin sesión)</option>
           <option value="ciudadano">Ciudadano</option>
@@ -898,6 +900,7 @@ td.num { font-variant-numeric: tabular-nums; }
 <div class="toast" id="toast" role="status" hidden></div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
 <script>
 "use strict";
 
@@ -1024,7 +1027,13 @@ const estado = {
   modTab: "pendiente",
   adminTab: "catalogo",
   saludVivo: null,
+  sb: null, // cliente de Supabase Auth (solo en vivo, con la llave anon: D-39)
+  sesion: null, // { id, rol, email } leída de GET /sesion
+  errorAuth: null,
 };
+const enVivo = () => estado.fuente === "vivo";
+function rolActual() { return enVivo() ? (estado.sesion ? estado.sesion.rol : "visitante") : estado.rol; }
+const corto = (id) => (id ? String(id).slice(0, 8) : "—");
 const guardar = (k, v) => { try { localStorage.setItem("pa-" + k, v); } catch (e) { /* sin almacenamiento */ } };
 const leer = (k) => { try { return localStorage.getItem("pa-" + k); } catch (e) { return null; } };
 
@@ -1071,7 +1080,7 @@ function auditar(tabla, accion, registro) {
 }
 function puede(vista) {
   const v = VISTAS.find((x) => x.id === vista);
-  return !v.roles || v.roles.includes(estado.rol);
+  return !v.roles || v.roles.includes(rolActual());
 }
 
 /* Markdown mínimo y seguro: negritas y listas, sin HTML (el backend devuelve Markdown). */
@@ -1093,15 +1102,145 @@ function markdownSeguro(texto) {
 }
 
 /* ---------- API en vivo ---------- */
-async function api(ruta, opciones) {
-  const r = await fetch(estado.api + ruta, Object.assign({ headers: { Accept: "application/json" } }, opciones));
+/* Llama a la API. Con sesión agrega el token de Supabase; `json` se envía como cuerpo JSON y `formulario` como multipart. */
+async function api(ruta, { metodo = "GET", json, formulario } = {}) {
+  const cabeceras = { Accept: "application/json" };
+  if (estado.sb) {
+    const { data } = await estado.sb.auth.getSession();
+    if (data && data.session) cabeceras.Authorization = "Bearer " + data.session.access_token;
+  }
+  let cuerpoEnvio;
+  if (json !== undefined) { cabeceras["Content-Type"] = "application/json"; cuerpoEnvio = JSON.stringify(json); }
+  if (formulario) cuerpoEnvio = formulario;
+  const r = await fetch(estado.api + ruta, { method: metodo, headers: cabeceras, body: cuerpoEnvio });
   let cuerpo = null;
   try { cuerpo = await r.json(); } catch (e) { /* sin cuerpo */ }
   if (!r.ok) {
-    const msg = cuerpo && cuerpo.error ? `${cuerpo.error.codigo}: ${cuerpo.error.mensaje}` : `HTTP ${r.status}`;
-    throw new Error(msg);
+    const detalles = cuerpo && cuerpo.error && Array.isArray(cuerpo.error.detalles) && cuerpo.error.detalles.length
+      ? " (" + cuerpo.error.detalles.map((d) => d.mensaje || d.message || JSON.stringify(d)).join("; ") + ")" : "";
+    const msg = cuerpo && cuerpo.error ? `${cuerpo.error.mensaje}${detalles}` : `HTTP ${r.status}`;
+    const error = new Error(msg);
+    error.estado = r.status;
+    error.codigo = cuerpo && cuerpo.error ? cuerpo.error.codigo : null;
+    throw error;
   }
   return cuerpo;
+}
+function mensajeError(e) {
+  return e.message === "Failed to fetch"
+    ? "No se pudo conectar con la API. Sirve el prototipo en http://localhost:5173 (debe estar en CORS_ORIGENES) y espera a que Render despierte."
+    : e.message;
+}
+
+/* ---------- Sesión real con Supabase Auth (solo en vivo) ---------- */
+async function prepararAuth() {
+  if (!enVivo() || estado.sb) return;
+  if (!window.supabase) { estado.errorAuth = "No se pudo cargar la biblioteca de Supabase. Revisa la conexión a internet."; return; }
+  try {
+    const conf = await api("/configuracion-publica");
+    estado.sb = window.supabase.createClient(conf.supabase_url, conf.supabase_anon_key);
+    estado.errorAuth = null;
+    estado.sb.auth.onAuthStateChange((evento) => {
+      if (evento === "SIGNED_IN" || evento === "SIGNED_OUT" || evento === "USER_UPDATED") setTimeout(actualizarSesion, 0);
+    });
+    await actualizarSesion();
+  } catch (e) {
+    estado.errorAuth = "No se pudo leer la configuración de la API: " + mensajeError(e);
+    pintarBanner();
+  }
+}
+async function actualizarSesion() {
+  if (!estado.sb) return;
+  const { data } = await estado.sb.auth.getSession();
+  const s = data && data.session;
+  if (!s) { estado.sesion = null; }
+  else {
+    try {
+      const yo = await api("/sesion");
+      estado.sesion = { id: yo.id, rol: yo.rol, email: s.user.email };
+      estado.errorAuth = null;
+    } catch (e) {
+      estado.sesion = null;
+      estado.errorAuth = e.estado === 403
+        ? "Tu cuenta existe pero no tiene un perfil activo. Pide a un administrador que la revise."
+        : "No se pudo leer tu sesión: " + mensajeError(e);
+    }
+  }
+  pintarCuenta();
+  mostrar();
+}
+function pintarCuenta() {
+  const cuenta = document.getElementById("cuenta"), ctlRol = document.getElementById("ctl-rol");
+  ctlRol.hidden = enVivo();
+  cuenta.hidden = !enVivo();
+  if (!enVivo()) return;
+  if (estado.sesion) {
+    cuenta.replaceChildren(
+      h("span", { class: "control" }, h("span", { class: "mono" }, estado.sesion.email), " · ", ROLES[estado.sesion.rol]),
+      h("button", { class: "btn ghost", type: "button", onclick: async () => { await estado.sb.auth.signOut(); toast("Sesión cerrada."); location.hash = "#mapa"; } }, "Salir"));
+  } else {
+    cuenta.replaceChildren(h("a", { class: "btn", href: "#cuenta" }, "Iniciar sesión"));
+  }
+}
+const ERRORES_AUTH = {
+  "Invalid login credentials": "Correo o contraseña incorrectos.",
+  "Email not confirmed": "Confirma tu correo antes de entrar: revisa tu bandeja de entrada.",
+  "User already registered": "Ya existe una cuenta con ese correo. Inicia sesión.",
+  "Password should be at least 6 characters.": "La contraseña necesita al menos 6 caracteres.",
+};
+function vistaCuenta(raiz) {
+  raiz.className = "view gutter";
+  const caja = h("div", { class: "bloqueo" });
+  raiz.replaceChildren(caja);
+  if (!enVivo()) {
+    caja.append(h("h2", null, "Iniciar sesión"), h("p", { class: "muted" }, "El inicio de sesión real funciona con «Datos: API en vivo». En el modo de ejemplo usa «Ver como» para cambiar de rol."));
+    return;
+  }
+  if (estado.errorAuth && !estado.sb) { caja.append(h("h2", null, "Iniciar sesión"), h("p", { class: "err" }, estado.errorAuth)); return; }
+  if (estado.sesion) {
+    caja.append(h("span", { class: "label" }, "Sesión iniciada"), h("h2", null, estado.sesion.email),
+      h("p", { class: "muted" }, "Rol: ", ROLES[estado.sesion.rol], ". El rol lo asigna un administrador; nadie puede cambiarse el suyo."),
+      h("div", { class: "row" }, h("a", { class: "btn primary", href: "#mapa" }, "Ir al mapa"),
+        h("button", { class: "btn", type: "button", onclick: async () => { await estado.sb.auth.signOut(); toast("Sesión cerrada."); } }, "Salir")));
+    return;
+  }
+  let modo = "entrar";
+  const pintar = () => {
+    const nombre = h("input", { type: "text", id: "c-nombre-u", class: "inp", maxlength: "80", autocomplete: "name" });
+    const correo = h("input", { type: "email", id: "c-correo", class: "inp", autocomplete: "email", required: true });
+    const clave = h("input", { type: "password", id: "c-clave", class: "inp", autocomplete: modo === "entrar" ? "current-password" : "new-password", minlength: "6", required: true });
+    const err = h("div", { class: "err", role: "alert" }, estado.errorAuth || "");
+    const boton = h("button", { class: "btn primary", type: "submit" }, modo === "entrar" ? "Entrar" : "Crear cuenta");
+    const form = h("form", { class: "card", novalidate: true },
+      h("h2", null, modo === "entrar" ? "Iniciar sesión" : "Crear cuenta"),
+      modo === "crear" ? h("div", { class: "field" }, h("label", { class: "label", for: "c-nombre-u" }, "Nombre público"), nombre, h("span", { class: "hint" }, "Se muestra en moderación. Si lo dejas vacío, aparecerás como «Ciudadano».")) : null,
+      h("div", { class: "field" }, h("label", { class: "label", for: "c-correo" }, "Correo"), correo),
+      h("div", { class: "field" }, h("label", { class: "label", for: "c-clave" }, "Contraseña"), clave, modo === "crear" ? h("span", { class: "hint" }, "Al menos 6 caracteres.") : null),
+      err,
+      h("div", { class: "row" }, boton,
+        h("button", { class: "btn ghost", type: "button", onclick: () => { modo = modo === "entrar" ? "crear" : "entrar"; estado.errorAuth = null; pintar(); } },
+          modo === "entrar" ? "No tengo cuenta" : "Ya tengo cuenta")),
+      h("p", { class: "hint" }, "La contraseña va directo a Supabase Auth; ni el backend ni este sitio la guardan. Las cuentas nuevas empiezan con el rol ciudadano."));
+    form.addEventListener("submit", async (e) => {
+      e.preventDefault(); err.textContent = "";
+      if (!correo.value.includes("@")) { err.textContent = "Escribe un correo válido."; return; }
+      if (clave.value.length < 6) { err.textContent = "La contraseña necesita al menos 6 caracteres."; return; }
+      boton.disabled = true;
+      const r = modo === "entrar"
+        ? await estado.sb.auth.signInWithPassword({ email: correo.value.trim(), password: clave.value })
+        : await estado.sb.auth.signUp({ email: correo.value.trim(), password: clave.value, options: { data: { nombre: nombre.value.trim() } } });
+      boton.disabled = false;
+      if (r.error) { err.textContent = ERRORES_AUTH[r.error.message] || r.error.message; return; }
+      if (modo === "crear" && !r.data.session) {
+        caja.replaceChildren(h("h2", null, "Revisa tu correo"), h("p", { class: "muted" }, "Supabase te envió un enlace para confirmar la cuenta. Después vuelve aquí e inicia sesión."));
+        return;
+      }
+      toast("Sesión iniciada.");
+      location.hash = "#mapa";
+    });
+    caja.replaceChildren(form);
+  };
+  pintar();
 }
 async function revisarSalud() {
   const el = document.getElementById("salud");
@@ -1142,8 +1281,9 @@ function pintarBanner() {
       "El selector «Ver como» simula el rol que daría el inicio de sesión.");
   } else {
     b.replaceChildren(h("b", null, "API en vivo. "),
-      "El mapa y el asistente leen ", h("span", { class: "mono" }, estado.api), ". Cada pregunta al asistente usa cuota de Gemini. ",
-      "Las secciones con sesión siguen en modo de ejemplo hasta conectar el inicio de sesión de Supabase.");
+      "Todo lee y escribe en ", h("span", { class: "mono" }, estado.api), " con una sesión real de Supabase. ",
+      "Lo que envíes queda en la base de producción y cada pregunta al asistente usa cuota de Gemini.",
+      h("span", { class: "err" }, estado.errorAuth ? " " + estado.errorAuth : null));
   }
 }
 
@@ -1358,7 +1498,7 @@ function tarjetaAccion(a) {
 /* ---------- Pantalla de acceso restringido (refleja 401 / 403 del backend) ---------- */
 function vistaBloqueo(raiz, vista) {
   raiz.className = "view gutter";
-  const sinSesion = estado.rol === "visitante";
+  const sinSesion = rolActual() === "visitante";
   const v = VISTAS.find((x) => x.id === vista);
   const codigo = sinSesion
     ? `${RUTA_API[vista]}\n→ 401 { "error": { "codigo": "NO_AUTENTICADO" } }`
@@ -1367,8 +1507,9 @@ function vistaBloqueo(raiz, vista) {
     h("span", { class: "label" }, sinSesion ? "Requiere iniciar sesión" : "Tu rol no tiene acceso"),
     h("h2", null, sinSesion ? `Inicia sesión para entrar a ${v.nombre}` : `${v.nombre} es solo para ${v.roles.filter((r) => r !== "ciudadano").map((r) => ROLES[r].toLowerCase()).join(" y ")}`),
     h("p", { class: "muted" }, sinSesion
-      ? "En la versión final aquí aparece el inicio de sesión de Supabase. En el prototipo, elige un rol en «Ver como» arriba a la derecha."
+      ? (enVivo() ? "Entra con tu cuenta de la plataforma o crea una nueva." : "En el modo de ejemplo, elige un rol en «Ver como» arriba a la derecha. Con «API en vivo» puedes iniciar sesión de verdad.")
       : "El backend responde igual que esta pantalla: la matriz de permisos se prueba en cada push."),
+    sinSesion && enVivo() ? h("div", null, h("a", { class: "btn primary", href: "#cuenta" }, "Iniciar sesión")) : null,
     h("div", { class: "codigo" }, codigo)));
 }
 
@@ -1428,6 +1569,30 @@ function vistaReportar(raiz) {
     if (!ubic) fallos.push("Marca la ubicación en el mapa.");
     errores.replaceChildren(...fallos.map((f) => h("div", null, f)));
     if (fallos.length) return;
+    if (enVivo()) {
+      const boton = form.querySelector("button[type=submit]");
+      boton.disabled = true;
+      const cuerpo = { tipo: tipo.value, descripcion: d, ubicacion: ubic };
+      if (grav) cuerpo.gravedad_sugerida = grav;
+      if (ref) cuerpo.punto_id = ref.id;
+      (async () => {
+        try {
+          const creado = await api("/aportes", { metodo: "POST", json: cuerpo });
+          const archivo = foto.files[0];
+          if (archivo) {
+            const fd = new FormData(); fd.append("foto", archivo);
+            try { await api(`/aportes/${creado.id}/evidencia`, { metodo: "POST", formulario: fd }); }
+            catch (e) { toast("El reporte se guardó, pero la foto no: " + mensajeError(e)); location.hash = "#mis-aportes"; return; }
+          }
+          toast("Reporte enviado. Queda pendiente de revisión.");
+          location.hash = "#mis-aportes";
+        } catch (e) {
+          errores.replaceChildren(h("div", null, "No se pudo enviar: " + mensajeError(e)));
+          boton.disabled = false;
+        }
+      })();
+      return;
+    }
     const nuevo = { id: "a-" + uid().slice(0, 8), autor_id: usuarioActual().id, punto_id: ref ? ref.id : null, tipo: tipo.value, gravedad_sugerida: grav,
       descripcion: d, ubicacion: ubic, estado: "pendiente", motivo_revision: null, foto: !!foto.files[0], creado_en: new Date().toISOString() };
     demo.aportes.unshift(nuevo);
@@ -1669,7 +1834,7 @@ function vistaAsistente(raiz) {
     txt.value = ""; cuenta.textContent = "0 / 1000"; enviar.disabled = true;
     if (estado.fuente === "vivo") {
       try {
-        const r = await api("/agente/consulta", { method: "POST", headers: { "Content-Type": "application/json", Accept: "application/json" }, body: JSON.stringify({ pregunta }) });
+        const r = await api("/agente/consulta", { metodo: "POST", json: { pregunta } });
         estado.chat.push({ de: "ia", texto: r.respuesta, modelo: r.modelo, aviso: r.aviso });
       } catch (e) {
         estado.chat.push({ de: "ia", error: true, texto: e.message === "Failed to fetch" ? "No se pudo conectar con la API. Revisa CORS_ORIGENES y que el servicio esté despierto." : "La API respondió con un error: " + e.message });
@@ -1693,15 +1858,238 @@ function vistaAsistente(raiz) {
   pintarMensajes();
 }
 
+/* ---------- Secciones con sesión contra la API (modo en vivo) ---------- */
+function enlaceFoto(a) {
+  if (!a.evidencia) return "No";
+  return a.evidencia.url ? h("a", { href: a.evidencia.url, target: "_blank", rel: "noopener noreferrer" }, "Ver foto (10 min)") : "Sí, enlace no disponible";
+}
+function cabecera(titulo, texto, extra) {
+  return h("div", { class: "view-head" }, h("div", null, h("h2", null, titulo), h("p", null, texto)), extra || null);
+}
+
+async function vistaMisAportesVivo(raiz) {
+  raiz.className = "view gutter";
+  const cont = h("div", null, h("p", { class: "muted" }, "Cargando tus aportes…"));
+  raiz.replaceChildren(h("div", { class: "wrap" },
+    cabecera("Mis aportes", `Sesión: ${estado.sesion.email}. Solo ves tus propios aportes; la base lo garantiza con RLS.`, h("a", { class: "btn primary", href: "#reportar" }, "Nuevo reporte")),
+    cont));
+  try {
+    const r = await api("/aportes/mis?limite=50");
+    if (!r.datos.length) {
+      cont.replaceChildren(h("div", { class: "card" }, h("p", null, "Todavía no has enviado reportes."), h("a", { class: "btn primary", href: "#reportar" }, "Reportar un problema")));
+      return;
+    }
+    cont.replaceChildren(h("div", { class: "tabla-wrap" }, h("table", null,
+      h("thead", null, h("tr", null, ["Fecha", "Tipo", "Descripción", "Estado", "Foto"].map((t) => h("th", null, t)))),
+      h("tbody", null, r.datos.map((a) => h("tr", null,
+        h("td", { class: "num", style: "white-space: nowrap" }, fecha(a.creado_en)),
+        h("td", null, TIPOS[a.tipo] || a.tipo),
+        h("td", { style: "min-width: 220px" }, a.descripcion, a.motivo_revision ? h("div", { class: "hint", style: "margin-top: 4px" }, "Motivo: " + a.motivo_revision) : null),
+        h("td", null, h("span", { class: "estado " + a.estado }, a.estado)),
+        h("td", { class: "small" }, enlaceFoto(a))))))));
+  } catch (e) { cont.replaceChildren(h("p", { class: "err" }, mensajeError(e))); }
+}
+
+let puntosParaDuplicado = null;
+async function vistaModeracionVivo(raiz) {
+  raiz.className = "view gutter";
+  const estados = ["pendiente", "aprobado", "rechazado", "duplicado"];
+  const cola = h("div", { class: "cola" }, h("p", { class: "muted" }, "Cargando la cola…"));
+  raiz.replaceChildren(h("div", { class: "wrap" },
+    cabecera("Moderación", "Aportes reales de la base. Nadie puede revisar su propio aporte, y rechazar exige un motivo que verá quien lo envió."),
+    h("div", { class: "subtabs", role: "group", "aria-label": "Estado" }, estados.map((s) => h("button", { type: "button", "aria-pressed": String(estado.modTab === s),
+      onclick: () => { estado.modTab = s; vistaModeracionVivo(raiz); } }, s))),
+    cola));
+  try {
+    const [r, puntos] = await Promise.all([
+      api(`/admin/aportes?estado=${estado.modTab}&limite=50`),
+      puntosParaDuplicado ? Promise.resolve(puntosParaDuplicado) : api("/puntos?limite=100").then((x) => x.datos),
+    ]);
+    puntosParaDuplicado = puntos;
+    if (!r.datos.length) { cola.replaceChildren(h("div", { class: "card" }, h("p", { class: "muted" }, `No hay aportes en estado ${estado.modTab}.`))); return; }
+    cola.replaceChildren(...r.datos.map((a) => tarjetaModeracionVivo(a, puntos, raiz)));
+  } catch (e) { cola.replaceChildren(h("p", { class: "err" }, mensajeError(e))); }
+}
+function tarjetaModeracionVivo(a, puntos, raiz) {
+  const propio = a.autor_id === estado.sesion.id;
+  const card = h("article", { class: "card" },
+    h("div", { class: "row", style: "justify-content: space-between" },
+      h("div", { class: "row" }, h("span", { class: "chip" }, TIPOS[a.tipo] || a.tipo), a.gravedad_sugerida ? sevBadge(a.gravedad_sugerida) : h("span", { class: "hint" }, "sin gravedad sugerida")),
+      h("span", { class: "estado " + a.estado }, a.estado)),
+    h("p", null, a.descripcion),
+    h("dl", { class: "kv" },
+      h("dt", null, "Autor"), h("dd", null, propio ? "Tú" : h("span", { class: "mono" }, "cuenta " + corto(a.autor_id))),
+      h("dt", null, "Enviado"), h("dd", null, fechaHora(a.creado_en)),
+      h("dt", null, "Ubicación"), h("dd", { class: "mono" }, coord(a.ubicacion)),
+      h("dt", null, "Foto"), h("dd", null, enlaceFoto(a)),
+      a.motivo_revision ? [h("dt", null, "Motivo"), h("dd", null, a.motivo_revision)] : null));
+  if (a.estado !== "pendiente") return card;
+  if (propio) { card.append(h("p", { class: "hint" }, "Este aporte es tuyo: otra persona debe revisarlo.")); return card; }
+
+  const titulo = h("input", { type: "text", class: "inp", id: "t-" + a.id, maxlength: "120", value: tituloSugerido(a) });
+  let grav = a.gravedad_sugerida || 3;
+  const segG = h("div", { class: "seg", role: "group", "aria-label": "Gravedad final" },
+    [1, 2, 3, 4, 5].map((g) => h("button", { type: "button", "aria-pressed": String(grav === g), onclick: () => {
+      grav = g; segG.querySelectorAll("button").forEach((b, i) => b.setAttribute("aria-pressed", String(grav === i + 1)));
+    } }, String(g))));
+  const motivo = h("input", { type: "text", class: "inp", id: "m-" + a.id, maxlength: "500", placeholder: "Obligatorio para rechazar" });
+  const dup = h("select", { class: "inp", id: "d-" + a.id }, h("option", { value: "" }, "Elige el punto existente"),
+    puntos.map((p) => h("option", { value: p.id }, p.titulo)));
+  const err = h("div", { class: "err", role: "alert" });
+  const botones = [];
+  const decidir = async (decision) => {
+    err.textContent = "";
+    const m = motivo.value.trim();
+    let cuerpo;
+    if (decision === "aprobado") {
+      if (titulo.value.trim().length < 3) { err.textContent = "El título necesita al menos 3 caracteres."; return; }
+      cuerpo = { decision, titulo: titulo.value.trim(), gravedad: grav, publicar: true };
+      if (m) cuerpo.motivo_revision = m;
+    } else if (decision === "rechazado") {
+      if (m.length < 3) { err.textContent = "Escribe el motivo del rechazo (mínimo 3 caracteres)."; motivo.focus(); return; }
+      cuerpo = { decision, motivo_revision: m };
+    } else {
+      if (!dup.value) { err.textContent = "Elige de qué punto es duplicado."; return; }
+      cuerpo = { decision, duplicado_de: dup.value };
+      if (m) cuerpo.motivo_revision = m;
+    }
+    botones.forEach((b) => { b.disabled = true; });
+    try {
+      await api(`/admin/aportes/${a.id}/revision`, { metodo: "PATCH", json: cuerpo });
+      if (decision === "aprobado") puntosParaDuplicado = null;
+      toast(decision === "aprobado" ? "Aporte aprobado y publicado en el mapa." : decision === "rechazado" ? "Aporte rechazado. Quien lo envió verá el motivo." : "Aporte marcado como duplicado.");
+      vistaModeracionVivo(raiz);
+    } catch (e) {
+      err.textContent = "No se pudo guardar: " + mensajeError(e);
+      botones.forEach((b) => { b.disabled = false; });
+    }
+  };
+  botones.push(
+    h("button", { class: "btn primary", type: "button", onclick: () => decidir("aprobado") }, "Aprobar y publicar"),
+    h("button", { class: "btn danger", type: "button", onclick: () => decidir("rechazado") }, "Rechazar"),
+    h("button", { class: "btn", type: "button", onclick: () => decidir("duplicado") }, "Marcar duplicado"));
+  card.append(h("div", { class: "decision" },
+    h("div", { class: "field" }, h("label", { class: "label", for: "t-" + a.id }, "Título público"), titulo),
+    h("div", { class: "field" }, h("span", { class: "label" }, "Gravedad final"), segG),
+    h("div", { class: "field" }, h("label", { class: "label", for: "m-" + a.id }, "Motivo de revisión"), motivo),
+    h("div", { class: "field" }, h("label", { class: "label", for: "d-" + a.id }, "Duplicado de"), dup),
+    err, h("div", { class: "row" }, botones)));
+  return card;
+}
+
+async function vistaAdministracionVivo(raiz) {
+  raiz.className = "view gutter";
+  const esAdmin = rolActual() === "administrador";
+  if (!esAdmin && estado.adminTab !== "catalogo") estado.adminTab = "catalogo";
+  const tabs = [["catalogo", "Catálogo", true], ["usuarios", "Usuarios y roles", esAdmin], ["auditoria", "Auditoría", esAdmin]];
+  const cont = h("div", null, h("p", { class: "muted" }, "Cargando…"));
+  raiz.replaceChildren(h("div", { class: "wrap" },
+    cabecera("Administración", esAdmin ? "Catálogo, roles y auditoría con datos reales de la base." : "Con el rol de editor administras el catálogo de acciones y organizaciones."),
+    h("div", { class: "subtabs", role: "group", "aria-label": "Apartado" }, tabs.map(([id, nombre, ok]) => h("button", { type: "button", "aria-pressed": String(estado.adminTab === id), disabled: !ok,
+      title: ok ? null : "Solo administración", onclick: () => { estado.adminTab = id; vistaAdministracionVivo(raiz); } }, ok ? nombre : [candado(), " ", nombre]))),
+    cont));
+  const recargar = () => vistaAdministracionVivo(raiz);
+  try {
+    if (estado.adminTab === "catalogo") cont.replaceChildren(await panelCatalogoVivo(recargar));
+    if (estado.adminTab === "usuarios") cont.replaceChildren(await panelUsuariosVivo());
+    if (estado.adminTab === "auditoria") cont.replaceChildren(await panelAuditoriaVivo());
+  } catch (e) { cont.replaceChildren(h("p", { class: "err" }, mensajeError(e))); }
+}
+async function panelCatalogoVivo(recargar) {
+  const [orgs, puntos] = await Promise.all([api("/organizaciones?limite=100").then((x) => x.datos), api("/puntos?limite=100").then((x) => x.datos)]);
+  const fA = h("form", { class: "card", novalidate: true });
+  const tipo = h("select", { id: "c-tipo" }, Object.entries(TIPOS_ACCION).map(([k, v]) => h("option", { value: k }, v)));
+  const nombre = h("input", { type: "text", id: "c-nombre", maxlength: "120" });
+  const descripcion = h("input", { type: "text", id: "c-desc", maxlength: "1000" });
+  const enlace = h("input", { type: "url", id: "c-enlace", placeholder: "https://" });
+  const org = h("select", { id: "c-org" }, h("option", { value: "" }, "Sin organización"), orgs.map((o) => h("option", { value: o.id }, o.nombre)));
+  const punto = h("select", { id: "c-punto" }, h("option", { value: "" }, "Acción general (sin punto)"), puntos.map((p) => h("option", { value: p.id }, p.titulo)));
+  const errA = h("div", { class: "err", role: "alert" });
+  fA.append(h("h3", null, "Nueva acción"),
+    h("div", { class: "field" }, h("label", { class: "label", for: "c-tipo" }, "Tipo"), tipo),
+    h("div", { class: "field" }, h("label", { class: "label", for: "c-nombre" }, "Nombre"), nombre),
+    h("div", { class: "field" }, h("label", { class: "label", for: "c-desc" }, "Descripción (opcional)"), descripcion),
+    h("div", { class: "field" }, h("label", { class: "label", for: "c-enlace" }, "Enlace (opcional)"), enlace, h("span", { class: "hint" }, "Solo enlaces https.")),
+    h("div", { class: "field" }, h("label", { class: "label", for: "c-org" }, "Organización"), org),
+    h("div", { class: "field" }, h("label", { class: "label", for: "c-punto" }, "Punto"), punto),
+    errA, h("div", null, h("button", { class: "btn primary", type: "submit" }, "Crear acción")));
+  fA.addEventListener("submit", async (e) => {
+    e.preventDefault(); errA.textContent = "";
+    if (nombre.value.trim().length < 3) { errA.textContent = "El nombre necesita al menos 3 caracteres."; return; }
+    if (enlace.value.trim() && !/^https:\/\/\S+$/.test(enlace.value.trim())) { errA.textContent = "El enlace debe empezar con https://"; return; }
+    const cuerpo = { tipo: tipo.value, nombre: nombre.value.trim() };
+    if (descripcion.value.trim()) cuerpo.descripcion = descripcion.value.trim();
+    if (enlace.value.trim()) cuerpo.enlace = enlace.value.trim();
+    if (org.value) cuerpo.organizacion_id = org.value;
+    if (punto.value) cuerpo.punto_id = punto.value;
+    try { await api("/admin/acciones", { metodo: "POST", json: cuerpo }); toast("Acción creada. Ya aparece en «Cómo ayudar»."); recargar(); }
+    catch (err) { errA.textContent = "No se pudo crear: " + mensajeError(err); }
+  });
+
+  const fO = h("form", { class: "card", novalidate: true });
+  const oNombre = h("input", { type: "text", id: "o-nombre", maxlength: "120" });
+  const oZona = h("input", { type: "text", id: "o-zona", maxlength: "80" });
+  const oContacto = h("input", { type: "text", id: "o-contacto", maxlength: "200" });
+  const errO = h("div", { class: "err", role: "alert" });
+  fO.append(h("h3", null, "Nueva organización"),
+    h("div", { class: "field" }, h("label", { class: "label", for: "o-nombre" }, "Nombre"), oNombre),
+    h("div", { class: "field" }, h("label", { class: "label", for: "o-zona" }, "Zona (opcional)"), oZona),
+    h("div", { class: "field" }, h("label", { class: "label", for: "o-contacto" }, "Contacto interno (opcional)"), oContacto, h("span", { class: "hint" }, "Lo ve el personal; la API pública nunca lo muestra.")),
+    errO, h("div", null, h("button", { class: "btn primary", type: "submit" }, "Crear organización")),
+    h("div", { class: "tabla-wrap" }, h("table", null, h("thead", null, h("tr", null, h("th", null, "Organización"), h("th", null, "Zona"))),
+      h("tbody", null, orgs.map((o) => h("tr", null, h("td", null, o.nombre), h("td", null, o.zona || "—")))))));
+  fO.addEventListener("submit", async (e) => {
+    e.preventDefault(); errO.textContent = "";
+    if (oNombre.value.trim().length < 3) { errO.textContent = "El nombre necesita al menos 3 caracteres."; return; }
+    const cuerpo = { nombre: oNombre.value.trim() };
+    if (oZona.value.trim()) cuerpo.zona = oZona.value.trim();
+    if (oContacto.value.trim()) cuerpo.contacto = oContacto.value.trim();
+    try { await api("/admin/organizaciones", { metodo: "POST", json: cuerpo }); toast("Organización creada."); recargar(); }
+    catch (err) { errO.textContent = "No se pudo crear: " + mensajeError(err); }
+  });
+  return h("div", { class: "grid-2" }, fA, fO);
+}
+async function panelUsuariosVivo() {
+  const r = await api("/admin/usuarios?limite=100");
+  return h("div", { class: "tabla-wrap" }, h("table", null,
+    h("thead", null, h("tr", null, ["Usuario", "Correo", "Rol", "Estado"].map((t) => h("th", null, t)))),
+    h("tbody", null, r.datos.map((u) => {
+      const propio = u.id === estado.sesion.id;
+      const sel = h("select", { class: "inp", "aria-label": "Rol de " + u.nombre, disabled: propio, style: "max-width: 200px" },
+        ["ciudadano", "moderador", "editor", "administrador"].map((rol) => h("option", { value: rol, selected: u.rol === rol }, ROLES[rol])));
+      sel.addEventListener("change", async () => {
+        const anterior = u.rol;
+        try { const c = await api(`/admin/usuarios/${u.id}/rol`, { metodo: "PATCH", json: { rol: sel.value } }); u.rol = c.rol; toast(`Rol de ${u.nombre} cambiado a ${ROLES[c.rol].toLowerCase()}.`); }
+        catch (e) { sel.value = anterior; toast("No se pudo cambiar el rol: " + mensajeError(e)); }
+      });
+      return h("tr", null,
+        h("td", null, u.nombre, propio ? h("div", { class: "hint" }, "No puedes cambiar tu propio rol.") : null),
+        h("td", { class: "small" }, u.email || "—"), h("td", null, sel),
+        h("td", null, h("span", { class: "estado " + (u.activo ? "aprobado" : "rechazado") }, u.activo ? "activo" : "inactivo")));
+    }))));
+}
+async function panelAuditoriaVivo() {
+  const r = await api("/admin/auditoria?limite=50");
+  if (!r.datos.length) return h("div", { class: "card" }, h("p", { class: "muted" }, "Todavía no hay registros de auditoría."));
+  return h("div", { class: "tabla-wrap" }, h("table", null,
+    h("thead", null, h("tr", null, ["Fecha", "Tabla", "Acción", "Usuario", "Registro"].map((t) => h("th", null, t)))),
+    h("tbody", null, r.datos.map((x) => h("tr", null,
+      h("td", { class: "num", style: "white-space: nowrap" }, fechaHora(x.creado_en)), h("td", { class: "mono" }, x.tabla), h("td", { class: "mono" }, x.accion),
+      h("td", { class: "mono" }, x.usuario_id ? (x.usuario_id === estado.sesion.id ? "tú" : corto(x.usuario_id)) : "sistema"), h("td", { class: "mono" }, corto(x.registro_id)))))));
+}
+
 /* ---------- Enrutador ---------- */
+const VISTAS_VIVO = { "mis-aportes": vistaMisAportesVivo, moderacion: vistaModeracionVivo, administracion: vistaAdministracionVivo };
 function mostrar() {
   const id = (location.hash || "#mapa").slice(1);
-  estado.vista = VISTAS.some((v) => v.id === id) ? id : "mapa";
+  estado.vista = id === "cuenta" || VISTAS.some((v) => v.id === id) ? id : "mapa";
   if (mapa) { mapa.remove(); mapa = null; }
   if (miniMapa) { miniMapa.remove(); miniMapa = null; miniMarcador = null; }
   const raiz = document.getElementById("main");
   pintarTabs(); pintarBanner();
-  if (!puede(estado.vista)) vistaBloqueo(raiz, estado.vista);
+  if (estado.vista === "cuenta") vistaCuenta(raiz);
+  else if (!puede(estado.vista)) vistaBloqueo(raiz, estado.vista);
+  else if (enVivo() && VISTAS_VIVO[estado.vista]) VISTAS_VIVO[estado.vista](raiz);
   else ({ mapa: vistaMapa, reportar: vistaReportar, "mis-aportes": vistaMisAportes, moderacion: vistaModeracion, administracion: vistaAdministracion, asistente: vistaAsistente })[estado.vista](raiz);
   const hdr = document.getElementById("topbar").offsetHeight;
   document.documentElement.style.setProperty("--hdr", hdr + "px");
@@ -1714,11 +2102,16 @@ function iniciar() {
   const selRol = document.getElementById("rol"), selFuente = document.getElementById("fuente");
   selRol.value = estado.rol; selFuente.value = estado.fuente;
   selRol.addEventListener("change", () => { estado.rol = selRol.value; guardar("rol", estado.rol); mostrar(); });
-  selFuente.addEventListener("change", () => { estado.fuente = selFuente.value; estado.seleccionado = null; estado.cerca = null; guardar("fuente", estado.fuente); revisarSalud(); mostrar(); });
+  selFuente.addEventListener("change", () => {
+    estado.fuente = selFuente.value; estado.seleccionado = null; estado.cerca = null; guardar("fuente", estado.fuente);
+    revisarSalud(); pintarCuenta(); mostrar(); prepararAuth();
+  });
   window.addEventListener("hashchange", mostrar);
   window.addEventListener("resize", () => { document.documentElement.style.setProperty("--hdr", document.getElementById("topbar").offsetHeight + "px"); });
   revisarSalud();
+  pintarCuenta();
   mostrar();
+  prepararAuth();
 }
 iniciar();
 </script>
