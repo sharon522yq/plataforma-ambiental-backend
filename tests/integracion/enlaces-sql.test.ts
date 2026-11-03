@@ -94,6 +94,16 @@ describe.skipIf(!process.env.TEST_DATABASE_URL)("enlaces de la comunidad en la b
       expect((error as { message: string }).message).toContain(mensaje);
     });
 
+    it.each([
+      ["un elemento nulo", [null]],
+      ["un enlace sin https", [{ ...firma, enlace: "javascript:alert(1)" }]],
+      ["más de 3", [firma, evento, firma, evento]],
+    ])("un INSERT directo en aportes con %s lo rechaza la tabla (no solo crear_aporte)", async (_caso, enlaces) => {
+      await expect(sentenciaComo(u.ciudadana,
+        "insert into aportes (tipo, descripcion, ubicacion, autor_id, enlaces) values ('residuos', 'Basura en la esquina', st_setsrid(st_makepoint($1, $2), 4326)::geography, $3, $4::jsonb)",
+        [CENTRO.lng, CENTRO.lat, u.ciudadana, JSON.stringify(enlaces)])).rejects.toMatchObject({ code: "22023" });
+    });
+
     it("la llamada anterior, sin enlaces, sigue funcionando (backend sin actualizar)", async () => {
       const a = await como(u.ciudadana, "crear_aporte('residuos', 'Basura acumulada en la esquina', $1, $2, 2, null)", [CENTRO.lat, CENTRO.lng]);
       expect(a.enlaces).toEqual([]);
@@ -164,6 +174,36 @@ describe.skipIf(!process.env.TEST_DATABASE_URL)("enlaces de la comunidad en la b
       expect((error as { message: string }).message).toContain("10 enlaces");
     });
 
+    it("dos propuestas simultáneas de la misma cuenta no pasan juntas el límite diario", async () => {
+      const otra = randomUUID();
+      await cliente().query("insert into auth.users (id, email) values ($1, $2)", [otra, `${otra}@prueba.local`]);
+      for (let i = 0; i < 9; i++) await proponer(otra, puntoPublicado, "evento", `https://ejemplo.org/c${String(i)}`);
+      if (!base) throw new Error("Sin base");
+      const [c1, c2] = [new pg.Client({ connectionString: base.url }), new pg.Client({ connectionString: base.url })];
+      await Promise.all([c1.connect(), c2.connect()]);
+      const abrir = async (k: pg.Client) => {
+        await k.query("begin");
+        await k.query("select set_config('request.jwt.claim.sub', $1, true)", [otra]);
+        await k.query("set local role authenticated");
+      };
+      try {
+        await abrir(c1); await abrir(c2);
+        await c1.query("select proponer_accion($1, 'evento', 'Décima', 'https://ejemplo.org/d1')", [puntoPublicado]);
+        // c2 espera el candado de c1; cuando c1 confirma, ya cuenta 10 y la rechaza.
+        const segunda = c2.query("select proponer_accion($1, 'evento', 'Undécima', 'https://ejemplo.org/d2')", [puntoPublicado])
+          .then(() => "aceptada", (e: unknown) => (e as { code: string }).code);
+        // Margen para que c2 llegue a la base antes del commit: sin el candado ya habría contado 9 e insertado.
+        await new Promise((r) => setTimeout(r, 400));
+        await c1.query("commit");
+        expect(await segunda).toBe("55000");
+        await c2.query("rollback");
+      } finally {
+        await Promise.all([c1.end(), c2.end()]);
+      }
+      const { rows } = await cliente().query<{ n: string }>("select count(*) n from acciones where autor_id = $1", [otra]);
+      expect(Number(rows[0]?.n)).toBe(10);
+    });
+
     it("un ciudadano no puede insertar en acciones directamente ni cambiar autor", async () => {
       await expect(sentenciaComo(u.ciudadana, "insert into acciones (tipo, nombre, enlace, punto_id) values ('firma', 'x', 'https://a.b', $1)", [puntoPublicado]))
         .rejects.toMatchObject({ code: "42501" });
@@ -194,6 +234,7 @@ describe.skipIf(!process.env.TEST_DATABASE_URL)("enlaces de la comunidad en la b
     it("anon no ejecuta las funciones nuevas ni ve autor_id o aporte_id de acciones", async () => {
       const funciones = [
         "validar_enlace(text,text,text,text)",
+        "enlaces_validos(jsonb)",
         "crear_aporte(text,text,double precision,double precision,integer,uuid,jsonb)",
         "publicar_enlaces_aporte(uuid)",
         "proponer_accion(uuid,text,text,text,text)",

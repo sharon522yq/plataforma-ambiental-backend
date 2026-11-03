@@ -18,9 +18,6 @@ alter table acciones add column if not exists de_la_comunidad boolean not null d
 create index if not exists acciones_punto_idx on acciones (punto_id) where activa;
 
 alter table aportes add column if not exists enlaces jsonb not null default '[]'::jsonb;
-alter table aportes drop constraint if exists aportes_enlaces_check;
-alter table aportes add constraint aportes_enlaces_check
-  check (jsonb_typeof(enlaces) = 'array' and jsonb_array_length(enlaces) <= 3);
 
 -- Anónimo: sin autor_id ni aporte_id (como puntos en la 003).
 revoke select on acciones from anon;
@@ -54,6 +51,33 @@ begin
   ));
 end;
 $$;
+
+-- Cada elemento de aportes.enlaces se valida en la tabla, no solo en crear_aporte: la política de la
+-- 003 deja al ciudadano insertar su aporte directamente (revisión de Codex en el PR #1).
+create or replace function enlaces_validos(enlaces jsonb)
+returns boolean
+language plpgsql
+immutable
+set search_path = public
+as $$
+declare
+  e jsonb;
+begin
+  if jsonb_typeof(enlaces) <> 'array' or jsonb_array_length(enlaces) > 3 then
+    raise exception 'Puedes incluir hasta 3 enlaces' using errcode = '22023', hint = 'publico';
+  end if;
+  for e in select * from jsonb_array_elements(enlaces) loop
+    if jsonb_typeof(e) <> 'object' then
+      raise exception 'Cada enlace debe tener tipo, nombre y enlace' using errcode = '22023', hint = 'publico';
+    end if;
+    perform validar_enlace(e ->> 'tipo', e ->> 'nombre', e ->> 'enlace');
+  end loop;
+  return true;
+end;
+$$;
+
+alter table aportes drop constraint if exists aportes_enlaces_check;
+alter table aportes add constraint aportes_enlaces_check check (enlaces_validos(enlaces));
 
 -- ---------------------------------------------------------------------------
 -- JSON de aportes y acciones con los campos nuevos.
@@ -168,7 +192,7 @@ begin
   if exists (select 1 from acciones x where x.aporte_id = a.id) then
     return 0;
   end if;
-  for e in select * from jsonb_array_elements(a.enlaces) loop
+  for e in select validar_enlace(x ->> 'tipo', x ->> 'nombre', x ->> 'enlace') from jsonb_array_elements(a.enlaces) x loop
     insert into acciones (tipo, nombre, enlace, punto_id, autor_id, aporte_id, de_la_comunidad)
     values (e ->> 'tipo', e ->> 'nombre', e ->> 'enlace', a.punto_id, a.autor_id, a.id, true);
     n := n + 1;
@@ -306,6 +330,9 @@ begin
     raise exception 'El punto no existe o no está publicado' using errcode = 'P0002', hint = 'publico';
   end if;
   limpio := validar_enlace(tipo, nombre, enlace, descripcion);
+  -- Una propuesta a la vez por cuenta: sin esto, dos solicitudes simultáneas cuentan lo mismo y
+  -- pasan juntas el límite diario (revisión de Codex en el PR #1). Se libera al terminar la transacción.
+  perform pg_advisory_xact_lock(hashtextextended('proponer_accion:' || auth.uid()::text, 0));
   if exists (select 1 from acciones x where x.punto_id = proponer_accion.punto_id and x.activa and x.enlace = limpio ->> 'enlace') then
     raise exception 'Ese enlace ya está en este punto' using errcode = '55000', hint = 'publico';
   end if;
@@ -429,6 +456,7 @@ $$;
 -- ---------------------------------------------------------------------------
 revoke execute on function
   validar_enlace(text, text, text, text),
+  enlaces_validos(jsonb),
   crear_aporte(text, text, double precision, double precision, integer, uuid, jsonb),
   publicar_enlaces_aporte(uuid),
   proponer_accion(uuid, text, text, text, text),
@@ -437,6 +465,7 @@ from public, anon;
 
 grant execute on function
   validar_enlace(text, text, text, text),
+  enlaces_validos(jsonb),
   crear_aporte(text, text, double precision, double precision, integer, uuid, jsonb),
   publicar_enlaces_aporte(uuid),
   proponer_accion(uuid, text, text, text, text),
