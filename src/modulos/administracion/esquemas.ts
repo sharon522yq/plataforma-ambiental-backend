@@ -1,17 +1,11 @@
 import { z } from "zod";
 import { esquemaPaginacion } from "../../compartido/consultas.js";
+import { enlaceSeguro } from "../../compartido/enlaces.js";
 import { ROLES } from "../../compartido/sesion.js";
 import { TIPOS_ACCION } from "../acciones/rutas.js";
 
 const textoOpcional = (maximo: number) => z.string().trim().min(1).max(maximo).optional();
 
-/** Solo https: un enlace http o javascript: en el catálogo público sería un riesgo para quien lo abre. */
-const enlaceSeguro = z
-  .string()
-  .trim()
-  .max(500)
-  .pipe(z.url())
-  .refine((v) => /^https:\/\/\S+$/.test(v), { message: "El enlace debe empezar con https://" });
 
 export const cuerpoNuevaAccion = z.object({
   tipo: z.enum(TIPOS_ACCION),
@@ -62,9 +56,12 @@ export const accionAdmin = z.object({
   organizacion_id: z.uuid().nullable(),
   punto_id: z.uuid().nullable(),
   activa: z.boolean(),
+  de_la_comunidad: z.boolean().default(false),
   creado_en: z.string(),
   actualizado_en: z.string(),
 });
+
+export const parametrosAccion = z.object({ id: z.uuid() });
 
 export const organizacionAdmin = z.object({
   id: z.uuid(),

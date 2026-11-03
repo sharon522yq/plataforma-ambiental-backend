@@ -270,7 +270,7 @@ describe.skipIf(!process.env.TEST_DATABASE_URL)("aportes y moderación en la bas
   describe("permisos de ejecución", () => {
     it("solo authenticated y service_role ejecutan las funciones; nadie llama los triggers", async () => {
       const funciones = [
-        "crear_aporte(text,text,double precision,double precision,integer,uuid)",
+        "crear_aporte(text,text,double precision,double precision,integer,uuid,jsonb)",
         "mis_aportes(integer,integer)",
         "cola_aportes(text,integer,integer)",
         "revisar_aporte(uuid,text,text,text,integer,boolean,uuid)",

@@ -63,8 +63,8 @@ No requieren sesión. Los listados aceptan `?pagina` (desde 1) y `?limite` (1 a 
 |---|---|
 | `GET /api/v1/puntos` | `tipo`, `gravedad_minima` (1 a 5) |
 | `GET /api/v1/puntos/cercanos` | `lat`, `lng` (obligatorios), `radio_metros` (1 a 50000, por defecto 5000), `tipo`, `limite` |
-| `GET /api/v1/puntos/:id` | Incluye las acciones activas del punto. 404 si no existe o no está publicado |
-| `GET /api/v1/acciones` | `tipo` (denuncia, firma, donacion, voluntariado), `punto_id` |
+| `GET /api/v1/puntos/:id` | Incluye las acciones activas del punto (con `de_la_comunidad`). 404 si no existe o no está publicado |
+| `GET /api/v1/acciones` | `tipo` (denuncia, firma, donacion, voluntariado, evento), `punto_id`. `de_la_comunidad` indica si la agregó una persona y no el catálogo oficial |
 | `GET /api/v1/organizaciones` | `zona` (búsqueda parcial). Nunca incluye el contacto |
 
 Solo se muestran puntos publicados, y acciones y organizaciones activas. Lo decide RLS en la base, no solo el código.
@@ -75,7 +75,9 @@ Requieren `Authorization: Bearer <token>`. Corren con la sesión del usuario, as
 
 | Ruta | Quién | Qué hace |
 |---|---|---|
-| `POST /api/v1/aportes` | Cualquier cuenta activa | Crea un aporte pendiente. Se quitan correos y teléfonos de la descripción (D-24) |
+| `POST /api/v1/aportes` | Cualquier cuenta activa | Crea un aporte pendiente. Se quitan correos y teléfonos de la descripción (D-24). Opcional `enlaces`: hasta 3 `{tipo, nombre, enlace}` (https) que se publican en el punto al aprobar o marcar duplicado (D-40) |
+| `POST /api/v1/puntos/:id/acciones` | Cualquier cuenta activa | Agrega un enlace para ayudar (`tipo`, `nombre`, `enlace` https, opcional `descripcion`) a un punto publicado; se publica al momento. Máximo 10 por cuenta al día y sin repetir el mismo enlace en un punto (D-40) |
+| `DELETE /api/v1/admin/acciones/:id` | Moderador, editor, administrador | Retira un enlace o acción: queda inactivo y auditado (D-40) |
 | `GET /api/v1/aportes/mis` | Cualquier cuenta activa | Aportes propios, paginados |
 | `POST /api/v1/aportes/:id/evidencia` | El autor del aporte | Foto de evidencia (multipart, campo `foto`; JPG, PNG o WebP de hasta 8 MB). Una sola por aporte y solo si está pendiente |
 | `GET /api/v1/admin/aportes` | Moderador, administrador | Cola por `estado` (por defecto `pendiente`) |

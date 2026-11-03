@@ -18,6 +18,7 @@ import { crearRutasAdministracion } from "./modulos/administracion/rutas.js";
 import { crearRegistroConversaciones, type RegistroConversaciones } from "./modulos/agente/conversaciones.js";
 import { crearGemini, type ModeloIA } from "./modulos/agente/gemini.js";
 import { crearRutasAgente } from "./modulos/agente/rutas.js";
+import { crearRutasComunidad } from "./modulos/comunidad/rutas.js";
 import { crearRutasConfiguracion } from "./modulos/configuracion/rutas.js";
 import { crearRutasAportes, type ClientePorUsuario } from "./modulos/aportes/rutas.js";
 import { crearRutasModeracion } from "./modulos/moderacion/rutas.js";
@@ -85,6 +86,8 @@ export function crearApp(entorno: Entorno, dependencias?: Dependencias) {
     crearRutasConfiguracion({ supabaseUrl: entorno.SUPABASE_URL, supabaseAnonKey: entorno.SUPABASE_ANON_KEY }),
   );
   api.use("/sesion", crearRutasSesion(autenticar, autorizar));
+  // Antes de /puntos: sus rutas (POST /puntos/:id/acciones) no deben llevar la caché pública.
+  api.use(crearRutasComunidad(autenticar, autorizar, clienteUsuario));
   api.use("/puntos", crearRutasPuntos(publico));
   api.use("/acciones", crearRutasAcciones(publico));
   api.use("/organizaciones", crearRutasOrganizaciones(publico));

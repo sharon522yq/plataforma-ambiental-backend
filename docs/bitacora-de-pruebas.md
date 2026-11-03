@@ -34,6 +34,7 @@ Las 12 pruebas omitidas en las corridas locales son las de Supabase real, que so
 | 2026-10-29 | Después del cierre: zod 4 | 527 | 91,05 % | — | Mensajes de validación en español; `/salud/ia?generar=1` |
 | 2026-10-29 | Prototipo y D-39 (inicio de sesión real) | 532 | — | — | `GET /configuracion-publica` solo entrega la llave anon |
 | 2026-11-03 | Contratos SQL ↔ API | 540 | 91,14 % | — | Incidencia I-04 encontrada en la prueba real y cerrada; 8 pruebas de contrato nuevas |
+| 2026-11-03 | D-40: enlaces de la comunidad (migración 012) | 592 | 91,39 % | — | 19 pruebas SQL, 14 HTTP, 2 filas nuevas en la matriz de permisos y 2 contratos. Mutaciones detectadas: dejar retirar a un ciudadano, mostrar `autor_id` al anónimo, publicar dos veces los enlaces de un aporte |
 
 La cobertura bajó de 98,3 % a 91,05 % en la fase 11 porque desde entonces se mide sobre todos los archivos de `src/` (`include: ["src/**/*.ts"]`), también los que ninguna prueba importa. Antes solo contaba los archivos cargados por las pruebas.
 
@@ -79,4 +80,4 @@ Detalle completo en `docs/incidencias.md`. Todas cerradas.
 
 ## Última corrida
 
-- **2026-11-03**, base local PostgreSQL 16: 29 archivos en verde y 1 omitido (Supabase real); 540 pruebas en verde y 12 omitidas; cobertura de líneas 91,14 %.
+- **2026-11-03**, base local PostgreSQL 16: 31 archivos en verde y 1 omitido (Supabase real); 592 pruebas en verde y 12 omitidas; cobertura de líneas 91,39 %.

@@ -9,7 +9,9 @@ Versión publicada para verlo y compartirlo: https://claude.ai/artifact/GKoo8Yfj
 | Sección | Rol necesario | Endpoint del backend que representa |
 |---|---|---|
 | Mapa: filtros por tipo y gravedad, búsqueda por radio, detalle y «Cómo ayudar» | Ninguno | `GET /puntos`, `GET /puntos/cercanos`, `GET /puntos/:id` |
-| Reportar: tipo, descripción, gravedad, ubicación por dirección o por coordenadas, y foto | Ciudadano o superior | `POST /aportes`, `POST /aportes/:id/evidencia` |
+| «Cómo ayudar»: agregar un enlace (firma, evento, donación, voluntariado, denuncia) | Cualquier cuenta activa | `POST /puntos/:id/acciones` |
+| «Cómo ayudar»: retirar un enlace | Moderador, editor o administrador | `DELETE /admin/acciones/:id` |
+| Reportar: tipo, descripción, gravedad, ubicación por dirección o por coordenadas, foto y hasta 3 enlaces para ayudar | Ciudadano o superior | `POST /aportes`, `POST /aportes/:id/evidencia` |
 | Mis aportes: estado y motivo de revisión | Ciudadano o superior | `GET /aportes/mis` |
 | Moderación: aprobar, rechazar con motivo o marcar duplicado | Moderador o administrador | `GET /admin/aportes`, `PATCH /admin/aportes/:id/revision` |
 | Administración: catálogo, usuarios y roles, auditoría | Editor (catálogo) o administrador | `POST /admin/acciones`, `POST /admin/organizaciones`, `GET /admin/usuarios`, `PATCH /admin/usuarios/:id/rol`, `GET /admin/auditoria` |

@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { esquemaPaginacion } from "../../compartido/consultas.js";
+import { cuerpoEnlace } from "../../compartido/enlaces.js";
 import { TIPOS_PUNTO } from "../puntos/esquemas.js";
 
 export const ESTADOS_APORTE = ["pendiente", "aprobado", "rechazado", "duplicado"] as const;
@@ -16,6 +17,8 @@ export const cuerpoNuevoAporte = z.object({
   ubicacion: esquemaUbicacion,
   gravedad_sugerida: z.number().int().min(1).max(5).optional(),
   punto_id: z.uuid().optional(),
+  /** Enlaces para ayudar (D-40). Se publican en el punto cuando se aprueba el aporte. */
+  enlaces: z.array(cuerpoEnlace).max(3).optional(),
 }).strict();
 
 export const consultaMisAportes = esquemaPaginacion;
@@ -39,6 +42,7 @@ const camposAporte = {
   motivo_revision: z.string().nullable(),
   /** Ruta interna en Storage. Nunca sale tal cual: `conEnlaces` la cambia por un enlace temporal. */
   evidencia_ruta: z.string().nullable().default(null),
+  enlaces: z.array(z.object({ tipo: z.string(), nombre: z.string(), enlace: z.string() })).default([]),
   creado_en: z.string(),
   actualizado_en: z.string(),
 };

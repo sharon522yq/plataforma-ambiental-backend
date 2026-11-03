@@ -83,6 +83,14 @@ describe.skipIf(!process.env.TEST_DATABASE_URL)("contrato entre funciones SQL y 
       armarPagina(await como(u.ciudadana, "mis_aportes()"), aportePropio, PAGINA);
     });
 
+    it("un aporte con enlaces cumple aportePropio, aporteModeracion y aporteRevisado (migración 012)", async () => {
+      const a = await como(u.ciudadana, "crear_aporte('residuos', 'Basura junto al río', $1, $2, null, null, $3::jsonb)",
+        [CENTRO.lat, CENTRO.lng, JSON.stringify([{ tipo: "firma", nombre: "Firma por el río", enlace: "https://ejemplo.org/f" }])]);
+      expect(validar(aportePropio, a).enlaces).toHaveLength(1);
+      armarPagina(await como(u.moderadora, "cola_aportes()"), aporteModeracion, PAGINA);
+      validar(aporteRevisado, await como(u.moderadora, "revisar_aporte($1, 'aprobado', null, 'Basura junto al río', 2, true)", [id(a)]));
+    });
+
     it("cola_aportes cumple aporteModeracion", async () => {
       await nuevoAporte();
       const pagina = armarPagina(await como(u.moderadora, "cola_aportes()"), aporteModeracion, PAGINA);
@@ -119,6 +127,13 @@ describe.skipIf(!process.env.TEST_DATABASE_URL)("contrato entre funciones SQL y 
   });
 
   describe("administración y catálogo", () => {
+    it("proponer_accion y retirar_accion cumplen accionAdmin (migración 012)", async () => {
+      const p = validar(puntoModeracion, await como(u.admin, "crear_punto('Río', 'contaminacion_agua', 3, 'x', $1, $2, 'publicado')", [CENTRO.lat, CENTRO.lng]));
+      const a = validar(accionAdmin, await como(u.ciudadana, "proponer_accion($1, 'evento', 'Jornada de limpieza', 'https://ejemplo.org/evento')", [p.id]));
+      expect(a).toMatchObject({ de_la_comunidad: true });
+      validar(accionAdmin, await como(u.moderadora, "retirar_accion($1)", [a.id]));
+    });
+
     it("crear_organizacion, crear_accion y los listados públicos cumplen sus esquemas", async () => {
       const o = validar(organizacionAdmin, await como(u.admin, "crear_organizacion('Vecinos del río', 'contacto@ejemplo.org', 'Centro')"));
       validar(accionAdmin, await como(u.admin, "crear_accion('voluntariado', 'Limpieza del río', null, null, $1, null)", [o.id]));

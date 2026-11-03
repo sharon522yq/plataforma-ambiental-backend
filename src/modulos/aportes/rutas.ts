@@ -66,6 +66,8 @@ export function crearRutasAportes(
       lng: cuerpo.ubicacion.lng,
       gravedad_sugerida: cuerpo.gravedad_sugerida ?? null,
       punto_id: cuerpo.punto_id ?? null,
+      // Solo si hay: así un reporte sin enlaces funciona aunque la base aún no tenga la 012.
+      ...(cuerpo.enlaces?.length ? { enlaces: cuerpo.enlaces } : {}),
     })
       .then((r) => conEnlace(almacen, aportePropio.parse(r)))
       .then((r) => res.status(201).json(r))

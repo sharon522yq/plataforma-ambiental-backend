@@ -48,7 +48,7 @@ function app() {
   });
 }
 
-type Metodo = "get" | "post" | "patch";
+type Metodo = "get" | "post" | "patch" | "delete";
 const TODOS: Rol[] = ["ciudadano", "moderador", "editor", "administrador"];
 const MODERACION: Rol[] = ["moderador", "administrador"];
 const CATALOGO: Rol[] = ["editor", "administrador"];
@@ -64,6 +64,8 @@ const protegidos: [Metodo, string, Rol[]][] = [
   ["post", "/api/v1/admin/puntos", MODERACION],
   ["patch", `/api/v1/admin/puntos/${ID}/estado`, MODERACION],
   ["post", "/api/v1/admin/acciones", CATALOGO],
+  ["delete", `/api/v1/admin/acciones/${ID}`, ["moderador", "editor", "administrador"]],
+  ["post", `/api/v1/puntos/${ID}/acciones`, TODOS],
   ["post", "/api/v1/admin/organizaciones", CATALOGO],
   ["get", "/api/v1/admin/usuarios", ADMIN],
   ["patch", `/api/v1/admin/usuarios/${ID}/rol`, ADMIN],
@@ -107,7 +109,7 @@ describe("matriz de permisos", () => {
   });
 
   it("cubre todos los endpoints protegidos de la API", () => {
-    expect(protegidos).toHaveLength(14);
+    expect(protegidos).toHaveLength(16);
   });
 
   it.each(protegidos)("%s %s sin token responde 401", async (metodo, ruta) => {

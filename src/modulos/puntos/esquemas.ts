@@ -53,6 +53,7 @@ export const puntoDetalle = z.object({
       nombre: z.string(),
       descripcion: z.string().nullable(),
       enlace: z.string().nullable(),
+      de_la_comunidad: z.boolean().default(false),
     }),
   ),
 }).transform(agruparUbicacion);

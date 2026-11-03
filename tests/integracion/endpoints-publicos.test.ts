@@ -167,7 +167,8 @@ describe("GET /api/v1/acciones", () => {
     const { app: a, llamadas } = app({ listar_acciones_publicas: ok({ total: 1, datos: [accion] }) });
     const r = await request(a).get(`/api/v1/acciones?tipo=firma&punto_id=${ID}`);
     expect(r.status).toBe(200);
-    expect(r.body).toEqual({ datos: [accion], paginacion: { pagina: 1, limite: 20, total: 1, paginas: 1 } });
+    // Sin de_la_comunidad (base anterior a la 012) sale como false.
+    expect(r.body).toEqual({ datos: [{ ...accion, de_la_comunidad: false }], paginacion: { pagina: 1, limite: 20, total: 1, paginas: 1 } });
     expect(llamadas[0]?.parametros).toEqual({ tipo_filtro: "firma", punto: ID, limite: 20, desplazamiento: 0 });
   });
 

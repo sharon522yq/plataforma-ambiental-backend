@@ -775,6 +775,17 @@ main { min-height: 0; }
 .seg button { flex: 1; padding: 6px 0; border: 0; border-right: 1px solid var(--line); background: var(--surface-2); cursor: pointer; font-size: .85rem; font-variant-numeric: tabular-nums; }
 .seg button:last-child { border-right: 0; }
 .resultados-dir { display: grid; gap: 6px; }
+.enlaces-editor { display: grid; gap: 8px; }
+.enlace-fila { display: grid; grid-template-columns: 130px 1fr; gap: 6px; padding: 8px; border: 1px solid var(--line); border-radius: 8px; }
+.enlace-fila input[type="url"] { grid-column: 1 / -1; }
+.enlace-fila .btn { grid-column: 1 / -1; justify-self: end; }
+.agregar-enlace summary { list-style: none; justify-content: flex-start; }
+.agregar-enlace summary::-webkit-details-marker { display: none; }
+.agregar-enlace[open] summary { margin-bottom: 10px; }
+.form-enlace { display: grid; gap: 10px; padding: 12px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface-2); margin-bottom: 10px; }
+.accion .comunidad { color: var(--muted); text-transform: none; letter-spacing: 0; font-family: var(--f-body); }
+.accion .btn.small { padding: 2px 6px; font-size: .78rem; color: var(--bad); }
+.enlaces-aporte { margin: 0; padding-left: 18px; display: grid; gap: 4px; font-size: .85rem; }
 .resultados-dir .opcion-dir { justify-content: flex-start; text-align: left; white-space: normal; font-size: .85rem; line-height: 1.35; }
 .resultados-dir .opcion-dir[aria-pressed="true"] { border-color: var(--accent); box-shadow: inset 3px 0 0 var(--accent); }
 .seg button[aria-pressed="true"] { background: var(--accent); color: var(--accent-ink); font-weight: 600; }
@@ -920,7 +931,8 @@ const TIPOS = {
   tala_ilegal: "Tala ilegal",
   otro: "Otro",
 };
-const TIPOS_ACCION = { denuncia: "Denuncia", firma: "Firma", donacion: "Donación", voluntariado: "Voluntariado" };
+const TIPOS_ACCION = { firma: "Firma", evento: "Evento", donacion: "Donación", voluntariado: "Voluntariado", denuncia: "Denuncia" };
+const ROLES_RETIRAR_ENLACE = ["moderador", "editor", "administrador"];
 const ROLES = { visitante: "Visitante", ciudadano: "Ciudadano", moderador: "Moderador", editor: "Editor", administrador: "Administrador" };
 const GRAVEDAD = { 1: "Muy baja", 2: "Baja", 3: "Media", 4: "Alta", 5: "Muy alta" };
 
@@ -998,7 +1010,8 @@ const demo = {
     { id: "a-003", autor_id: "u-ana", punto_id: null, tipo: "otro", gravedad_sugerida: null, descripcion: "Hay mucho ruido de una obra por las noches.",
       ubicacion: { lat: 20.6802, lng: -103.371 }, estado: "rechazado", motivo_revision: "El ruido no entra en las categorías de la plataforma.", foto: false, creado_en: "2026-10-24T03:30:00Z" },
     { id: "a-004", autor_id: "u-luis", punto_id: null, tipo: "contaminacion_agua", gravedad_sugerida: 4, descripcion: "Olor fuerte a químicos y agua de color verde en el canal junto a la avenida.",
-      ubicacion: { lat: 20.6305, lng: -103.331 }, estado: "pendiente", motivo_revision: null, foto: true, creado_en: "2026-10-29T09:45:00Z" },
+      ubicacion: { lat: 20.6305, lng: -103.331 }, estado: "pendiente", motivo_revision: null, foto: true,
+      enlaces: [{ tipo: "evento", nombre: "[EJEMPLO] Limpieza del canal este sábado", enlace: "https://ejemplo.org/limpieza-canal" }], creado_en: "2026-10-29T09:45:00Z" },
   ],
   auditoria: [
     { id: uid(), tabla: "puntos", accion: "insertar", usuario: "Moderador de ejemplo", registro: "p-008", creado_en: "2026-10-28T20:30:00Z" },
@@ -1357,7 +1370,8 @@ async function cargarPuntosVivo() {
 async function detallePunto(id) {
   if (estado.fuente === "vivo") return api("/puntos/" + encodeURIComponent(id));
   const p = demo.puntos.find((x) => x.id === id);
-  return Object.assign({}, p, { acciones: demo.acciones.filter((a) => a.punto_id === id).map(({ id, tipo, nombre, descripcion, enlace }) => ({ id, tipo, nombre, descripcion, enlace })) });
+  return Object.assign({}, p, { acciones: demo.acciones.filter((a) => a.punto_id === id && a.activa !== false)
+    .map(({ id, tipo, nombre, descripcion, enlace, de_la_comunidad }) => ({ id, tipo, nombre, descripcion, enlace, de_la_comunidad: !!de_la_comunidad })) });
 }
 
 function vistaMapa(raiz) {
@@ -1471,7 +1485,9 @@ async function pintarDetalle(panel) {
   try { p = await detallePunto(estado.seleccionado); }
   catch (e) { panel.replaceChildren(h("div", { class: "panel-sec" }, volver, h("p", { class: "err" }, "No se pudo cargar el punto: " + e.message))); return; }
   if (!p) { estado.seleccionado = null; pintarPanel(panel); return; }
-  const generales = estado.fuente === "demo" ? demo.acciones.filter((a) => a.punto_id === null) : [];
+  const generales = estado.fuente === "demo" ? demo.acciones.filter((a) => a.punto_id === null && a.activa !== false) : [];
+  const retirable = ROLES_RETIRAR_ENLACE.includes(rolActual());
+  const conRetirar = (a) => tarjetaAccion(a, retirable ? () => retirarEnlace(a, panel) : null);
   panel.replaceChildren(h("div", { class: "panel-sec detalle" },
     volver,
     h("div", { class: "row" }, h("span", { class: "chip" }, TIPOS[p.tipo] || p.tipo), sevBadge(p.gravedad)),
@@ -1483,15 +1499,64 @@ async function pintarDetalle(panel) {
       h("dt", null, "Actualizado"), h("dd", null, fecha(p.actualizado_en)))),
     h("div", { class: "panel-sec" },
       h("h3", null, "Cómo ayudar"),
-      p.acciones.length ? p.acciones.map(tarjetaAccion) : h("p", { class: "hint" }, "Este punto todavía no tiene acciones propias."),
-      generales.length ? [h("span", { class: "label" }, "Acciones generales"), generales.map(tarjetaAccion)] : null,
+      p.acciones.length ? p.acciones.map(conRetirar) : h("p", { class: "hint" }, "Este punto todavía no tiene enlaces para ayudar."),
+      generales.length ? [h("span", { class: "label" }, "Acciones generales"), generales.map(conRetirar)] : null,
       puede("reportar")
-        ? h("a", { class: "btn", href: "#reportar", onclick: () => { estado.reportePunto = p; } }, "Aportar información sobre este punto")
-        : h("p", { class: "hint" }, "Inicia sesión para aportar información sobre este punto.")));
+        ? [formEnlacePunto(p, panel),
+           h("a", { class: "btn", href: "#reportar", onclick: () => { estado.reportePunto = p; } }, "Aportar información sobre este punto")]
+        : h("p", { class: "hint" }, "Inicia sesión para agregar enlaces o aportar información sobre este punto.")));
 }
-function tarjetaAccion(a) {
+/* Formulario plegable: cualquier cuenta activa agrega un enlace al punto y se publica al momento (POST /puntos/:id/acciones). */
+function formEnlacePunto(p, panel) {
+  const tipo = selectTipoEnlace("ep-tipo");
+  const nombre = h("input", { type: "text", class: "inp", id: "ep-nombre", maxlength: "120", placeholder: "Ej.: Jornada de limpieza del sábado" });
+  const url = h("input", { type: "url", class: "inp", id: "ep-url", maxlength: "500", placeholder: "https://…" });
+  const desc = h("input", { type: "text", class: "inp", id: "ep-desc", maxlength: "500", placeholder: "Fecha, lugar o detalle (opcional)" });
+  const err = h("div", { class: "err", role: "alert" });
+  const enviar = h("button", { class: "btn primary", type: "submit" }, "Publicar enlace");
+  const form = h("form", { class: "form-enlace", novalidate: true },
+    h("div", { class: "field" }, h("label", { class: "label", for: "ep-tipo" }, "Tipo"), tipo),
+    h("div", { class: "field" }, h("label", { class: "label", for: "ep-nombre" }, "Nombre"), nombre),
+    h("div", { class: "field" }, h("label", { class: "label", for: "ep-url" }, "Enlace"), url),
+    h("div", { class: "field" }, h("label", { class: "label", for: "ep-desc" }, "Detalle (opcional)"), desc),
+    err, h("div", { class: "row" }, enviar, h("span", { class: "hint" }, "Se publica al momento. El equipo de moderación puede retirarlo.")));
+  form.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const cuerpo = { tipo: tipo.value, nombre: nombre.value.trim(), enlace: url.value.trim() };
+    const m = errorEnlace(cuerpo);
+    if (m) { err.textContent = m; return; }
+    if (desc.value.trim()) cuerpo.descripcion = desc.value.trim();
+    if (enVivo()) {
+      enviar.disabled = true;
+      try { await api(`/puntos/${encodeURIComponent(p.id)}/acciones`, { metodo: "POST", json: cuerpo }); }
+      catch (x) { err.textContent = "No se pudo publicar: " + mensajeError(x); enviar.disabled = false; return; }
+    } else {
+      if (demo.acciones.some((a) => a.punto_id === p.id && a.activa !== false && a.enlace === cuerpo.enlace)) { err.textContent = "Ese enlace ya está en este punto"; return; }
+      const nueva = Object.assign({ id: "x-" + uid().slice(0, 8), descripcion: null, punto_id: p.id, organizacion: null, activa: true, de_la_comunidad: true }, cuerpo);
+      demo.acciones.push(nueva); auditar("acciones", "insertar", nueva.id);
+    }
+    toast("Enlace publicado en «Cómo ayudar».");
+    pintarDetalle(panel);
+  });
+  return h("details", { class: "agregar-enlace" }, h("summary", { class: "btn" }, "+ Agregar un enlace para ayudar"), form);
+}
+async function retirarEnlace(a, panel) {
+  if (!confirm(`¿Retirar el enlace «${a.nombre}»? Dejará de verse en el mapa. Queda registrado en la auditoría.`)) return;
+  if (enVivo()) {
+    try { await api(`/admin/acciones/${encodeURIComponent(a.id)}`, { metodo: "DELETE" }); }
+    catch (e) { toast("No se pudo retirar: " + mensajeError(e)); return; }
+  } else {
+    const x = demo.acciones.find((y) => y.id === a.id);
+    if (x) { x.activa = false; auditar("acciones", "retirar", x.id); }
+  }
+  toast("Enlace retirado.");
+  pintarDetalle(panel);
+}
+function tarjetaAccion(a, retirar) {
   return h("div", { class: "accion" },
-    h("span", { class: "tipo" }, TIPOS_ACCION[a.tipo] || a.tipo),
+    h("div", { class: "row", style: "justify-content: space-between" },
+      h("span", { class: "tipo" }, TIPOS_ACCION[a.tipo] || a.tipo, a.de_la_comunidad ? h("span", { class: "comunidad" }, " · de la comunidad") : null),
+      retirar ? h("button", { class: "btn ghost small", type: "button", onclick: retirar }, "Retirar") : null),
     h("strong", null, a.nombre),
     a.descripcion ? h("span", { class: "small muted" }, a.descripcion) : null,
     a.organizacion ? h("span", { class: "small" }, a.organizacion.nombre) : null,
@@ -1518,6 +1583,41 @@ function vistaBloqueo(raiz, vista) {
 
 /* ---------- Reportar ---------- */
 let miniMapa = null, miniMarcador = null;
+/* ---------- Enlaces para ayudar (D-40) ---------- */
+/* Valida un enlace como el backend: tipo conocido, nombre de 3 a 120 caracteres, https y sin espacios. */
+function errorEnlace(e) {
+  if (!TIPOS_ACCION[e.tipo]) return "Elige el tipo de enlace.";
+  if (e.nombre.length < 3 || e.nombre.length > 120) return "El nombre del enlace debe tener entre 3 y 120 caracteres.";
+  if (!/^https:\/\/\S+$/.test(e.enlace) || e.enlace.length > 500) return "El enlace debe empezar con https:// y no tener espacios.";
+  return null;
+}
+function selectTipoEnlace(id) {
+  return h("select", { class: "inp", id, "aria-label": "Tipo de enlace" }, Object.entries(TIPOS_ACCION).map(([k, v]) => h("option", { value: k }, v)));
+}
+/* Lista editable de hasta 3 enlaces para el formulario de Reportar. leer() devuelve los enlaces o lanza el primer error. */
+function editorEnlaces() {
+  const filas = [];
+  const lista = h("div", { class: "enlaces-editor" });
+  const agregar = h("button", { class: "btn", type: "button" }, "+ Agregar enlace");
+  const pintar = () => { lista.replaceChildren(...filas.map((f) => f.el)); agregar.hidden = filas.length >= 3; };
+  agregar.addEventListener("click", () => {
+    const n = uid().slice(0, 6);
+    const tipo = selectTipoEnlace("et-" + n);
+    const nombre = h("input", { type: "text", class: "inp", maxlength: "120", placeholder: "Nombre: «Firma para limpiar el río»", "aria-label": "Nombre del enlace" });
+    const url = h("input", { type: "url", class: "inp", maxlength: "500", placeholder: "https://…", "aria-label": "Enlace" });
+    const fila = { tipo, nombre, url };
+    fila.el = h("div", { class: "enlace-fila" }, tipo, nombre, url,
+      h("button", { class: "btn ghost", type: "button", "aria-label": "Quitar enlace", onclick: () => { filas.splice(filas.indexOf(fila), 1); pintar(); } }, "Quitar"));
+    filas.push(fila); pintar(); nombre.focus();
+  });
+  pintar();
+  return {
+    el: h("div", { class: "field" }, h("span", { class: "label" }, "Enlaces para ayudar (opcional)"), lista, agregar,
+      h("span", { class: "hint" }, "Hasta 3: firmas, eventos, donaciones, voluntariado o canales de denuncia. Se publican en «Cómo ayudar» cuando se aprueba el reporte.")),
+    leer: () => filas.map((f) => ({ tipo: f.tipo.value, nombre: f.nombre.value.trim(), enlace: f.url.value.trim() })),
+  };
+}
+
 function vistaReportar(raiz) {
   raiz.className = "view gutter";
   const ref = estado.reportePunto || null;
@@ -1616,6 +1716,7 @@ function vistaReportar(raiz) {
     prev.append(h("img", { src: url, alt: "Vista previa de la foto" }), h("span", { class: "hint" }, `${f.name} · ${(f.size / 1024 / 1024).toFixed(1)} MB`));
   });
   const errores = h("div", { class: "err", role: "alert" });
+  const enlaces = editorEnlaces();
 
   form.append(...[
     h("h3", null, "Datos del reporte"),
@@ -1628,6 +1729,7 @@ function vistaReportar(raiz) {
       h("span", { class: "hint" }, "Ubicación elegida: ", ubicTxt)),
     h("div", { class: "field" }, h("label", { class: "label", for: "r-foto" }, "Foto de evidencia (opcional)"), foto, prev,
       h("span", { class: "hint" }, "JPG, PNG o WebP de hasta 8 MB. El servidor quita la ubicación GPS y los datos de la cámara, y la reduce a 1600 px.")),
+    enlaces.el,
     errores,
     h("div", { class: "row" }, h("button", { class: "btn primary", type: "submit" }, "Enviar reporte"), h("span", { class: "hint" }, "Queda pendiente hasta que un moderador lo revise."))].filter(Boolean));
 
@@ -1640,6 +1742,8 @@ function vistaReportar(raiz) {
     if (d.length > 2000) fallos.push("La descripción no puede pasar de 2000 caracteres.");
     if (modoUbic === "coordenadas") leerCoordenadas();
     if (!ubic) fallos.push("Indica la ubicación: busca la dirección o escribe las coordenadas.");
+    const listaEnlaces = enlaces.leer();
+    listaEnlaces.forEach((x, i) => { const m = errorEnlace(x); if (m) fallos.push(`Enlace ${i + 1}: ${m}`); });
     errores.replaceChildren(...fallos.map((f) => h("div", null, f)));
     if (fallos.length) return;
     if (enVivo()) {
@@ -1648,6 +1752,7 @@ function vistaReportar(raiz) {
       const cuerpo = { tipo: tipo.value, descripcion: d, ubicacion: ubic };
       if (grav) cuerpo.gravedad_sugerida = grav;
       if (ref) cuerpo.punto_id = ref.id;
+      if (listaEnlaces.length) cuerpo.enlaces = listaEnlaces;
       (async () => {
         try {
           const creado = await api("/aportes", { metodo: "POST", json: cuerpo });
@@ -1667,7 +1772,7 @@ function vistaReportar(raiz) {
       return;
     }
     const nuevo = { id: "a-" + uid().slice(0, 8), autor_id: usuarioActual().id, punto_id: ref ? ref.id : null, tipo: tipo.value, gravedad_sugerida: grav,
-      descripcion: d, ubicacion: ubic, estado: "pendiente", motivo_revision: null, foto: !!foto.files[0], creado_en: new Date().toISOString() };
+      descripcion: d, ubicacion: ubic, estado: "pendiente", motivo_revision: null, foto: !!foto.files[0], enlaces: listaEnlaces, creado_en: new Date().toISOString() };
     demo.aportes.unshift(nuevo);
     auditar("aportes", "insertar", nuevo.id);
     toast("Reporte enviado. Queda pendiente de revisión.");
@@ -1748,6 +1853,7 @@ function tarjetaModeracion(a, yo) {
       h("dt", null, "Enviado"), h("dd", null, fechaHora(a.creado_en)),
       h("dt", null, "Ubicación"), h("dd", { class: "mono" }, coord(a.ubicacion)),
       h("dt", null, "Foto"), h("dd", null, a.foto ? "Sí, se ve con un enlace temporal de 10 minutos" : "No"),
+      a.enlaces && a.enlaces.length ? [h("dt", null, "Enlaces"), h("dd", null, listaEnlacesAporte(a))] : null,
       a.motivo_revision ? [h("dt", null, "Motivo"), h("dd", null, a.motivo_revision)] : null));
   if (a.estado !== "pendiente") return card;
   if (propio) { card.append(h("p", { class: "hint" }, "Este aporte es tuyo: otra persona debe revisarlo.")); return card; }
@@ -1776,6 +1882,9 @@ function tarjetaModeracion(a, yo) {
       demo.puntos.push(p); a.punto_id = p.id;
       auditar("puntos", "insertar", p.id);
     }
+    if ((decision === "aprobado" || decision === "duplicado") && a.enlaces && a.enlaces.length) {
+      for (const e of a.enlaces) demo.acciones.push(Object.assign({ id: "x-" + uid().slice(0, 8), descripcion: null, punto_id: a.punto_id, organizacion: null, activa: true, de_la_comunidad: true }, e));
+    }
     auditar("aportes", "revisar", a.id);
     toast(decision === "aprobado" ? "Aporte aprobado y publicado en el mapa." : decision === "rechazado" ? "Aporte rechazado. Quien lo envió verá el motivo." : "Aporte marcado como duplicado.");
     vistaModeracion(document.getElementById("main"));
@@ -1791,6 +1900,12 @@ function tarjetaModeracion(a, yo) {
       h("button", { class: "btn danger", type: "button", onclick: () => decidir("rechazado") }, "Rechazar"),
       h("button", { class: "btn", type: "button", onclick: () => decidir("duplicado") }, "Marcar duplicado"))));
   return card;
+}
+function listaEnlacesAporte(a) {
+  return h("ul", { class: "enlaces-aporte" }, a.enlaces.map((e) => h("li", null,
+    h("span", { class: "chip" }, TIPOS_ACCION[e.tipo] || e.tipo), " ", e.nombre, " · ",
+    h("a", { href: e.enlace, target: "_blank", rel: "noopener noreferrer", class: "mono" }, e.enlace.replace(/^https:\/\//, "")))),
+    a.estado === "pendiente" ? h("li", { class: "hint" }, "Se publican en «Cómo ayudar» al aprobar o marcar duplicado. Revisa que sean reales antes de aprobar.") : null);
 }
 function tituloSugerido(a) {
   const base = TIPOS[a.tipo];
@@ -1992,6 +2107,7 @@ function tarjetaModeracionVivo(a, puntos, raiz) {
       h("dt", null, "Enviado"), h("dd", null, fechaHora(a.creado_en)),
       h("dt", null, "Ubicación"), h("dd", { class: "mono" }, coord(a.ubicacion)),
       h("dt", null, "Foto"), h("dd", null, enlaceFoto(a)),
+      a.enlaces && a.enlaces.length ? [h("dt", null, "Enlaces"), h("dd", null, listaEnlacesAporte(a))] : null,
       a.motivo_revision ? [h("dt", null, "Motivo"), h("dd", null, a.motivo_revision)] : null));
   if (a.estado !== "pendiente") return card;
   if (propio) { card.append(h("p", { class: "hint" }, "Este aporte es tuyo: otra persona debe revisarlo.")); return card; }
