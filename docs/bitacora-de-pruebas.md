@@ -52,6 +52,11 @@ La cobertura bajó de 98,3 % a 91,05 % en la fase 11 porque desde entonces se mi
 | 40917475066 | 2026-10-29 | `1920930` | Verde (prototipo del frontend) |
 | 40923235702 | 2026-10-29 | `5c3f713` | Verde (D-39, inicio de sesión real) |
 | 41684693860 | 2026-11-03 | `49a04fa` | Verde (corrección de I-04 y pruebas de contrato) |
+| 41686067706 | 2026-11-03 | `93888df` | Verde (bitácora: flujo real completo) |
+| 41686718508 | 2026-11-03 | `9e713cb` | Verde (ubicación por dirección o coordenadas) |
+| 41689491198 | 2026-11-03 | `a59ec8a` | Verde (PR #1, D-40) |
+| 41690270778 | 2026-11-03 | `b834946` | Verde (PR #1, arreglos de la revisión automática) |
+| 41692002608 | 2026-11-03 | `b834946` | Verde (PR #1 fusionado a main; Render despliega) |
 
 ## Verificaciones en el servicio real
 
@@ -66,6 +71,7 @@ La cobertura bajó de 98,3 % a 91,05 % en la fase 11 porque desde entonces se mi
 | 2026-11-03 | Nombrar administradora por SQL y volver a entrar | El prototipo muestra el rol Administrador y habilita Moderación y Administración |
 | 2026-11-03 | Aprobar el reporte con una segunda cuenta moderadora | Se guardó, pero la API respondió con error y el reintento dio 409 (I-04) |
 | 2026-11-03 | Ver el reporte aprobado en el mapa público, tras corregir I-04 | Punto publicado en 19.2783, -98.2225 con el título y la gravedad 1 que puso la moderadora; detalle y «Cómo ayudar» correctos |
+| 2026-11-03 | `npm run migrar` desde la PC de sharon, con la versión corregida de la 012 (hash igual al de `b834946`) | «Aplicadas: 1 012_enlaces_comunidad.sql», «Ya estaban aplicadas: 11». Después se fusionó el PR #1 a main |
 
 ## Incidencias encontradas por las pruebas
 
