@@ -9,7 +9,7 @@ Versión publicada para verlo y compartirlo: https://claude.ai/artifact/GKoo8Yfj
 | Sección | Rol necesario | Endpoint del backend que representa |
 |---|---|---|
 | Mapa: filtros por tipo y gravedad, búsqueda por radio, detalle y «Cómo ayudar» | Ninguno | `GET /puntos`, `GET /puntos/cercanos`, `GET /puntos/:id` |
-| Reportar: tipo, descripción, gravedad, ubicación en el mapa y foto | Ciudadano o superior | `POST /aportes`, `POST /aportes/:id/evidencia` |
+| Reportar: tipo, descripción, gravedad, ubicación por dirección o por coordenadas, y foto | Ciudadano o superior | `POST /aportes`, `POST /aportes/:id/evidencia` |
 | Mis aportes: estado y motivo de revisión | Ciudadano o superior | `GET /aportes/mis` |
 | Moderación: aprobar, rechazar con motivo o marcar duplicado | Moderador o administrador | `GET /admin/aportes`, `PATCH /admin/aportes/:id/revision` |
 | Administración: catálogo, usuarios y roles, auditoría | Editor (catálogo) o administrador | `POST /admin/acciones`, `POST /admin/organizaciones`, `GET /admin/usuarios`, `PATCH /admin/usuarios/:id/rol`, `GET /admin/auditoria` |
@@ -45,4 +45,5 @@ y abre `http://localhost:5173`. El plan gratuito de Render puede tardar unos 50 
 
 - La versión publicada en claude.ai no puede cargar el mapa base de OpenStreetMap ni llamar a la API (la página está aislada); allí se ve una cuadrícula de coordenadas reales y el modo de ejemplo.
 - El navegador recibe la llave pública *anon* de Supabase desde `GET /configuracion-publica` (D-39). Ninguna llave secreta llega al frontend.
+- La ubicación de un reporte se escribe: una dirección, que se convierte a coordenadas con Nominatim de OpenStreetMap (solo México, una búsqueda por clic, como pide su política de uso), o las coordenadas exactas (`19.2783, -98.2225`). El mapa de Reportar solo muestra la vista previa. La API guarda las coordenadas, no la dirección. En la versión publicada en claude.ai el buscador de direcciones no responde; las coordenadas sí funcionan.
 - Leaflet 1.9.4 se carga desde cdnjs; su hoja de estilos va copiada dentro del archivo (licencia BSD-2).
