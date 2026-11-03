@@ -1960,6 +1960,8 @@ function tarjetaModeracionVivo(a, puntos, raiz) {
       toast(decision === "aprobado" ? "Aporte aprobado y publicado en el mapa." : decision === "rechazado" ? "Aporte rechazado. Quien lo envió verá el motivo." : "Aporte marcado como duplicado.");
       vistaModeracionVivo(raiz);
     } catch (e) {
+      // 409: otra persona (u otro intento) ya lo revisó; se recarga la cola para no mostrar un aporte viejo.
+      if (e.estado === 409) { toast("Este aporte ya estaba revisado. Se actualizó la cola."); vistaModeracionVivo(raiz); return; }
       err.textContent = "No se pudo guardar: " + mensajeError(e);
       botones.forEach((b) => { b.disabled = false; });
     }

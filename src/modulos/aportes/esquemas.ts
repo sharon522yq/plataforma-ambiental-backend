@@ -50,3 +50,11 @@ export const aportePropio = z.object(camposAporte).transform(agruparUbicacion);
 export const aporteModeracion = z
   .object({ ...camposAporte, autor_id: z.uuid(), revisor_id: z.uuid().nullable() })
   .transform(agruparUbicacion);
+
+/**
+ * Respuesta de PATCH /admin/aportes/:id/revision. revisar_aporte devuelve el aporte con
+ * revisor_id pero sin autor_id; exigirlo hacía fallar la ruta con 500 después de guardar (I-04).
+ */
+export const aporteRevisado = z
+  .object({ ...camposAporte, revisor_id: z.uuid().nullable() })
+  .transform(agruparUbicacion);

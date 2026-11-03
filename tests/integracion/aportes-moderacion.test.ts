@@ -147,7 +147,7 @@ describe("moderación de aportes", () => {
   });
 
   it("aprobar envía título, gravedad y publicar", async () => {
-    const { app: a, llamadas } = app({ revisar_aporte: ok({ ...aporte, estado: "aprobado", punto_id: PUNTO, autor_id: CIUDADANO, revisor_id: MODERADOR }) });
+    const { app: a, llamadas } = app({ revisar_aporte: ok({ ...aporte, estado: "aprobado", punto_id: PUNTO, revisor_id: MODERADOR }) });
     const r = await request(a)
       .patch(`/api/v1/admin/aportes/${APORTE}/revision`)
       .set("Authorization", await bearer(MODERADOR))

@@ -32,6 +32,8 @@ Las 12 pruebas omitidas en las corridas locales son las de Supabase real, que so
 | 2026-10-28 | 10. CI y despliegue | 519 | — | — | Primera corrida de CI roja (pgvector), luego verde; incidencia I-03 en Render, cerrada |
 | 2026-10-29 | 11. Cierre | 519 | — | — | Umbral de cobertura del 70 % activado en la CI |
 | 2026-10-29 | Después del cierre: zod 4 | 527 | 91,05 % | — | Mensajes de validación en español; `/salud/ia?generar=1` |
+| 2026-10-29 | Prototipo y D-39 (inicio de sesión real) | 532 | — | — | `GET /configuracion-publica` solo entrega la llave anon |
+| 2026-11-03 | Contratos SQL ↔ API | 540 | 91,14 % | — | Incidencia I-04 encontrada en la prueba real y cerrada; 8 pruebas de contrato nuevas |
 
 La cobertura bajó de 98,3 % a 91,05 % en la fase 11 porque desde entonces se mide sobre todos los archivos de `src/` (`include: ["src/**/*.ts"]`), también los que ninguna prueba importa. Antes solo contaba los archivos cargados por las pruebas.
 
@@ -46,6 +48,8 @@ La cobertura bajó de 98,3 % a 91,05 % en la fase 11 porque desde entonces se mi
 | 40756742438 | 2026-10-28 | `c264372` | Verde |
 | 40817292495 | 2026-10-29 | `79b6c3a` | Verde (cierre de la fase 11) |
 | 40901927256 | 2026-10-29 | `87069d8` | Verde (zod 4) |
+| 40917475066 | 2026-10-29 | `1920930` | Verde (prototipo del frontend) |
+| 40923235702 | 2026-10-29 | `5c3f713` | Verde (D-39, inicio de sesión real) |
 
 ## Verificaciones en el servicio real
 
@@ -55,6 +59,10 @@ La cobertura bajó de 98,3 % a 91,05 % en la fase 11 porque desde entonces se mi
 | 2026-10-28 | Consulta real al agente, con permiso de sharon | Respuesta en español, sobre el tema, con modelo y aviso; viene en Markdown |
 | 2026-10-28 | Primer arranque en Render | Falló: `TypeError: Invalid URL` (I-03) |
 | 2026-10-28 | `/api/v1/salud` en Render, desde el navegador | `{"estado":"ok","base":"ok"}` |
+| 2026-10-30 | Prototipo en vivo (`localhost:5173`): crear cuenta e iniciar sesión | Sesión como ciudadano, «API ok · base ok», mapa con un punto real de Supabase |
+| 2026-11-03 | Reporte real desde el prototipo con la cuenta ciudadana | Aparece en «Mis aportes» como PENDIENTE |
+| 2026-11-03 | Nombrar administradora por SQL y volver a entrar | El prototipo muestra el rol Administrador y habilita Moderación y Administración |
+| 2026-11-03 | Aprobar el reporte con una segunda cuenta moderadora | Se guardó, pero la API respondió con error y el reintento dio 409 (I-04) |
 
 ## Incidencias encontradas por las pruebas
 
@@ -65,7 +73,8 @@ Detalle completo en `docs/incidencias.md`. Todas cerradas.
 | I-01 | 2026-10-28 | Un cuerpo JSON de más de 100 KB respondía 500 en vez de 413 | `tests/integracion/seguridad.test.ts` |
 | I-02 | 2026-10-28 | Un JSON con charset no soportado respondía 500 en vez de 415 | la misma prueba |
 | I-03 | 2026-10-28 | Un espacio al final de `SUPABASE_URL` impedía arrancar en Render | registros de Render; pruebas nuevas en `env.test.ts` |
+| I-04 | 2026-11-03 | Aprobar un aporte respondía 500 aunque se guardaba (la respuesta no traía `autor_id`) | prueba real con dos cuentas; reproducida en `contratos-sql.test.ts` |
 
 ## Última corrida
 
-- **2026-10-29**, base local PostgreSQL 16: 27 archivos en verde y 1 omitido (Supabase real); 527 pruebas en verde y 12 omitidas.
+- **2026-11-03**, base local PostgreSQL 16: 29 archivos en verde y 1 omitido (Supabase real); 540 pruebas en verde y 12 omitidas; cobertura de líneas 91,14 %.

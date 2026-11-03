@@ -29,3 +29,13 @@ Sin incidencias abiertas.
 - **Real:** `TypeError: Invalid URL` en `crearVerificadorSupabase` al armar `https://<proyecto>.supabase.co /auth/v1/.well-known/jwks.json`; Render reiniciaba el servicio una y otra vez.
 - **Causa:** la validación de la URL la aceptaba (el estándar de URL ignora espacios al final), pero al concatenar `/auth/v1` el espacio quedaba en medio. El valor se copió con un espacio de más.
 - **Solución:** `cargarEntorno` quita espacios y saltos de línea al inicio y al final de cada variable. Pruebas nuevas en `tests/unitarias/env.test.ts`; sin el cambio, fallan con el mismo error de Render.
+
+## I-04: aprobar un aporte respondía con error aunque sí se guardaba (cerrada)
+
+- **Fecha:** 2026-11-03, prueba real del prototipo en vivo con dos cuentas (sharon).
+- **Pasos:** con una cuenta moderadora, en Moderación, pulsar «Aprobar y publicar» sobre un aporte pendiente de otra cuenta; si sale error, pulsar otra vez.
+- **Esperado:** 200 con el aporte aprobado; la tarjeta desaparece de la cola.
+- **Real:** la tarjeta se quedó en la cola y el reintento mostró «No se pudo guardar: El aporte ya fue revisado» (409). El primer intento sí había guardado la aprobación.
+- **Causa:** la función `revisar_aporte` (migración 008) devuelve el aporte con `revisor_id` pero sin `autor_id`, y la ruta validaba la respuesta con `aporteModeracion`, que exige `autor_id`. La validación fallaba después de que la base ya había confirmado el cambio, y la API respondía 500. Las pruebas HTTP no lo vieron porque la respuesta falsa sí traía `autor_id`; las pruebas SQL no validaban con el esquema de la ruta.
+- **Solución:** la ruta valida con `aporteRevisado` (sin `autor_id`). Prueba nueva `tests/integracion/contratos-sql.test.ts`: llama en una base real a cada función que usa la API y valida su respuesta con el mismo esquema de la ruta; sin el cambio, fallan las tres decisiones de `revisar_aporte`. La respuesta falsa de la prueba HTTP ahora tiene la misma forma que la función real. El prototipo, ante un 409, recarga la cola en lugar de dejar la tarjeta.
+

@@ -6,7 +6,7 @@ import { conEnlace, paginaConEnlaces, type AlmacenEvidencias } from "../../compa
 import { quitarDatosPersonales } from "../../compartido/privacidad.js";
 import type { Autorizar } from "../../middleware/autorizar.js";
 import { validar } from "../../middleware/validar.js";
-import { aporteModeracion } from "../aportes/esquemas.js";
+import { aporteModeracion, aporteRevisado } from "../aportes/esquemas.js";
 import type { ClientePorUsuario } from "../aportes/rutas.js";
 import { consultaCola, cuerpoEstadoPunto, cuerpoNuevoPunto, cuerpoRevision, parametrosId, puntoModeracion } from "./esquemas.js";
 
@@ -51,7 +51,7 @@ export function crearRutasModeracion(
       publicar: cuerpo.decision === "aprobado" ? cuerpo.publicar : false,
       duplicado_de: cuerpo.decision === "duplicado" ? cuerpo.duplicado_de : null,
     })
-      .then((r) => conEnlace(almacen, aporteModeracion.parse(r)))
+      .then((r) => conEnlace(almacen, aporteRevisado.parse(r)))
       .then((r) => res.json(r))
       .catch(siguiente);
   });

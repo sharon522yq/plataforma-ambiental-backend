@@ -13,7 +13,7 @@ const consulta = esquemaPaginacion.extend({
   punto_id: z.uuid().optional(),
 });
 
-const accion = z.object({
+export const accion = z.object({
   id: z.uuid(),
   tipo: z.enum(TIPOS_ACCION),
   nombre: z.string(),
