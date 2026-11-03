@@ -50,6 +50,7 @@ La cobertura bajó de 98,3 % a 91,05 % en la fase 11 porque desde entonces se mi
 | 40901927256 | 2026-10-29 | `87069d8` | Verde (zod 4) |
 | 40917475066 | 2026-10-29 | `1920930` | Verde (prototipo del frontend) |
 | 40923235702 | 2026-10-29 | `5c3f713` | Verde (D-39, inicio de sesión real) |
+| 41684693860 | 2026-11-03 | `49a04fa` | Verde (corrección de I-04 y pruebas de contrato) |
 
 ## Verificaciones en el servicio real
 
@@ -63,6 +64,7 @@ La cobertura bajó de 98,3 % a 91,05 % en la fase 11 porque desde entonces se mi
 | 2026-11-03 | Reporte real desde el prototipo con la cuenta ciudadana | Aparece en «Mis aportes» como PENDIENTE |
 | 2026-11-03 | Nombrar administradora por SQL y volver a entrar | El prototipo muestra el rol Administrador y habilita Moderación y Administración |
 | 2026-11-03 | Aprobar el reporte con una segunda cuenta moderadora | Se guardó, pero la API respondió con error y el reintento dio 409 (I-04) |
+| 2026-11-03 | Ver el reporte aprobado en el mapa público, tras corregir I-04 | Punto publicado en 19.2783, -98.2225 con el título y la gravedad 1 que puso la moderadora; detalle y «Cómo ayudar» correctos |
 
 ## Incidencias encontradas por las pruebas
 
