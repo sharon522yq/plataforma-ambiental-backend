@@ -3,8 +3,9 @@
 La acción **Respaldo** de GitHub (`.github/workflows/respaldo.yml`) respalda la base de producción los lunes y jueves a las 03:00 de Guadalajara, y también cuando la lanzas a mano. Cada respaldo:
 
 1. Se cifra con AES-256 usando una frase que solo tú conoces (`RESPALDO_CLAVE`). Sin esa frase nadie puede abrirlo, ni siquiera GitHub.
-2. **Se prueba antes de guardarse:** se restaura en un PostgreSQL desechable con PostGIS y pgvector, se comparan las filas de cada tabla, se comprueba que una cuenta nueva reciba su perfil y se hace una consulta real de la API sobre lo restaurado. Si algo no cuadra, la acción falla en rojo y GitHub te avisa por correo.
-3. Se guarda como artefacto de la corrida durante 90 días.
+2. Sale de una sola instantánea de la base: las tablas, las cuentas y los conteos son del mismo instante, aunque alguien se registre mientras corre.
+3. **Se prueba antes de guardarse:** se restaura en un PostgreSQL desechable con PostGIS y pgvector, se comparan las filas de cada tabla (tienen que coincidir exactamente), se comprueba que cada cuenta tenga su perfil, se comprueba que una cuenta nueva reciba su perfil y se hace una consulta real de la API sobre lo restaurado. Si algo no cuadra, la acción falla en rojo y GitHub te avisa por correo.
+4. Se guarda como artefacto de la corrida durante 90 días.
 
 Además, al conectarse dos veces por semana, evita que Supabase pause el proyecto gratuito por inactividad (B-13).
 

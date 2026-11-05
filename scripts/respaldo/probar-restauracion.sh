@@ -46,12 +46,17 @@ pg_restore --dbname="$url" --no-owner --exit-on-error --use-list="$tmp/lista" "$
 fallas=0
 while read -r tabla esperado; do
   real=$(sql -At -c "select count(*) from $tabla")
-  if [ "$real" -lt "$esperado" ]; then
+  # Los conteos y los volcados salen de la misma instantánea: tienen que coincidir exactamente.
+  if [ "$real" -ne "$esperado" ]; then
     echo "FALLA $tabla: $real filas restauradas, se esperaban $esperado" >&2
     fallas=$((fallas + 1))
   fi
 done < "$tmp/conteos.txt"
 [ "$fallas" -eq 0 ] || exit 1
+
+# Cada cuenta respaldada tiene su perfil (si no, la API rechaza sus peticiones).
+sin_perfil=$(sql -At -c "select count(*) from auth.users u where not exists (select 1 from perfiles p where p.id = u.id)")
+[ "$sin_perfil" = "0" ] || { echo "FALLA: $sin_perfil cuentas restauradas sin perfil" >&2; exit 1; }
 
 # Los triggers sobre auth.users: una cuenta nueva debe recibir su perfil, como en producción.
 # (storage.sql no se prueba aquí: este PostgreSQL no tiene el esquema storage de Supabase.)
