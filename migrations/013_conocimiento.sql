@@ -14,6 +14,19 @@ alter table documentos_conocimiento add constraint documentos_enlace_https
 
 alter table fragmentos add column if not exists posicion integer not null default 0;
 alter table fragmentos add column if not exists modelo text;
+-- Los fragmentos que ya existían recibieron posicion = 0: se numeran por orden de creación
+-- antes del índice único. Solo toca documentos con posiciones repetidas, así que volver a
+-- correr la migración no cambia el orden de documentos ya cargados con este backend.
+update fragmentos f
+set posicion = n.orden
+from (
+  select id, (row_number() over (partition by documento_id order by creado_en, id) - 1)::integer as orden
+  from fragmentos
+  where documento_id in (
+    select documento_id from fragmentos group by documento_id having count(*) > count(distinct posicion)
+  )
+) n
+where f.id = n.id;
 create unique index if not exists fragmentos_documento_posicion_idx on fragmentos (documento_id, posicion);
 
 -- ---------------------------------------------------------------------------

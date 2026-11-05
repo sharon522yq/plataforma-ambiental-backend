@@ -2521,8 +2521,20 @@ async function panelCatalogoVivo(recargar) {
   });
   return h("div", { class: "grid-2" }, fA, fO);
 }
+/* Junta todas las páginas de un listado de la API (100 por página, tope de 20 páginas). */
+async function todasLasPaginas(ruta) {
+  const datos = [];
+  let total = 0;
+  for (let pagina = 1; pagina <= 20; pagina++) {
+    const r = await api(`${ruta}${ruta.includes("?") ? "&" : "?"}limite=100&pagina=${pagina}`);
+    datos.push(...r.datos);
+    total = r.paginacion ? r.paginacion.total : datos.length;
+    if (!r.paginacion || pagina >= r.paginacion.paginas) break;
+  }
+  return { datos, paginacion: { pagina: 1, limite: datos.length, total, paginas: 1 } };
+}
 async function panelConocimientoVivo(recargar) {
-  const r = await api("/admin/conocimiento?limite=100");
+  const r = await todasLasPaginas("/admin/conocimiento");
   const f = h("form", { class: "card", novalidate: true });
   const titulo = h("input", { type: "text", id: "k-titulo", maxlength: "200", placeholder: "Cómo denunciar ante PROFEPA" });
   const fuente = h("input", { type: "text", id: "k-fuente", maxlength: "200", placeholder: "PROFEPA" });
