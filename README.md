@@ -131,13 +131,26 @@ Desde F13 Gemini usa herramientas de solo lectura sobre el mapa (`src/modulos/ag
 
 - **Ubicación:** la manda el navegador solo si la persona marca «Usar mi ubicación» (redondeada a unos 100 m). Se queda en el servidor: Gemini solo pide `cerca_de_mi` y nunca recibe las coordenadas, y no se guarda en la conversación.
 - **Respaldo sin IA:** si Gemini no responde (cuota agotada, caída o error), el servidor busca por palabras clave en el mapa y responde con una lista fija, `modelo: "respaldo-sin-ia"` y `respaldo: true`. Una pregunta bloqueada por seguridad (422) no pasa al respaldo.
-- **Evaluación:** `npm run evaluar:agente` hace 20 preguntas de prueba al agente real (Gemini y la base con la llave pública) y guarda el informe en `docs/evaluaciones/`. Gasta unas 40 llamadas de cuota; aprueba con 18 de 20. `-- --limite=3` hace una prueba rápida y `-- --pausa=30` espera más entre preguntas si Google responde 429.
+- **Base de conocimiento (F14):** con la herramienta `buscar_conocimiento`, Gemini consulta documentos de fuentes confiables que cargó el personal y la respuesta trae `fuentes` (título, fuente, enlace y fecha) para citarlas. Los documentos se buscan por parecido (embeddings `gemini-embedding-001` de 768 dimensiones, `GEMINI_MODELO_EMBEDDINGS`); solo se usan los activos.
+- **Evaluación:** `npm run evaluar:agente` hace 20 preguntas de prueba al agente real (Gemini y la base con la llave pública) y guarda el informe en `docs/evaluaciones/`. Gasta unas 40 llamadas de cuota; aprueba con 18 de 20. `-- --limite=3` hace una prueba rápida. Espera 30 s entre preguntas; si Google responde 429 (límite por minuto del plan gratuito) reintenta tras 30 s, y si tres preguntas seguidas chocan con el límite se detiene, porque casi seguro se acabó la cuota diaria. `-- --pausa=60` espera más.
 
 `GET /api/v1/salud/ia` (solo administrador) comprueba que la llave y el modelo responden, sin generar texto. Con `?generar=1` además pide una respuesta corta real (gasta un poco de cuota) y la muestra en `prueba`.
 
 Para comprobar la llave sin gastar cuota: `npm run verificar:gemini`. Muestra si es válida, si el modelo de `GEMINI_MODELO` existe y qué modelos "flash" hay.
 
 La respuesta es texto generado por IA: el frontend debe mostrarla como texto (no como HTML) y con el aviso (D-33).
+
+### Base de conocimiento
+
+Editor y administrador (migración 013):
+
+| Ruta | Qué hace |
+|---|---|
+| `GET /api/v1/admin/conocimiento` | Lista los documentos (activos e inactivos) con cuántos fragmentos tiene cada uno |
+| `POST /api/v1/admin/conocimiento` | `{ titulo, fuente, enlace?, fecha_fuente?, texto }`. El servidor parte el texto (hasta 40 000 caracteres) en fragmentos de unos 1 200 caracteres, calcula sus embeddings con Gemini y los guarda en una sola transacción. 503 si Gemini no responde (no guarda nada) |
+| `PATCH /api/v1/admin/conocimiento/:id` | `{ activo }`: un documento inactivo deja de usarse en las respuestas |
+
+En el prototipo: Administración → «Base de conocimiento». Cada carga, cambio de estado o borrado queda en la auditoría. Cargar un documento gasta una llamada de embeddings por cada 100 fragmentos.
 
 ## Seguridad
 

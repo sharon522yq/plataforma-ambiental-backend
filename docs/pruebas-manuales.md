@@ -56,11 +56,18 @@ Para conseguir un token: inicia sesión en Supabase Auth y copia el `access_toke
 6. Administrador: `GET /api/v1/salud/ia`: esperado `{ "ia": "ok", "modelo": ... }`. Con `?generar=1` (gasta un poco de cuota) trae además `prueba` con una frase sobre separar la basura.
 
 ## Agente con herramientas (F13)
-1. En tu PC, con `.env` completo: `npm run evaluar:agente -- --limite=3`. Esperado: 3 líneas `OK` y el informe en `docs/evaluaciones/`. Si sale 429, espera un minuto y usa `-- --pausa=30`.
+1. En tu PC, con `.env` completo: `npm run evaluar:agente -- --limite=3`. Esperado: 3 líneas `OK` y el informe en `docs/evaluaciones/`. Si sale 429, el script reintenta solo; si se detiene por el límite, la cuota diaria se acabó: repite al día siguiente o usa `-- --pausa=60`.
 2. `npm run evaluar:agente` (las 20, tarda unos 6 minutos). Esperado: «Aprobados: 18 de 20» o más.
 3. En el sitio (Asistente), pregunta «¿Qué problemas de agua hay en el mapa?». Esperado: una respuesta con títulos reales del mapa y el botón «Ver N puntos en el mapa», que lleva al mapa con solo esos puntos. «Quitar filtro» regresa a todos.
 4. Marca «Usar mi ubicación», acepta el permiso del navegador y pregunta «¿Qué hay cerca de mí?». Esperado: puntos cercanos, o que diga que no hay. Sin la casilla, debe pedirte la ubicación o una ciudad.
 5. Respaldo: en Render pon `GEMINI_MODELO=modelo-que-no-existe`, pregunta «¿hay basura reportada?» y espera «Respuesta automática sin IA» con la lista del mapa. Regresa `GEMINI_MODELO` a su valor.
+
+## Base de conocimiento (F14)
+1. Con la migración 013 aplicada, entra como editor y ve a Administración → «Base de conocimiento».
+2. Carga un documento real: título, fuente (por ejemplo, PROFEPA), el enlace https y el texto copiado de la página oficial. Esperado: «Documento cargado en N fragmentos» y la fila en la lista.
+3. En el asistente, pregunta algo que responda ese documento. Esperado: la respuesta usa esa información y abajo aparece «Fuentes» con el título y el enlace.
+4. Desactiva el documento y repite la pregunta: ya no debe aparecer como fuente.
+5. Como administrador, en Auditoría: aparecen `documento_creado` y `documento_actualizado`.
 
 ## Sitio público y aviso de privacidad (F12)
 1. Abre la URL del sitio desde un teléfono. Esperado: el mapa con los puntos publicados, la etiqueta «piloto» y sin selector «Datos».

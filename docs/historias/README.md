@@ -13,4 +13,5 @@ Una historia por módulo, con criterios de aceptación numerados (sección 9 del
 | Moderación | [moderacion.md](moderacion.md) |
 | Administración | [administracion.md](administracion.md) |
 | Agente con IA | [agente.md](agente.md) |
+| Base de conocimiento | [conocimiento.md](conocimiento.md) |
 | Seguridad transversal | [seguridad.md](seguridad.md) |
