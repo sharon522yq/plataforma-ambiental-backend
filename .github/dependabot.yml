@@ -1,0 +1,22 @@
+# Avisos de dependencias (F15). Dependabot abre un pull request por semana con las actualizaciones;
+# la CI las prueba y nadie las fusiona sin revisarlas. Solo propone versiones con al menos 14 días
+# publicadas (misma regla que se sigue a mano, D-36). Las alertas de seguridad llegan aparte y sin espera.
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    cooldown:
+      default-days: 14
+    open-pull-requests-limit: 5
+    groups:
+      menores:
+        update-types: [minor, patch]
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly
+    cooldown:
+      default-days: 14

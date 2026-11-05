@@ -32,8 +32,8 @@ export const parametrosUsuario = z.object({ id: z.uuid() });
 
 export const cuerpoRol = z.object({ rol: z.enum(ROLES) }).strict();
 
-/** Tablas que registra la auditoría (triggers de la 008, 009 y 010). */
-export const TABLAS_AUDITADAS = ["aportes", "puntos", "perfiles", "acciones", "organizaciones"] as const;
+/** Tablas que registra la auditoría (triggers de la 008, 009, 010, 013 y 014). */
+export const TABLAS_AUDITADAS = ["aportes", "puntos", "perfiles", "acciones", "organizaciones", "documentos_conocimiento", "solicitudes_rol"] as const;
 
 export const consultaAuditoria = esquemaPaginacion.extend({
   tabla: z.enum(TABLAS_AUDITADAS).optional(),
@@ -84,12 +84,55 @@ export const usuarioAdmin = z.object({
   creado_en: z.string(),
 });
 
+const persona = z.object({ id: z.uuid(), nombre: z.string() });
+
+/** Solicitud para dar o quitar el rol de administrador (migración 014). */
+export const solicitudRol = z.object({
+  id: z.uuid(),
+  usuario: persona,
+  rol_anterior: z.enum(ROLES),
+  rol_nuevo: z.enum(ROLES),
+  solicitado_por: persona,
+  estado: z.enum(["pendiente", "aprobada", "rechazada", "cancelada", "vencida"]),
+  resuelto_por: persona.nullable(),
+  creado_en: z.string(),
+  resuelto_en: z.string().nullable(),
+});
+
+export const parametrosSolicitud = z.object({ id: z.uuid() });
+
+export const cuerpoDecisionRol = z.object({ aprobar: z.boolean() }).strict();
+
+/** Si el cambio necesita a otro administrador, rol sigue igual y solicitud trae la pendiente. */
 export const usuarioRolCambiado = z.object({
   id: z.uuid(),
   nombre: z.string(),
   rol: z.enum(ROLES),
   activo: z.boolean(),
   actualizado_en: z.string(),
+  solicitud: solicitudRol.nullable().default(null),
+});
+
+const conteo = z.number().int().nonnegative();
+const conteosPor = z.record(z.string(), conteo);
+
+/** Métricas de la plataforma (migración 014): solo conteos, sin datos personales. */
+export const metricas = z.object({
+  generado_en: z.string(),
+  puntos: z.object({ publicados: conteo, en_revision: conteo, archivados: conteo, por_tipo: conteosPor, por_gravedad: conteosPor }),
+  aportes: z.object({
+    pendientes: conteo,
+    aprobados: conteo,
+    rechazados: conteo,
+    duplicados: conteo,
+    ultimos_30_dias: conteo,
+    horas_revision_mediana: z.number().nonnegative().nullable(),
+    por_semana: z.array(z.object({ semana: z.string(), recibidos: conteo })),
+  }),
+  usuarios: z.object({ total: conteo, activos: conteo, nuevos_30_dias: conteo, por_rol: conteosPor }),
+  catalogo: z.object({ acciones_activas: conteo, organizaciones_activas: conteo, documentos_activos: conteo, fragmentos: conteo }),
+  asistente: z.object({ conversaciones_7_dias: conteo, con_herramientas: conteo, con_documentos: conteo, sin_ia: conteo }),
+  pendientes_de_rol: conteo,
 });
 
 export const registroAuditoria = z.object({

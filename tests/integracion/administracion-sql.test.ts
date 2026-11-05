@@ -149,14 +149,16 @@ describe.skipIf(!process.env.TEST_DATABASE_URL)("administración en la base (mig
       expect(await como<string>(u.admin, "obtener_rol_actual()")).toBe("administrador");
     });
 
-    it("otro administrador sí puede cambiarlo, y desactivar queda auditado", async () => {
-      await como(u.admin2, "cambiar_rol($1, 'editor')", [u.admin]);
-      await sentenciaComo(u.admin2, "update perfiles set activo = false where id = $1", [u.admin]);
-      await cliente().query("update perfiles set rol = 'administrador', activo = true where id = $1", [u.admin]);
-      const registros = await auditoria(u.admin);
-      expect(registros.filter((x) => x.usuario_id === u.admin2).map((x) => x.accion)).toEqual(["rol_cambiado", "usuario_desactivado"]);
+    it("quitarle el rol a otro administrador crea una solicitud (014); desactivar a alguien queda auditado", async () => {
+      const r = await como(u.admin2, "cambiar_rol($1, 'editor')", [u.admin]);
+      expect(r).toMatchObject({ rol: "administrador", solicitud: { estado: "pendiente", rol_nuevo: "editor" } });
+      await como(u.admin2, "resolver_solicitud_rol($1, false)", [(r.solicitud as Json).id]);
+      await expect(sentenciaComo(u.admin2, "update perfiles set activo = false where id = $1", [u.admin])).rejects.toMatchObject({ code: "42501" });
+      await sentenciaComo(u.admin2, "update perfiles set activo = false where id = $1", [u.moderador]);
+      await cliente().query("update perfiles set activo = true where id = $1", [u.moderador]);
+      expect((await auditoria(u.moderador)).filter((x) => x.usuario_id === u.admin2).map((x) => x.accion)).toEqual(["usuario_desactivado"]);
       // Los cambios sin sesión (llave de servicio o consola) también quedan, sin usuario.
-      expect(registros.filter((x) => x.usuario_id === null).map((x) => x.detalle)).toContainEqual({ rol_anterior: "ciudadano", rol_nuevo: "administrador" });
+      expect((await auditoria(u.admin)).filter((x) => x.usuario_id === null).map((x) => x.detalle)).toContainEqual({ rol_anterior: "ciudadano", rol_nuevo: "administrador" });
     });
 
     it("errores: rol inválido, usuario inexistente y sin permiso", async () => {

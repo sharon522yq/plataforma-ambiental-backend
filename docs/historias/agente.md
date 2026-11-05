@@ -24,4 +24,4 @@
 
 ## Pendiente
 
-Todavía no consulta documentos propios (RAG, F14). La dimensión de los embeddings sigue abierta (D-01).
+La base de conocimiento (F14) tiene su propia historia: [conocimiento.md](conocimiento.md).
