@@ -28,12 +28,21 @@ fi
 mkdir -p "$salida"
 fecha=$(date -u +%Y-%m-%dT%H%MZ)
 tmp=$(mktemp -d)
-trap 'rm -rf "$tmp"' EXIT
 
-consulta() { psql "$RESPALDO_DATABASE_URL" -X -q -v ON_ERROR_STOP=1 -At -c "$1"; }
+# Todo el respaldo sale de una sola foto de la base: una sesión abre una transacción, exporta su
+# instantánea y la mantiene abierta mientras pg_dump y las consultas la usan. Sin esto, una
+# cuenta creada entre los dos volcados quedaría en cuentas.dump sin su perfil en app.dump.
+# (La cadena «Session pooler» de Supabase mantiene la sesión; la «Transaction pooler» no sirve.)
+coproc FOTO { psql "$RESPALDO_DATABASE_URL" -X -q -At -v ON_ERROR_STOP=1; }
+trap 'echo "rollback;" >&"${FOTO[1]}" 2>/dev/null || true; rm -rf "$tmp"' EXIT
+echo "begin isolation level repeatable read read only; select pg_export_snapshot();" >&"${FOTO[1]}"
+read -r -t 60 foto <&"${FOTO[0]}" || { echo "No se pudo abrir la instantánea de la base" >&2; exit 1; }
 
-# Conteos y extensiones primero: si los datos cambian durante el volcado, la prueba de
-# restauración solo exige que lo restaurado tenga al menos estas filas.
+consulta() {
+  psql "$RESPALDO_DATABASE_URL" -X -q -v ON_ERROR_STOP=1 -At \
+    -c "begin isolation level repeatable read read only" -c "set transaction snapshot '$foto'" -c "$1" -c "commit"
+}
+
 consulta "select e.extname || ' ' || n.nspname from pg_extension e join pg_namespace n on n.oid = e.extnamespace
           where e.extname in ('postgis', 'vector', 'pgcrypto') order by 1" > "$tmp/extensiones.txt"
 consulta "select string_agg(format('select %L || '' '' || count(*) from %I.%I', table_schema || '.' || table_name, table_schema, table_name), ' union all ' order by table_schema, table_name)
@@ -43,9 +52,9 @@ consulta "select string_agg(format('select %L || '' '' || count(*) from %I.%I', 
 consulta "$(cat "$tmp/conteos.sql")" | sort > "$tmp/conteos.txt"
 rm "$tmp/conteos.sql"
 
-pg_dump "$RESPALDO_DATABASE_URL" --format=custom --no-owner --schema=public --schema=esquema_migraciones \
+pg_dump "$RESPALDO_DATABASE_URL" --snapshot="$foto" --format=custom --no-owner --schema=public --schema=esquema_migraciones \
   --exclude-table=public.spatial_ref_sys --file="$tmp/app.dump"
-pg_dump "$RESPALDO_DATABASE_URL" --format=custom --no-owner --data-only \
+pg_dump "$RESPALDO_DATABASE_URL" --snapshot="$foto" --format=custom --no-owner --data-only \
   --table=auth.users --table=auth.identities --file="$tmp/cuentas.dump"
 consulta "select id from auth.users order by id" > "$tmp/usuarios.csv"
 # Con search_path vacío, pg_get_triggerdef escribe los nombres con su esquema.
