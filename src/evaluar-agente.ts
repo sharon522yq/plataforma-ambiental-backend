@@ -3,7 +3,7 @@ import { mkdirSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { createClient } from "@supabase/supabase-js";
 import { z } from "zod";
-import { APROBADOS_MINIMOS, CASOS, evaluarAgente, informe } from "./modulos/agente/evaluacion.js";
+import { APROBADOS_MINIMOS, CASOS, CASOS_SEGUIDOS_CON_LIMITE, conReintentos, evaluarAgente, informe } from "./modulos/agente/evaluacion.js";
 import { crearEmbeddings } from "./modulos/agente/embeddings.js";
 import { crearGemini } from "./modulos/agente/gemini.js";
 import { crearHerramientas } from "./modulos/agente/herramientas.js";
@@ -12,10 +12,12 @@ import { crearHerramientas } from "./modulos/agente/herramientas.js";
  * npm run evaluar:agente — hace las 20 preguntas de prueba al agente real (Gemini + la base de
  * Supabase con la llave pública) y guarda el informe en docs/evaluaciones/.
  * Gasta cuota de Gemini: unas 40 llamadas (más algunos embeddings). Nunca imprime llaves.
+ * Si Google responde 429 (límite por minuto del plan gratuito), espera 30 s y reintenta hasta
+ * 2 veces; si aun así 3 preguntas seguidas chocan con el límite, se detiene.
  *
- *   npm run evaluar:agente                  todas las preguntas, 15 s entre una y otra
+ *   npm run evaluar:agente                  todas las preguntas, 30 s entre una y otra
  *   npm run evaluar:agente -- --limite=3    solo las primeras 3 (prueba rápida)
- *   npm run evaluar:agente -- --pausa=30    más pausa si Google responde 429
+ *   npm run evaluar:agente -- --pausa=60    más pausa si aun así Google responde 429
  */
 const entorno = z
   .object({
@@ -33,11 +35,15 @@ if (!entorno.success) {
 
 const argumento = (nombre: string) => process.argv.find((a) => a.startsWith(`--${nombre}=`))?.split("=")[1];
 const limite = Math.min(Math.max(Number(argumento("limite") ?? CASOS.length) || CASOS.length, 1), CASOS.length);
-const pausaSegundos = Math.min(Math.max(Number(argumento("pausa") ?? 15) || 15, 0), 120);
+const pausaSegundos = Math.min(Math.max(Number(argumento("pausa") ?? 30) || 30, 0), 120);
 
 const { SUPABASE_URL, SUPABASE_ANON_KEY, GEMINI_API_KEY, GEMINI_MODELO, GEMINI_MODELO_EMBEDDINGS } = entorno.data;
 const publico = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, { auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false } });
-const ia = crearGemini({ llave: GEMINI_API_KEY, modelo: GEMINI_MODELO });
+const ia = conReintentos(crearGemini({ llave: GEMINI_API_KEY, modelo: GEMINI_MODELO }), {
+  esperaMs: 30_000,
+  intentos: 2,
+  alReintentar: (n) => { console.log(`        Google pidió esperar (límite por minuto). Reintento ${String(n)} en 30 s…`); },
+});
 const casos = CASOS.slice(0, limite);
 
 console.log(`Evaluando el agente con ${GEMINI_MODELO}: ${String(casos.length)} preguntas, ${String(pausaSegundos)} s entre cada una.`);
@@ -50,6 +56,10 @@ const resultados = await evaluarAgente(ia, crearHerramientas(publico, embeddings
     console.log(`        herramientas: ${r.herramientas.join(", ") || "ninguna"} · ${(r.milisegundos / 1000).toFixed(1)} s`);
     for (const f of r.fallas) console.log(`        - ${f}`);
   },
+  alDetenerse: () => { console.log(
+      `\nSe detuvo: ${String(CASOS_SEGUIDOS_CON_LIMITE)} preguntas seguidas chocaron con el límite de Google. ` +
+        "Probablemente se acabó la cuota diaria del plan gratuito: vuelve a intentarlo mañana o con facturación activa (D-03).",
+    ); },
 });
 
 const aprobados = resultados.filter((r) => r.fallas.length === 0).length;

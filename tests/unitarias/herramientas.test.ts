@@ -141,6 +141,10 @@ describe("herramientas del agente", () => {
     expect(r).toEqual({ respuesta: { error: "No se pudo consultar la base en este momento." }, puntos: [] });
     expect(JSON.stringify(r)).not.toContain("secreto");
     expect(espia.mock.calls.flat().join(" ")).toContain("herramienta_fallida");
+    // El registro lleva el código de la base para diagnosticar, nunca su mensaje.
+    const registro = espia.mock.calls.flat().join(" ");
+    expect(registro).toContain('"causa":"XX000"');
+    expect(registro).not.toContain("secreto");
   });
 
   describe("buscar_conocimiento (F14)", () => {

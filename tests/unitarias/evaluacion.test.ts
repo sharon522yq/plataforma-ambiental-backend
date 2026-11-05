@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { ErrorAplicacion } from "../../src/compartido/errores.js";
 import type { RespuestaAgente } from "../../src/modulos/agente/agente.js";
-import { APROBADOS_MINIMOS, CASOS, evaluarAgente, informe, revisar, UBICACION_PRUEBA } from "../../src/modulos/agente/evaluacion.js";
+import { APROBADOS_MINIMOS, CASOS, CASOS_SEGUIDOS_CON_LIMITE, conReintentos, evaluarAgente, informe, revisar, UBICACION_PRUEBA } from "../../src/modulos/agente/evaluacion.js";
 import { DECLARACION_CONOCIMIENTO, DECLARACIONES } from "../../src/modulos/agente/herramientas.js";
 import { herramientasFalsas, iaFalsa } from "../ayudas/ia-falsa.js";
 
@@ -73,5 +73,36 @@ describe("evaluarAgente", () => {
     expect(md).toContain("| 1 | Soy ana@ejemplo.com, ¿hay agua sucia? | buscar_puntos | aprobado |");
     expect(md).toContain("| 2 | ¿Y aire? | — | falla: error: El asistente no está disponible (respuesta_vacia_MAX_TOKENS) |");
     expect(md).toContain("_(sin respuesta)_");
+  });
+});
+
+describe("límite de Google (429) en la evaluación", () => {
+  const limite = () => Object.assign(new ErrorAplicacion(503, "AGENTE_NO_DISPONIBLE", "El asistente no está disponible"), { cause: "http_429" });
+
+  it("conReintentos espera y repite el paso tras un 429, y deja pasar los demás errores", async () => {
+    const { ia } = iaFalsa({ guion: [{ error: limite() }, { error: limite() }, { texto: "Listo." }] });
+    const avisos: number[] = [];
+    const conEspera = conReintentos(ia, { esperaMs: 1, intentos: 2, alReintentar: (n) => avisos.push(n) });
+    expect(await conEspera.paso([], [])).toMatchObject({ texto: "Listo." });
+    expect(avisos).toEqual([1, 2]);
+
+    const { ia: siempre } = iaFalsa({ guion: [{ error: limite() }, { error: limite() }, { error: limite() }] });
+    await expect(conReintentos(siempre, { esperaMs: 1, intentos: 2 }).paso([], [])).rejects.toMatchObject({ cause: "http_429" });
+
+    const otro = Object.assign(new ErrorAplicacion(503, "AGENTE_NO_DISPONIBLE", "x"), { cause: "sin_conexion" });
+    const { ia: falla } = iaFalsa({ guion: [{ error: otro }, { texto: "no llega" }] });
+    const sinAvisos: number[] = [];
+    await expect(conReintentos(falla, { esperaMs: 1, intentos: 2, alReintentar: (n) => sinAvisos.push(n) }).paso([], [])).rejects.toMatchObject({ cause: "sin_conexion" });
+    expect(sinAvisos).toEqual([]);
+  });
+
+  it("se detiene tras varias preguntas seguidas con 429", async () => {
+    const { ia } = iaFalsa({ guion: Array.from({ length: 10 }, () => ({ error: limite() })) });
+    const { herramientas } = herramientasFalsas();
+    let detenida = false;
+    const casos = Array.from({ length: 6 }, (_, i) => ({ pregunta: `Pregunta ${String(i)}` }));
+    const r = await evaluarAgente(ia, herramientas, casos, { pausaMs: 0, alDetenerse: () => (detenida = true) });
+    expect(r).toHaveLength(CASOS_SEGUIDOS_CON_LIMITE);
+    expect(detenida).toBe(true);
   });
 });

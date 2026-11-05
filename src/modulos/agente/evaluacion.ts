@@ -1,5 +1,6 @@
 import { quitarDatosPersonales } from "../../compartido/privacidad.js";
 import { responderConHerramientas, type RespuestaAgente } from "./agente.js";
+import { ErrorAplicacion } from "../../compartido/errores.js";
 import type { ModeloIA } from "./gemini.js";
 import type { Herramientas, Ubicacion } from "./herramientas.js";
 
@@ -69,6 +70,36 @@ export function revisar(caso: CasoEvaluacion, r: RespuestaAgente): string[] {
   return fallas;
 }
 
+const esperar = (ms: number) => new Promise<void>((ok) => setTimeout(ok, ms));
+const esLimiteDeGoogle = (e: unknown) => e instanceof ErrorAplicacion && e.cause === "http_429";
+
+/**
+ * Solo para la evaluación: si Google responde 429 (límite por minuto del plan gratuito), espera
+ * y reintenta el mismo paso. La ruta real no reintenta: ahí el usuario recibe el respaldo sin IA.
+ */
+export function conReintentos(ia: ModeloIA, opciones: { esperaMs: number; intentos: number; alReintentar?: (intento: number) => void }): ModeloIA {
+  async function reintentar<T>(hacer: () => Promise<T>): Promise<T> {
+    for (let intento = 1; ; intento++) {
+      try {
+        return await hacer();
+      } catch (e) {
+        if (!esLimiteDeGoogle(e) || intento > opciones.intentos) throw e;
+        opciones.alReintentar?.(intento);
+        await esperar(opciones.esperaMs);
+      }
+    }
+  }
+  return {
+    modelo: ia.modelo,
+    generar: (pregunta) => reintentar(() => ia.generar(pregunta)),
+    paso: (contenidos, herramientas, extra) => reintentar(() => ia.paso(contenidos, herramientas, extra)),
+    comprobar: () => ia.comprobar(),
+  };
+}
+
+/** Tras esta cantidad de casos seguidos con 429, la cuota se acabó: seguir solo gasta tiempo. */
+export const CASOS_SEGUIDOS_CON_LIMITE = 3;
+
 export interface ResultadoCaso {
   caso: CasoEvaluacion;
   fallas: string[];
@@ -86,17 +117,24 @@ export async function evaluarAgente(
   ia: ModeloIA,
   herramientas: Herramientas,
   casos: CasoEvaluacion[],
-  opciones: { pausaMs: number; alTerminarCaso?: (r: ResultadoCaso, i: number) => void },
+  opciones: { pausaMs: number; alTerminarCaso?: (r: ResultadoCaso, i: number) => void; alDetenerse?: () => void },
 ): Promise<ResultadoCaso[]> {
   const resultados: ResultadoCaso[] = [];
+  let seguidosConLimite = 0;
   for (const [i, caso] of casos.entries()) {
-    if (i > 0 && opciones.pausaMs > 0) await new Promise((ok) => setTimeout(ok, opciones.pausaMs));
+    if (seguidosConLimite >= CASOS_SEGUIDOS_CON_LIMITE) {
+      opciones.alDetenerse?.();
+      break;
+    }
+    if (i > 0 && opciones.pausaMs > 0) await esperar(opciones.pausaMs);
     const inicio = Date.now();
     let resultado: ResultadoCaso;
     try {
       const r = await responderConHerramientas(ia, herramientas, quitarDatosPersonales(caso.pregunta), { ubicacion: caso.ubicacion ?? null });
       resultado = { caso, fallas: revisar(caso, r), herramientas: r.herramientas, texto: r.texto, milisegundos: Date.now() - inicio };
+      seguidosConLimite = 0;
     } catch (e) {
+      seguidosConLimite = esLimiteDeGoogle(e) ? seguidosConLimite + 1 : 0;
       const motivo = e instanceof Error ? e.message : "error desconocido";
       const causa = e instanceof Error && typeof e.cause === "string" ? ` (${e.cause})` : "";
       resultado = { caso, fallas: [`error: ${motivo}${causa}`], herramientas: [], texto: "", milisegundos: Date.now() - inicio };

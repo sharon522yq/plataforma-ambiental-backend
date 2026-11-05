@@ -271,7 +271,9 @@ export function crearHerramientas(publico: SupabaseClient, embeddings?: ModeloEm
         // El modelo recibe un error legible y puede corregir sus argumentos; nada se filtra.
         if (e instanceof z.ZodError) return sinPuntos({ error: "Argumentos inválidos: " + e.issues.map((i) => `${i.path.join(".")} ${i.message}`).join("; ") });
         if (e instanceof ErrorAplicacion && e.estado < 500) return sinPuntos({ error: e.message });
-        registrar("error", "herramienta_fallida", { herramienta: nombre });
+        // Solo el motivo técnico (código de la base, estado HTTP o tipo de error), sin datos.
+        const causa = e instanceof Error && typeof e.cause === "string" ? e.cause : e instanceof ErrorAplicacion ? String(e.estado) : e instanceof Error ? e.name : "desconocida";
+        registrar("error", "herramienta_fallida", { herramienta: nombre, causa });
         return sinPuntos({ error: "No se pudo consultar la base en este momento." });
       }
     },

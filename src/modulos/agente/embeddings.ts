@@ -30,7 +30,12 @@ export function normalizar(v: number[]): number[] {
   return v.map((x) => x / largo);
 }
 
-const noDisponible = () => new ErrorAplicacion(503, "IA_NO_DISPONIBLE", "El servicio de IA no está disponible, intenta más tarde");
+/** 503 para el usuario; `cause` lleva el motivo técnico (sin la llave ni el texto) para el registro. */
+function noDisponible(causa: string): ErrorAplicacion {
+  const error = new ErrorAplicacion(503, "IA_NO_DISPONIBLE", "El servicio de IA no está disponible, intenta más tarde");
+  error.cause = causa;
+  return error;
+}
 
 /**
  * Embeddings de Gemini por REST (gemini-embedding-001 por defecto). La llave va en la cabecera,
@@ -58,22 +63,22 @@ export function crearEmbeddings({ llave, modelo, fetch: pedir = fetch }: { llave
       });
     } catch {
       registrar("error", "embeddings_sin_respuesta", {});
-      throw noDisponible();
+      throw noDisponible("sin_conexion");
     }
     if (!r.ok) {
       registrar("error", "embeddings_error", { estado: r.status });
-      throw noDisponible();
+      throw noDisponible(`http_${String(r.status)}`);
     }
     const datos = respuestaLote.safeParse(await r.json().catch(() => null));
     if (!datos.success || datos.data.embeddings.length !== textos.length || datos.data.embeddings.some((e) => e.values.length !== DIMENSIONES)) {
       registrar("error", "embeddings_respuesta_inesperada", {});
-      throw noDisponible();
+      throw noDisponible("respuesta_inesperada");
     }
     try {
       return datos.data.embeddings.map((e) => normalizar(e.values));
     } catch {
       registrar("error", "embeddings_respuesta_inesperada", {});
-      throw noDisponible();
+      throw noDisponible("respuesta_inesperada");
     }
   }
 
