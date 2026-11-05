@@ -137,6 +137,27 @@ describe("crearGemini().paso", () => {
     });
   });
 
+  it("en los modelos 2.5 limita el razonamiento para que no se coma la respuesta; en otros no lo pide", async () => {
+    const respuesta = () => json({ candidates: [{ content: { parts: [{ text: "ok" }] } }] });
+    const flash = fetchFalso(respuesta());
+    await crearGemini({ llave: LLAVE, modelo: "gemini-2.5-flash", fetch: flash.f }).paso(pregunta, []);
+    expect(cuerpoDe(flash.llamadas[0]?.init)).toMatchObject({ generationConfig: { maxOutputTokens: 2048, thinkingConfig: { thinkingBudget: 512 } } });
+    const otro = fetchFalso(respuesta());
+    await crearGemini({ llave: LLAVE, modelo: "gemini-2.0-flash", fetch: otro.f }).generar("x");
+    const config = cuerpoDe(otro.llamadas[0]?.init).generationConfig as Record<string, unknown>;
+    expect(config.maxOutputTokens).toBe(2048);
+    expect(config).not.toHaveProperty("thinkingConfig");
+  });
+
+  it.each([
+    [json({ candidates: [{ content: { parts: [] }, finishReason: "MAX_TOKENS" }] }), "respuesta_vacia_MAX_TOKENS"],
+    [json({}, 429), "http_429"],
+    [new Error("x"), "sin_conexion"],
+  ])("el 503 lleva el motivo técnico en cause (%#)", async (respuesta, causa) => {
+    const error: unknown = await crearGemini({ llave: LLAVE, modelo: "m", fetch: fetchFalso(respuesta).f }).paso(pregunta, []).catch((e: unknown) => e);
+    expect(error).toMatchObject({ estado: 503, cause: causa });
+  });
+
   it("expone el nombre del modelo", () => {
     expect(crearGemini({ llave: LLAVE, modelo: "gemini-x" }).modelo).toBe("gemini-x");
   });
