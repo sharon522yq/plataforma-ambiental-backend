@@ -167,6 +167,17 @@ Pasos (los haces tú, con tu cuenta):
 
 Cada push a `main` vuelve a desplegar. Las migraciones nuevas se siguen aplicando desde tu PC con `npm run migrar`, **antes** de subir el código que las usa.
 
+### Sitio público (F12)
+
+`render.yaml` define un segundo servicio, `plataforma-ambiental`: un sitio estático gratuito que publica la carpeta `prototipo/` tal cual, sin compilar, y solo se vuelve a desplegar cuando cambia algo dentro de ella. Envía una política de contenido (CSP) que solo permite los orígenes que usa la página; `tests/unitarias/sitio-publico.test.ts` falla si la página empieza a usar un origen que la política bloquearía. En ese dominio la página entra sola en modo real: sin selector de datos de ejemplo, con textos para el público y con el aviso de privacidad.
+
+Pasos (los haces tú, una vez):
+
+1. En Render, abre el Blueprint del proyecto y pulsa **Sync** (o **Manual sync**) para que cree el servicio `plataforma-ambiental`. Anota su URL (`https://plataforma-ambiental.onrender.com` o la que Render le asigne).
+2. En el servicio del backend → **Environment**, agrega esa URL a `CORS_ORIGENES`, separada por coma de `http://localhost:5173`. Guarda: Render reinicia el backend.
+3. En Supabase → **Authentication → URL Configuration**: pon la URL del sitio en **Site URL** y agrega `https://<tu-sitio>.onrender.com/**` en **Redirect URLs** (deja también `http://localhost:5173/**`). Así el correo de confirmación regresa al sitio público.
+4. Abre el sitio desde tu teléfono, crea una cuenta y envía un reporte de prueba.
+
 ## Comandos
 
 | Comando | Qué hace |

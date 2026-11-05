@@ -102,5 +102,17 @@ Cada fase tiene: alcance, criterio de salida, pruebas y permisos que hay que ped
 - **Criterio de salida:** se cumplen los diez puntos de la sección 13 del prompt.
 - **Permisos:** **requerido** para cualquier commit o push final.
 
+# Segunda etapa: completar la plataforma (F12 a F17)
+
+Auditoría del 2026-11-05 contra el plan maestro (ver `docs/auditoria.md`, sección «Auditoría del 2026-11-05», y el documento [Auditoría y plan para completar la plataforma](https://claude.ai/artifact/Rmcrps6V76dN4qSNYVXyYL)). sharon aprobó hacer todas las fases seguidas el 2026-11-05 («continuemos haz todas las fases sin parar»), con pruebas antes de pasar a la siguiente.
+
+## Fase 12: Sitio público y aviso de privacidad (B-03, B-04)
+- **Estado:** **lista en código y pruebas (2026-11-05).** Falta que sharon sincronice el Blueprint y configure CORS y Supabase Auth (README, «Sitio público»).
+- **Alcance:** el prototipo se publica como sitio estático de Render (`render.yaml`, servicio `plataforma-ambiental`, D-41) con política de contenido y cabeceras de seguridad. En `*.onrender.com` entra en modo real con textos para el público. Aviso de privacidad (`#privacidad`) con casilla al registrarse y al reportar; la versión aceptada se guarda en la cuenta. El mapa solo cambia a la cuadrícula si fallan varias teselas y ninguna cargó.
+- **Pruebas:** `tests/unitarias/sitio-publico.test.ts` (7): la política deja pasar cada script, estilo y conexión que usa la página, cabeceras de seguridad, codificación y aviso. Mutaciones detectadas: quitar Nominatim de la política, quitar `<meta charset>` e inventar un contacto. En navegador (Playwright contra un servidor local con las mismas cabeceras de `render.yaml`, API y Supabase simulados): 25 de 25 comprobaciones, entre ellas cero violaciones de la política, registro bloqueado sin aceptar el aviso, versión del aviso y regreso al sitio en la llamada a Supabase, reporte bloqueado sin la casilla, mensaje claro con la API caída y sin desplazamiento horizontal en un iPhone 13.
+- **Criterio de salida:** una persona externa entra desde su teléfono, consulta y envía un reporte sin ayuda (lo verifica sharon con el sitio publicado).
+
 ## Orden de ejecución
 F1 → F2 → F3 → F4 → F5 → F6 → F7 → F8 → F9 → F10 → F11. Cada fase espera tu aprobación antes de empezar.
+
+Segunda etapa: F12 → F13 → F14 → F15 → F16 → F17, seguidas (aprobado el 2026-11-05).

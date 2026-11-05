@@ -59,3 +59,24 @@
 | A-09 | Resuelto: todos los documentos existen, incluidas las historias de usuario (fase 11) |
 | A-10 | Resuelto en F3: `npm run migrar` |
 | A-11 | Resuelto: sin carpetas vacías; `docs/historias/` tiene una historia por módulo |
+
+## Auditoría del 2026-11-05 (contra el plan maestro)
+
+El backend cumple su prompt; la plataforma completa, no. Detalle y plan en el documento [Auditoría y plan para completar la plataforma](https://claude.ai/artifact/Rmcrps6V76dN4qSNYVXyYL) y en `docs/plan-de-trabajo.md` (F12 a F17).
+
+| ID | Brecha | Severidad | Fase |
+|---|---|---|---|
+| B-01 | El agente no usa herramientas ni filtra el mapa | Crítica | F13 |
+| B-02 | Sin RAG ni respuestas con fuente (D-01 abierta) | Crítica | F14 |
+| B-03 | Frontend sin publicar | Crítica | F12 |
+| B-04 | Sin aviso de privacidad | Crítica | F12 |
+| B-05 | Los editores no pueden cargar documentos de conocimiento | Alta | F14 |
+| B-06 | Sin respaldos de la base | Alta | F15 |
+| B-07 | Facturación de Gemini sin activar (D-03) | Alta | F17 (sharon) |
+| B-08 | Cambiar un rol no pide un segundo administrador | Media | F15 |
+| B-09 | Sin «cómo llegar» | Media | F16 |
+| B-10 | Accesibilidad sin revisar | Media | F16 |
+| B-11 | Sin respuesta de respaldo cuando Gemini falla | Media | F13 |
+| B-12 | Sin métricas | Baja | F15 |
+| B-13 | Pausa de Supabase y arranque lento de Render | Baja | F15 |
+| B-14 | Mantenimiento de dependencias y CI sin Supabase de pruebas | Baja | F15 |

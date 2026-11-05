@@ -1,6 +1,8 @@
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Plataforma Ambiental</title>
 <meta name="claude:viewport-fit-sides" content="cover">
-<meta name="description" content="Prototipo navegable del frontend de la plataforma geoespacial ambiental.">
+<meta name="description" content="Mapa ciudadano de problemas ambientales: consulta, reporta y encuentra cómo ayudar.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700&family=IBM+Plex+Mono:wght@400;500&family=Public+Sans:wght@400;500;600&display=swap">
@@ -839,6 +841,12 @@ main { min-height: 0; }
 .minimapa .mapa { position: absolute; inset: 0; }
 .foto-prev { display: flex; gap: 12px; align-items: center; }
 .foto-prev img { width: 96px; height: 72px; object-fit: cover; border-radius: 6px; border: 1px solid var(--line); }
+.pie-sitio { padding: 14px 0 22px; font-size: .8rem; color: var(--muted); display: flex; gap: 16px; flex-wrap: wrap; border-top: 1px solid var(--line); }
+.pie-sitio a { color: inherit; }
+.casilla { display: flex; gap: 8px; align-items: flex-start; font-size: .85rem; }
+.casilla input { margin-top: 3px; width: 16px; height: 16px; flex: none; }
+.aviso-texto { max-width: 760px; margin: 0 auto; display: grid; gap: 10px; line-height: 1.55; }
+.aviso-texto h3 { margin-top: 10px; }
 .bloqueo { max-width: 560px; margin: 40px auto; text-align: left; display: grid; gap: 12px; }
 .bloqueo .codigo { font: 500 .8rem/1.4 var(--f-mono); background: var(--surface-2); border: 1px solid var(--line); border-radius: 6px; padding: 10px 12px; overflow-x: auto; white-space: pre; }
 .tabla-wrap { overflow-x: auto; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); }
@@ -911,6 +919,7 @@ td.num { font-variant-numeric: tabular-nums; }
 </header>
 
 <main id="main"></main>
+<footer class="pie-sitio gutter" id="pie"></footer>
 <div class="toast" id="toast" role="status" hidden></div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js"></script>
@@ -920,6 +929,12 @@ td.num { font-variant-numeric: tabular-nums; }
 
 /* ---------- Constantes que reflejan el backend ---------- */
 const API_POR_DEFECTO = "https://plataforma-ambiental-backend.onrender.com/api/v1";
+/* Sitio público (Render): siempre con datos reales y textos para el público. Con ?publico=1 se simula en pruebas. */
+const PUBLICO = /\.onrender\.com$/.test(location.hostname) || new URLSearchParams(location.search).has("publico");
+/* Versión del aviso de privacidad: se guarda en la cuenta al registrarse. Cambiarla si cambia el texto. */
+const VERSION_AVISO = "2026-11-05";
+/* Correo para ejercer derechos ARCO. Lo define la persona responsable antes del piloto. */
+const CONTACTO_PRIVACIDAD = "";
 const AVISO_IA = "Respuesta generada por inteligencia artificial. Puede contener errores: verifica con fuentes oficiales.";
 const MODELO = "gemini-2.5-flash";
 const CENTRO = [20.668, -103.355]; // Área Metropolitana de Guadalajara
@@ -1031,7 +1046,7 @@ const RESPUESTAS_DEMO = [
 
 /* ---------- Estado ---------- */
 const estado = {
-  fuente: "demo",
+  fuente: PUBLICO ? "vivo" : "demo",
   api: API_POR_DEFECTO,
   rol: "visitante",
   vista: "mapa",
@@ -1142,10 +1157,11 @@ async function api(ruta, { metodo = "GET", json, formulario } = {}) {
   }
   return cuerpo;
 }
+const SIN_CONEXION_PUBLICO = "No se pudo conectar con el servidor. Puede tardar hasta un minuto en despertar: espera un momento e intenta de nuevo.";
 function mensajeError(e) {
-  return e.message === "Failed to fetch"
-    ? "No se pudo conectar con la API. Sirve el prototipo en http://localhost:5173 (debe estar en CORS_ORIGENES) y espera a que Render despierte."
-    : e.message;
+  if (e.message !== "Failed to fetch") return e.message;
+  return PUBLICO ? SIN_CONEXION_PUBLICO
+    : "No se pudo conectar con la API. Sirve el prototipo en http://localhost:5173 (debe estar en CORS_ORIGENES) y espera a que Render despierte.";
 }
 
 /* ---------- Sesión real con Supabase Auth (solo en vivo) ---------- */
@@ -1226,12 +1242,15 @@ function vistaCuenta(raiz) {
     const correo = h("input", { type: "email", id: "c-correo", class: "inp", autocomplete: "email", required: true });
     const clave = h("input", { type: "password", id: "c-clave", class: "inp", autocomplete: modo === "entrar" ? "current-password" : "new-password", minlength: "6", required: true });
     const err = h("div", { class: "err", role: "alert" }, estado.errorAuth || "");
+    const acepto = h("input", { type: "checkbox", id: "c-aviso" });
     const boton = h("button", { class: "btn primary", type: "submit" }, modo === "entrar" ? "Entrar" : "Crear cuenta");
     const form = h("form", { class: "card", novalidate: true },
       h("h2", null, modo === "entrar" ? "Iniciar sesión" : "Crear cuenta"),
       modo === "crear" ? h("div", { class: "field" }, h("label", { class: "label", for: "c-nombre-u" }, "Nombre público"), nombre, h("span", { class: "hint" }, "Se muestra en moderación. Si lo dejas vacío, aparecerás como «Ciudadano».")) : null,
       h("div", { class: "field" }, h("label", { class: "label", for: "c-correo" }, "Correo"), correo),
       h("div", { class: "field" }, h("label", { class: "label", for: "c-clave" }, "Contraseña"), clave, modo === "crear" ? h("span", { class: "hint" }, "Al menos 6 caracteres.") : null),
+      modo === "crear" ? h("label", { class: "casilla", for: "c-aviso" }, acepto,
+        h("span", null, "Leí y acepto el ", h("a", { href: "#privacidad", target: "_blank" }, "aviso de privacidad"), ".")) : null,
       err,
       h("div", { class: "row" }, boton,
         h("button", { class: "btn ghost", type: "button", onclick: () => { modo = modo === "entrar" ? "crear" : "entrar"; estado.errorAuth = null; pintar(); } },
@@ -1241,10 +1260,12 @@ function vistaCuenta(raiz) {
       e.preventDefault(); err.textContent = "";
       if (!correo.value.includes("@")) { err.textContent = "Escribe un correo válido."; return; }
       if (clave.value.length < 6) { err.textContent = "La contraseña necesita al menos 6 caracteres."; return; }
+      if (modo === "crear" && !acepto.checked) { err.textContent = "Para crear la cuenta necesitas aceptar el aviso de privacidad."; return; }
       boton.disabled = true;
       const r = modo === "entrar"
         ? await estado.sb.auth.signInWithPassword({ email: correo.value.trim(), password: clave.value })
-        : await estado.sb.auth.signUp({ email: correo.value.trim(), password: clave.value, options: { data: { nombre: nombre.value.trim() } } });
+        : await estado.sb.auth.signUp({ email: correo.value.trim(), password: clave.value,
+          options: { data: { nombre: nombre.value.trim(), aviso_privacidad: VERSION_AVISO }, emailRedirectTo: location.origin + location.pathname } });
       boton.disabled = false;
       if (r.error) { err.textContent = ERRORES_AUTH[r.error.message] || r.error.message; return; }
       if (modo === "crear" && !r.data.session) {
@@ -1295,6 +1316,11 @@ function pintarBanner() {
     b.replaceChildren(h("b", null, "Modo de ejemplo. "),
       "Los puntos [PRUEBA] son los de la migración 005; los [EJEMPLO] y los aportes son inventados para la demo. Nada se guarda: al recargar vuelve al inicio. ",
       "El selector «Ver como» simula el rol que daría el inicio de sesión.");
+  } else if (PUBLICO) {
+    b.replaceChildren(h("b", null, "Plataforma en piloto. "),
+      "Los reportes pasan por moderación antes de aparecer en el mapa. Las respuestas del asistente las genera una IA y pueden tener errores. ",
+      h("a", { href: "#privacidad" }, "Aviso de privacidad"), ".",
+      h("span", { class: "err" }, estado.errorAuth ? " " + estado.errorAuth : null));
   } else {
     b.replaceChildren(h("b", null, "API en vivo. "),
       "Todo lee y escribe en ", h("span", { class: "mono" }, estado.api), " con una sesión real de Supabase. ",
@@ -1308,15 +1334,21 @@ let mapa = null, capaPuntos = null, capaCerca = null, marcadores = new Map();
 function crearMapa(contenedor, opciones) {
   if (!window.L) { contenedor.replaceChildren(h("div", { class: "vacio" }, "No se pudo cargar la biblioteca del mapa (Leaflet). Revisa la conexión a internet.")); return null; }
   const m = L.map(contenedor, Object.assign({ zoomControl: true, attributionControl: true }, opciones)).setView(CENTRO, 12);
-  let fallo = false;
+  let fallo = false, cargadas = 0, errores = 0;
   const teselas = L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
     maxZoom: 18, attribution: "&copy; colaboradores de OpenStreetMap",
   });
+  teselas.on("tileload", () => { cargadas++; });
+  /* Solo se cambia a la cuadrícula si fallan varias teselas y ninguna cargó (sin acceso a OpenStreetMap),
+     no por una tesela suelta en una red lenta. */
   teselas.on("tileerror", () => {
-    if (fallo) return; fallo = true;
+    errores++;
+    if (fallo || cargadas > 0 || errores < 4) return; fallo = true;
     m.removeLayer(teselas);
     cuadricula(m);
-    const aviso = h("div", { class: "aviso-mapa" }, "Sin mapa base: esta vista no permite cargar OpenStreetMap. Se muestra una cuadrícula de coordenadas reales. Abre el prototipo desde tu PC para ver las calles.");
+    const aviso = h("div", { class: "aviso-mapa" }, PUBLICO
+      ? "No se pudo cargar el mapa de calles de OpenStreetMap. Se muestra una cuadrícula con coordenadas reales; recarga la página para intentar de nuevo."
+      : "Sin mapa base: esta vista no permite cargar OpenStreetMap. Se muestra una cuadrícula de coordenadas reales. Abre el prototipo desde tu PC para ver las calles.");
     contenedor.append(aviso);
   });
   teselas.addTo(m);
@@ -1362,7 +1394,8 @@ async function cargarPuntosVivo() {
     estado.errorVivo = null;
   } catch (e) {
     estado.puntosVivo = [];
-    estado.errorVivo = e.message === "Failed to fetch"
+    estado.errorVivo = e.message === "Failed to fetch" && PUBLICO ? SIN_CONEXION_PUBLICO
+      : e.message === "Failed to fetch"
       ? "No se pudo conectar. Si abriste el prototipo desde un archivo o desde esta vista publicada, el navegador bloquea la llamada: sírvelo en http://localhost:5173 y agrega ese origen a CORS_ORIGENES en Render."
       : e.message;
   }
@@ -1576,9 +1609,9 @@ function vistaBloqueo(raiz, vista) {
     h("h2", null, sinSesion ? `Inicia sesión para entrar a ${v.nombre}` : `${v.nombre} es solo para ${v.roles.filter((r) => r !== "ciudadano").map((r) => ROLES[r].toLowerCase()).join(" y ")}`),
     h("p", { class: "muted" }, sinSesion
       ? (enVivo() ? "Entra con tu cuenta de la plataforma o crea una nueva." : "En el modo de ejemplo, elige un rol en «Ver como» arriba a la derecha. Con «API en vivo» puedes iniciar sesión de verdad.")
-      : "El backend responde igual que esta pantalla: la matriz de permisos se prueba en cada push."),
+      : PUBLICO ? "Si necesitas otro rol, pídelo a una persona administradora." : "El backend responde igual que esta pantalla: la matriz de permisos se prueba en cada push."),
     sinSesion && enVivo() ? h("div", null, h("a", { class: "btn primary", href: "#cuenta" }, "Iniciar sesión")) : null,
-    h("div", { class: "codigo" }, codigo)));
+    PUBLICO ? null : h("div", { class: "codigo" }, codigo)));
 }
 
 /* ---------- Reportar ---------- */
@@ -1717,6 +1750,7 @@ function vistaReportar(raiz) {
   });
   const errores = h("div", { class: "err", role: "alert" });
   const enlaces = editorEnlaces();
+  const aceptoAviso = h("input", { type: "checkbox", id: "r-aviso" });
 
   form.append(...[
     h("h3", null, "Datos del reporte"),
@@ -1730,6 +1764,8 @@ function vistaReportar(raiz) {
     h("div", { class: "field" }, h("label", { class: "label", for: "r-foto" }, "Foto de evidencia (opcional)"), foto, prev,
       h("span", { class: "hint" }, "JPG, PNG o WebP de hasta 8 MB. El servidor quita la ubicación GPS y los datos de la cámara, y la reduce a 1600 px.")),
     enlaces.el,
+    h("label", { class: "casilla", for: "r-aviso" }, aceptoAviso,
+      h("span", null, "Leí el ", h("a", { href: "#privacidad", target: "_blank" }, "aviso de privacidad"), ". Entiendo que la descripción, la ubicación y la foto se publican si el reporte se aprueba, sin mi nombre ni mi correo.")),
     errores,
     h("div", { class: "row" }, h("button", { class: "btn primary", type: "submit" }, "Enviar reporte"), h("span", { class: "hint" }, "Queda pendiente hasta que un moderador lo revise."))].filter(Boolean));
 
@@ -1744,6 +1780,7 @@ function vistaReportar(raiz) {
     if (!ubic) fallos.push("Indica la ubicación: busca la dirección o escribe las coordenadas.");
     const listaEnlaces = enlaces.leer();
     listaEnlaces.forEach((x, i) => { const m = errorEnlace(x); if (m) fallos.push(`Enlace ${i + 1}: ${m}`); });
+    if (!aceptoAviso.checked) fallos.push("Marca la casilla del aviso de privacidad.");
     errores.replaceChildren(...fallos.map((f) => h("div", null, f)));
     if (fallos.length) return;
     if (enVivo()) {
@@ -1782,7 +1819,7 @@ function vistaReportar(raiz) {
   const mapaEl = h("div", { class: "mapa" });
   raiz.replaceChildren(h("div", { class: "wrap" },
     h("div", { class: "view-head" }, h("div", null, h("h2", null, "Reportar un problema ambiental"),
-      h("p", null, "Tu reporte llega a moderación antes de aparecer en el mapa. En el backend corresponde a POST /aportes y, si hay foto, a POST /aportes/:id/evidencia."))),
+      h("p", null, "Tu reporte llega a moderación antes de aparecer en el mapa.", PUBLICO ? null : " En el backend corresponde a POST /aportes y, si hay foto, a POST /aportes/:id/evidencia."))),
     h("div", { class: "grid-2" }, form,
       h("div", { class: "card" }, h("h3", null, "¿Dónde está?"), h("div", { class: "minimapa" }, mapaEl),
         h("p", { class: "hint" }, "Vista previa: el marcador aparece donde quedó la dirección o las coordenadas. Revisa que sea el lugar correcto.")))));
@@ -2022,7 +2059,7 @@ function vistaAsistente(raiz) {
         const r = await api("/agente/consulta", { metodo: "POST", json: { pregunta } });
         estado.chat.push({ de: "ia", texto: r.respuesta, modelo: r.modelo, aviso: r.aviso });
       } catch (e) {
-        estado.chat.push({ de: "ia", error: true, texto: e.message === "Failed to fetch" ? "No se pudo conectar con la API. Revisa CORS_ORIGENES y que el servicio esté despierto." : "La API respondió con un error: " + e.message });
+        estado.chat.push({ de: "ia", error: true, texto: e.message === "Failed to fetch" ? (PUBLICO ? SIN_CONEXION_PUBLICO : "No se pudo conectar con la API. Revisa CORS_ORIGENES y que el servicio esté despierto.") : "La API respondió con un error: " + e.message });
       }
     } else {
       const r = RESPUESTAS_DEMO.find((x) => x.pregunta === pregunta);
@@ -2037,7 +2074,7 @@ function vistaAsistente(raiz) {
   txt.addEventListener("keydown", (e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); preguntar(txt.value); } });
   raiz.replaceChildren(h("div", { class: "chat" },
     h("div", { class: "view-head" }, h("div", null, h("h2", null, "Asistente ambiental"),
-      h("p", null, "Responde dudas sobre problemas ambientales y cómo actuar. Usa Gemini desde el backend; la llave nunca llega al navegador."))),
+      h("p", null, "Responde dudas sobre problemas ambientales y cómo actuar.", PUBLICO ? " Funciona con inteligencia artificial (Gemini de Google)." : " Usa Gemini desde el backend; la llave nunca llega al navegador."))),
     h("div", { class: "sugerencias" }, RESPUESTAS_DEMO.map((r) => h("button", { type: "button", onclick: () => preguntar(r.pregunta) }, r.pregunta))),
     mensajes, form));
   pintarMensajes();
@@ -2266,16 +2303,62 @@ async function panelAuditoriaVivo() {
       h("td", { class: "mono" }, x.usuario_id ? (x.usuario_id === estado.sesion.id ? "tú" : corto(x.usuario_id)) : "sistema"), h("td", { class: "mono" }, corto(x.registro_id)))))));
 }
 
+/* ---------- Aviso de privacidad (borrador para revisión; LFPDPPP) ---------- */
+function vistaPrivacidad(raiz) {
+  raiz.className = "view gutter";
+  const p = (...x) => h("p", null, ...x), li = (...x) => h("li", null, ...x);
+  raiz.replaceChildren(h("article", { class: "aviso-texto card" },
+    h("span", { class: "label" }, "Versión del " + fecha(VERSION_AVISO + "T12:00:00")),
+    h("h2", null, "Aviso de privacidad"),
+    p("Este aviso explica qué datos personales trata la Plataforma Ambiental, para qué y cómo puedes ejercer tus derechos, conforme a la Ley Federal de Protección de Datos Personales en Posesión de los Particulares. Es un proyecto académico en etapa de piloto."),
+    h("h3", null, "Quién es responsable"),
+    p("El equipo del proyecto Plataforma Ambiental. ", CONTACTO_PRIVACIDAD
+      ? h("span", null, "Contacto: ", h("a", { href: "mailto:" + CONTACTO_PRIVACIDAD }, CONTACTO_PRIVACIDAD), ".")
+      : "El correo de contacto se publicará aquí antes de abrir el piloto."),
+    h("h3", null, "Qué datos tratamos"),
+    h("ul", null,
+      li("Para tu cuenta: correo electrónico, contraseña (la guarda Supabase cifrada; nosotros nunca la vemos) y, si lo das, un nombre público."),
+      li("En cada reporte: tipo de problema, descripción, ubicación del problema (no la tuya), gravedad sugerida, foto opcional y enlaces para ayudar."),
+      li("En el asistente: tu pregunta, sin correos ni teléfonos (el servidor los quita antes de procesarla)."),
+      li("Datos técnicos mínimos para seguridad: dirección IP para limitar abusos y un registro de solicitudes sin datos personales.")),
+    p("No pedimos datos sensibles. Te pedimos no escribir datos personales de nadie en descripciones ni preguntas."),
+    h("h3", null, "Para qué los usamos"),
+    h("ul", null,
+      li("Crear y proteger tu cuenta, y mostrarte el estado de tus reportes."),
+      li("Revisar los reportes antes de publicarlos y mostrarlos en el mapa público sin tu nombre ni tu correo."),
+      li("Responder tus preguntas con el asistente."),
+      li("Mantener un registro de auditoría de lo que hacen moderadores y administradores.")),
+    p("No usamos tus datos para publicidad ni los vendemos."),
+    h("h3", null, "Con quién se comparten"),
+    p("Con proveedores que alojan el servicio y solo actúan por encargo del proyecto: Supabase (base de datos, cuentas y fotos), Render (servidor) y Google (Gemini, que recibe las preguntas al asistente sin datos de contacto). No hay otras transferencias."),
+    h("h3", null, "Cuánto tiempo"),
+    h("ul", null,
+      li("Las conversaciones con el asistente se borran a los 7 días."),
+      li("Las fotos se guardan sin ubicación GPS ni datos de la cámara."),
+      li("Tu cuenta y tus reportes se conservan mientras la cuenta exista o hasta que pidas su cancelación.")),
+    h("h3", null, "Tus derechos (ARCO)"),
+    p("Puedes pedir acceso, rectificación, cancelación u oposición sobre tus datos, o revocar tu consentimiento, escribiendo al contacto de arriba con tu correo de registro. Respondemos en un máximo de 20 días hábiles."),
+    h("h3", null, "Cambios a este aviso"),
+    p("Si el aviso cambia, publicaremos la versión nueva en esta página con su fecha y te pediremos aceptarla de nuevo."),
+    h("div", { class: "row" }, h("a", { class: "btn", href: "#mapa" }, "Volver al mapa"))));
+}
+function pintarPie() {
+  document.getElementById("pie").replaceChildren(
+    h("span", null, "Plataforma Ambiental · proyecto académico"),
+    h("a", { href: "#privacidad" }, "Aviso de privacidad"));
+}
+
 /* ---------- Enrutador ---------- */
 const VISTAS_VIVO = { "mis-aportes": vistaMisAportesVivo, moderacion: vistaModeracionVivo, administracion: vistaAdministracionVivo };
 function mostrar() {
   const id = (location.hash || "#mapa").slice(1);
-  estado.vista = id === "cuenta" || VISTAS.some((v) => v.id === id) ? id : "mapa";
+  estado.vista = id === "cuenta" || id === "privacidad" || VISTAS.some((v) => v.id === id) ? id : "mapa";
   if (mapa) { mapa.remove(); mapa = null; }
   if (miniMapa) { miniMapa.remove(); miniMapa = null; miniMarcador = null; }
   const raiz = document.getElementById("main");
   pintarTabs(); pintarBanner();
   if (estado.vista === "cuenta") vistaCuenta(raiz);
+  else if (estado.vista === "privacidad") vistaPrivacidad(raiz);
   else if (!puede(estado.vista)) vistaBloqueo(raiz, estado.vista);
   else if (enVivo() && VISTAS_VIVO[estado.vista]) VISTAS_VIVO[estado.vista](raiz);
   else ({ mapa: vistaMapa, reportar: vistaReportar, "mis-aportes": vistaMisAportes, moderacion: vistaModeracion, administracion: vistaAdministracion, asistente: vistaAsistente })[estado.vista](raiz);
@@ -2286,7 +2369,13 @@ function mostrar() {
 function iniciar() {
   const rolGuardado = leer("rol"), fuenteGuardada = leer("fuente");
   if (rolGuardado && ROLES[rolGuardado]) estado.rol = rolGuardado;
-  if (fuenteGuardada === "vivo" || fuenteGuardada === "demo") estado.fuente = fuenteGuardada;
+  if (!PUBLICO && (fuenteGuardada === "vivo" || fuenteGuardada === "demo")) estado.fuente = fuenteGuardada;
+  document.documentElement.lang = "es";
+  if (PUBLICO) {
+    document.querySelector('label[for="fuente"]').hidden = true;
+    document.querySelector(".brand .tag").textContent = "piloto";
+  }
+  pintarPie();
   const selRol = document.getElementById("rol"), selFuente = document.getElementById("fuente");
   selRol.value = estado.rol; selFuente.value = estado.fuente;
   selRol.addEventListener("change", () => { estado.rol = selRol.value; guardar("rol", estado.rol); mostrar(); });

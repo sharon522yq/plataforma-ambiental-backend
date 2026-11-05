@@ -54,3 +54,11 @@ Para conseguir un token: inicia sesión en Supabase Auth y copia el `access_toke
 4. Incluye tu correo en la pregunta: la respuesta no debe repetirlo.
 5. Repite la consulta 11 veces seguidas en menos de un minuto: la número 11 responde 429.
 6. Administrador: `GET /api/v1/salud/ia`: esperado `{ "ia": "ok", "modelo": ... }`. Con `?generar=1` (gasta un poco de cuota) trae además `prueba` con una frase sobre separar la basura.
+
+## Sitio público y aviso de privacidad (F12)
+1. Abre la URL del sitio desde un teléfono. Esperado: el mapa con los puntos publicados, la etiqueta «piloto» y sin selector «Datos».
+2. Pulsa «Aviso de privacidad» en el pie: se lee completo, con la sección de derechos ARCO.
+3. Iniciar sesión → «No tengo cuenta». Llena correo y contraseña sin marcar la casilla: esperado el mensaje «necesitas aceptar el aviso de privacidad».
+4. Marca la casilla y crea la cuenta. El correo de confirmación debe llevarte de vuelta al sitio público, no a `localhost`.
+5. Entra y ve a Reportar. Llena todo sin marcar la casilla del aviso: esperado el mensaje «Marca la casilla del aviso de privacidad». Márcala y envía: queda en «Mis aportes» como pendiente.
+6. En Supabase → Authentication → Users, abre la cuenta nueva: en *User metadata* aparece `aviso_privacidad` con la fecha de la versión.

@@ -19,6 +19,19 @@ Versión publicada para verlo y compartirlo: https://claude.ai/artifact/GKoo8Yfj
 
 Las reglas de validación son las mismas del backend (descripción de 10 a 2000 caracteres, gravedad 1 a 5, fotos JPG, PNG o WebP de hasta 8 MB, enlaces solo `https://`, motivo obligatorio para rechazar, nadie revisa su propio aporte ni cambia su propio rol). Si una sección pide un rol que no se tiene, la pantalla muestra el mismo 401 o 403 que devuelve la API.
 
+## Sitio público
+
+Desde F12 este mismo archivo se publica en Render como sitio estático (ver «Sitio público» en el README del backend). En el dominio `*.onrender.com` la página:
+
+- entra siempre en modo **API en vivo** y oculta el selector de datos de ejemplo;
+- cambia la etiqueta a «piloto» y usa textos para el público (sin rutas de la API ni instrucciones de desarrollo);
+- muestra el **aviso de privacidad** (`#privacidad`, enlazado en el pie y en el aviso superior), pide aceptarlo al crear la cuenta y al enviar un reporte, y guarda en la cuenta la versión aceptada (`aviso_privacidad` en los metadatos de Supabase Auth);
+- pide a Supabase que el correo de confirmación regrese a la misma página.
+
+Para simularlo en tu PC agrega `?publico=1`: `http://localhost:5173/?publico=1`.
+
+El aviso es un borrador basado en lo que la plataforma hace de verdad; conviene que lo revise alguien que conozca la Ley Federal de Protección de Datos Personales en Posesión de los Particulares. Antes del piloto hay que poner el correo de contacto en `CONTACTO_PRIVACIDAD` (al inicio del script); mientras esté vacío, la página dice que se publicará antes del piloto en lugar de inventar uno.
+
 ## Dos modos de datos
 
 - **De ejemplo** (por defecto): no llama a ningún servidor. Los puntos `[PRUEBA]` son los de la migración `005`; los `[EJEMPLO]`, los aportes y los usuarios son inventados para la demo. El selector «Ver como» simula el rol que daría el inicio de sesión. Nada se guarda: al recargar vuelve al inicio.
