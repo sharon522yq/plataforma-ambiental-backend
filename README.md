@@ -217,6 +217,10 @@ Pasos (los haces tú, una vez):
 3. En Supabase → **Authentication → URL Configuration**: pon la URL del sitio en **Site URL** y agrega `https://<tu-sitio>.onrender.com/**` en **Redirect URLs** (deja también `http://localhost:5173/**`). Así el correo de confirmación regresa al sitio público.
 4. Abre el sitio desde tu teléfono, crea una cuenta y envía un reporte de prueba.
 
+### Rutas y accesibilidad (F16)
+
+El detalle de cada punto trae «Cómo llegar» con enlaces a Google Maps y OpenStreetMap que solo llevan las coordenadas del destino: la ruta la calcula el navegador de la persona y la plataforma nunca recibe su ubicación. El sitio cumple WCAG 2.1 AA según axe-core (claro, oscuro, alto contraste y teléfono) y se puede usar entero con el teclado. El botón «Alto contraste» del encabezado recuerda la elección y se activa solo si el sistema pide más contraste.
+
 ## Comandos
 
 | Comando | Qué hace |

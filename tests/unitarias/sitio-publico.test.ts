@@ -1,4 +1,5 @@
 import { readFileSync } from "node:fs";
+import { runInNewContext } from "node:vm";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
@@ -98,5 +99,47 @@ describe("aviso de privacidad (F12)", () => {
   it("no inventa un correo de contacto", () => {
     const contacto = /const CONTACTO_PRIVACIDAD = "([^"]*)"/.exec(pagina)?.[1];
     expect(contacto === "" || /^[^@\s]+@[^@\s]+\.[a-z]{2,}$/i.test(contacto ?? "")).toBe(true);
+  });
+});
+
+describe("rutas y accesibilidad (F16)", () => {
+  /** Ejecuta `rutasA` tal como está en la página, sin navegador. */
+  const rutasA = (() => {
+    const fuente = /function rutasA\(u\) \{[\s\S]+?\n\}/.exec(pagina)?.[0];
+    if (!fuente) throw new Error("falta rutasA en la página");
+    return runInNewContext(`${fuente}; rutasA`) as (u: { lat: number; lng: number }) => { google: string; osm: string };
+  })();
+
+  it("«Cómo llegar» solo manda el destino, nunca el origen de la persona", () => {
+    const r = rutasA({ lat: 20.6736, lng: -103.344 });
+    const google = new URL(r.google), osm = new URL(r.osm);
+    expect(google.origin).toBe("https://www.google.com");
+    expect(google.searchParams.get("destination")).toBe("20.673600,-103.344000");
+    expect(google.searchParams.has("origin")).toBe(false);
+    expect(osm.origin).toBe("https://www.openstreetmap.org");
+    expect(osm.searchParams.get("to")).toBe("20.673600,-103.344000");
+    expect(osm.searchParams.has("from")).toBe(false);
+  });
+
+  it("los enlaces de ruta abren otra pestaña sin darle acceso a la página", () => {
+    const enlaces = [...pagina.matchAll(/href: r\.(google|osm), ([^}]+)\}/g)].map((m) => m[2] ?? "");
+    expect(enlaces).toHaveLength(2);
+    for (const e of enlaces) expect(e).toContain('rel: "noopener noreferrer"');
+  });
+
+  it("toda tabla con desplazamiento se alcanza con el teclado", () => {
+    expect(pagina).not.toMatch(/h\("div", \{ class: "tabla-wrap"/);
+    expect(pagina).toMatch(/const TABLA_DESPLAZABLE = \{ class: "tabla-wrap", tabindex: "0", role: "region", "aria-label": "[^"]+" \}/);
+  });
+
+  it("el modo de alto contraste es un botón con estado y respeta la preferencia del sistema", () => {
+    expect(pagina).toMatch(/<button type="button" class="[^"]*" id="contraste" aria-pressed="false">/);
+    expect(pagina).toContain("prefers-contrast: more");
+    expect(pagina).toContain(':root[data-contraste="alto"]');
+  });
+
+  it("el elemento elegido de la lista se anuncia con aria-current", () => {
+    expect(pagina).toContain('.item[aria-current="true"]');
+    expect(pagina).not.toMatch(/\.item\.sel\b/);
   });
 });

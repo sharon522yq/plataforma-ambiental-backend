@@ -74,8 +74,8 @@ El backend cumple su prompt; la plataforma completa, no. Detalle y plan en el do
 | B-06 | Sin respaldos de la base | Alta | F15 (hecho, faltan los secretos M11) |
 | B-07 | Facturación de Gemini sin activar (D-03) | Alta | F17 (sharon) |
 | B-08 | Cambiar un rol no pide un segundo administrador | Media | F15 (hecho, migración 014) |
-| B-09 | Sin «cómo llegar» | Media | F16 |
-| B-10 | Accesibilidad sin revisar | Media | F16 |
+| B-09 | Sin «cómo llegar» | Media | F16 (hecho) |
+| B-10 | Accesibilidad sin revisar | Media | F16 (hecho: axe sin violaciones; falta la prueba con lector de pantalla) |
 | B-11 | Sin respuesta de respaldo cuando Gemini falla | Media | F13 (hecho) |
 | B-12 | Sin métricas | Baja | F15 (hecho) |
 | B-13 | Pausa de Supabase y arranque lento de Render | Baja | F15 (pausa: el respaldo la evita; el arranque lento de Render se acepta para el piloto, D-02) |

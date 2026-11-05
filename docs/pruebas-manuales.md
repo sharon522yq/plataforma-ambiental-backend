@@ -87,3 +87,11 @@ Necesita la migración 014 aplicada y dos cuentas de administrador reales (A y B
 4. Marca la casilla y crea la cuenta. El correo de confirmación debe llevarte de vuelta al sitio público, no a `localhost`.
 5. Entra y ve a Reportar. Llena todo sin marcar la casilla del aviso: esperado el mensaje «Marca la casilla del aviso de privacidad». Márcala y envía: queda en «Mis aportes» como pendiente.
 6. En Supabase → Authentication → Users, abre la cuenta nueva: en *User metadata* aparece `aviso_privacidad` con la fecha de la versión.
+
+## Rutas y accesibilidad (F16)
+1. En el mapa, abre un punto: en el detalle aparece «Cómo llegar» con «Google Maps» y «OpenStreetMap». Cada uno abre otra pestaña con la ruta hasta el punto; el origen lo pone tu navegador o la app (la plataforma no lo recibe).
+2. Desde el teléfono, pulsa «Google Maps»: debe abrirse la app de mapas con el destino ya puesto.
+3. Solo con el teclado (Tab, Mayús+Tab, Enter, flechas y Espacio): pasa a «Lista», abre un punto, sigue «Cómo llegar», ve a «Reportar», llena todo y envía. Esperado: siempre ves dónde está el foco y nada queda fuera de tu alcance.
+4. Pulsa «Alto contraste»: los textos se vuelven negros sobre blanco (o blancos sobre negro en modo oscuro), los enlaces subrayados y el foco más grueso. Recarga: se queda puesto. Púlsalo otra vez para quitarlo.
+5. Con el lector de pantalla del teléfono (TalkBack en Android, VoiceOver en iPhone), abre el sitio y recorre la lista: debe leer el título, el tipo y el estado de cada punto, y «actual» en el que elegiste.
+6. En Administración, en una tabla ancha, pulsa Tab hasta la tabla y usa las flechas: se desplaza de lado.

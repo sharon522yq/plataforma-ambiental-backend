@@ -715,6 +715,25 @@ svg.leaflet-image-layer.leaflet-interactive path {
   color-scheme: dark;
 }
 
+/* Alto contraste (F16): botón «Alto contraste» o preferencia del sistema (prefers-contrast: more). */
+:root[data-contraste="alto"] {
+  --bg: #ffffff; --surface: #ffffff; --surface-2: #eef2f0; --ink: #000000; --muted: #24302b; --line: #4d5d56;
+  --accent: #00473b; --accent-soft: #d2ebe3; --ok: #155c2e; --warn: #6b3d00; --bad: #8a1a12; --focus: #0047a8;
+}
+@media (prefers-color-scheme: dark) {
+  :root[data-contraste="alto"]:not([data-theme="light"]) {
+    --bg: #000000; --surface: #070b0a; --surface-2: #121a17; --ink: #ffffff; --muted: #d9e3de; --line: #8fa59c;
+    --accent: #6fe3c8; --accent-ink: #00140f; --accent-soft: #0f3a30; --ok: #8be3a8; --warn: #ffc56e; --bad: #ff9a8f; --focus: #a6d4ff;
+  }
+}
+:root[data-theme="dark"][data-contraste="alto"] {
+  --bg: #000000; --surface: #070b0a; --surface-2: #121a17; --ink: #ffffff; --muted: #d9e3de; --line: #8fa59c;
+  --accent: #6fe3c8; --accent-ink: #00140f; --accent-soft: #0f3a30; --ok: #8be3a8; --warn: #ffc56e; --bad: #ff9a8f; --focus: #a6d4ff;
+}
+:root[data-contraste="alto"] :focus-visible { outline-width: 3px; outline-offset: 3px; }
+:root[data-contraste="alto"] main a:not(.btn) { text-decoration: underline; }
+.btn-contraste { font-size: .82rem; padding: 4px 10px; }
+
 * { box-sizing: border-box; }
 [hidden] { display: none !important; }
 html, body { height: 100%; }
@@ -801,7 +820,7 @@ main { min-height: 0; }
 .btn[disabled] { opacity: .55; cursor: not-allowed; }
 .lista { list-style: none; margin: 0; padding: 0; }
 .item { display: grid; grid-template-columns: 6px 1fr; gap: 12px; padding: 12px 16px; border-bottom: 1px solid var(--line); cursor: pointer; background: none; width: 100%; text-align: left; border-left: 0; border-right: 0; border-top: 0; }
-.item:hover, .item[aria-selected="true"] { background: var(--surface-2); }
+.item:hover, .item[aria-current="true"] { background: var(--surface-2); }
 .item .stripe { border-radius: 3px; }
 .item h3 { font-family: var(--f-body); font-size: .93rem; font-weight: 600; line-height: 1.3; }
 .meta { display: flex; gap: 6px 10px; flex-wrap: wrap; align-items: center; margin-top: 5px; font-size: .78rem; color: var(--muted); }
@@ -809,9 +828,10 @@ main { min-height: 0; }
 .sev { display: inline-flex; align-items: center; gap: 5px; font: 500 .75rem/1 var(--f-mono); white-space: nowrap; }
 .sev i { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
 .estado { display: inline-block; padding: 2px 8px; border-radius: 4px; font: 500 .72rem/1.5 var(--f-mono); text-transform: uppercase; letter-spacing: .05em; }
-.estado.pendiente { background: color-mix(in srgb, var(--warn) 18%, transparent); color: var(--warn); }
-.estado.aprobado { background: color-mix(in srgb, var(--ok) 18%, transparent); color: var(--ok); }
-.estado.rechazado { background: color-mix(in srgb, var(--bad) 16%, transparent); color: var(--bad); }
+/* El texto se mezcla con --ink para pasar 4.5:1 en claro y en oscuro (axe, F16). */
+.estado.pendiente { background: color-mix(in srgb, var(--warn) 18%, transparent); color: color-mix(in srgb, var(--warn) 70%, var(--ink)); }
+.estado.aprobado { background: color-mix(in srgb, var(--ok) 18%, transparent); color: color-mix(in srgb, var(--ok) 75%, var(--ink)); }
+.estado.rechazado { background: color-mix(in srgb, var(--bad) 16%, transparent); color: color-mix(in srgb, var(--bad) 70%, var(--ink)); }
 .estado.duplicado { background: var(--surface-2); color: var(--muted); border: 1px solid var(--line); }
 .vacio { padding: 24px 16px; color: var(--muted); font-size: .9rem; }
 .mapa-wrap { position: relative; min-width: 0; }
@@ -857,6 +877,8 @@ tr:last-child td { border-bottom: 0; }
 td.num { font-variant-numeric: tabular-nums; }
 .cola { display: grid; gap: 14px; }
 .pila { display: grid; gap: 16px; }
+.como-llegar { display: grid; gap: 6px; }
+.como-llegar .btn { padding: 6px 12px; font-size: .85rem; }
 .solicitudes { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
 .solicitudes li { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 6px 12px; align-items: start; padding-top: 10px; border-top: 1px solid var(--line); }
 .solicitudes li:first-child { border-top: 0; padding-top: 0; }
@@ -926,6 +948,7 @@ td.num { font-variant-numeric: tabular-nums; }
         </select>
       </label>
       <span class="controls" id="cuenta" hidden></span>
+      <button type="button" class="btn ghost btn-contraste" id="contraste" aria-pressed="false">Alto contraste</button>
       <label class="control" for="rol" id="ctl-rol">Ver como
         <select id="rol">
           <option value="visitante">Visitante (sin sesión)</option>
@@ -1506,7 +1529,7 @@ function pintarPanel(panel) {
           h("button", { class: "btn", type: "button", onclick: () => { estado.delAsistente = null; pintarPanel(panel); refrescarPuntos(panel); } }, "Quitar filtro"),
           h("a", { class: "btn ghost", href: "#asistente" }, "Volver al asistente"))),
       h("div", { style: "min-height: 0" },
-        h("div", { class: "panel-sec", style: "padding-block: 12px; border-bottom: 1px solid var(--line)" }, h("span", { class: "label", id: "conteo" }, "Puntos")),
+        h("div", { class: "panel-sec", style: "padding-block: 12px; border-bottom: 1px solid var(--line)" }, h("h2", { class: "label", id: "conteo" }, "Puntos")),
         h("ul", { class: "lista", id: "lista-puntos" })));
     pintarLista(panel);
     return;
@@ -1538,7 +1561,7 @@ function pintarPanel(panel) {
       h("div", { class: "row" }, buscar, quitar),
       estado.cerca ? h("p", { class: "hint" }, "Centro: ", h("span", { class: "mono" }, coord(estado.cerca))) : h("p", { class: "hint" }, "Mueve el mapa y busca los puntos dentro del radio (PostGIS en el backend).")),
     h("div", { style: "min-height: 0" },
-      h("div", { class: "panel-sec", style: "padding-block: 12px; border-bottom: 1px solid var(--line)" }, h("span", { class: "label", id: "conteo" }, "Puntos")),
+      h("div", { class: "panel-sec", style: "padding-block: 12px; border-bottom: 1px solid var(--line)" }, h("h2", { class: "label", id: "conteo" }, "Puntos")),
       h("ul", { class: "lista", id: "lista-puntos" })));
   pintarLista(panel);
 }
@@ -1551,7 +1574,7 @@ function pintarLista(panel) {
   if (estado.fuente === "vivo" && estado.errorVivo && !estado.delAsistente) { ul.replaceChildren(h("li", { class: "vacio err" }, estado.errorVivo)); return; }
   if (!lista.length) { ul.replaceChildren(h("li", { class: "vacio" }, "Ningún punto cumple los filtros. Baja la gravedad mínima o amplía el radio.")); return; }
   ul.replaceChildren(...lista.map((p) => h("li", null,
-    h("button", { class: "item", type: "button", "aria-selected": String(estado.seleccionado === p.id), onclick: () => seleccionar(p.id),
+    h("button", { class: "item", type: "button", "aria-current": estado.seleccionado === p.id ? "true" : null, onclick: () => seleccionar(p.id),
       onmouseenter: () => { const m = marcadores.get(p.id); if (m) m.openTooltip(); }, onmouseleave: () => { const m = marcadores.get(p.id); if (m) m.closeTooltip(); } },
       h("span", { class: "stripe", style: `background: var(--sev-${p.gravedad})` }),
       h("span", null, h("h3", null, p.titulo),
@@ -1584,7 +1607,8 @@ async function pintarDetalle(panel) {
     h("dl", { class: "kv" },
       h("dt", null, "Ubicación"), h("dd", { class: "mono" }, coord(p.ubicacion)),
       h("dt", null, "Publicado"), h("dd", null, fecha(p.creado_en)),
-      h("dt", null, "Actualizado"), h("dd", null, fecha(p.actualizado_en)))),
+      h("dt", null, "Actualizado"), h("dd", null, fecha(p.actualizado_en))),
+    comoLlegar(p)),
     h("div", { class: "panel-sec" },
       h("h3", null, "Cómo ayudar"),
       p.acciones.length ? p.acciones.map(conRetirar) : h("p", { class: "hint" }, "Este punto todavía no tiene enlaces para ayudar."),
@@ -1593,6 +1617,24 @@ async function pintarDetalle(panel) {
         ? [formEnlacePunto(p, panel),
            h("a", { class: "btn", href: "#reportar", onclick: () => { estado.reportePunto = p; } }, "Aportar información sobre este punto")]
         : h("p", { class: "hint" }, "Inicia sesión para agregar enlaces o aportar información sobre este punto.")));
+}
+/* «Cómo llegar» (F16): abre la ruta en Google Maps u OpenStreetMap, sin llaves ni costo. La
+   ruta sale de donde esté la persona: su ubicación la pide el sitio de mapas, nunca esta plataforma. */
+function rutasA(u) {
+  const lat = Number(u.lat).toFixed(6), lng = Number(u.lng).toFixed(6);
+  return {
+    google: `https://www.google.com/maps/dir/?api=1&destination=${lat}%2C${lng}`,
+    osm: `https://www.openstreetmap.org/directions?to=${lat}%2C${lng}#map=16/${lat}/${lng}`,
+  };
+}
+function comoLlegar(p) {
+  const r = rutasA(p.ubicacion), destino = `a «${p.titulo}»`;
+  return h("div", { class: "como-llegar", role: "group", "aria-labelledby": "como-llegar-t" },
+    h("span", { class: "label", id: "como-llegar-t" }, "Cómo llegar"),
+    h("div", { class: "row" },
+      h("a", { class: "btn", href: r.google, target: "_blank", rel: "noopener noreferrer", "aria-label": `Ruta ${destino} en Google Maps (abre otra pestaña)` }, "Google Maps"),
+      h("a", { class: "btn", href: r.osm, target: "_blank", rel: "noopener noreferrer", "aria-label": `Ruta ${destino} en OpenStreetMap (abre otra pestaña)` }, "OpenStreetMap")),
+    h("span", { class: "hint" }, "Se abre en otra pestaña y traza la ruta desde donde estés. Esta plataforma no recibe tu ubicación."));
 }
 /* Formulario plegable: cualquier cuenta activa agrega un enlace al punto y se publica al momento (POST /puntos/:id/acciones). */
 function formEnlacePunto(p, panel) {
@@ -1886,7 +1928,7 @@ function vistaReportar(raiz) {
     const latlng = L.latLng(ubic.lat, ubic.lng);
     if (miniMarcador) miniMarcador.setLatLng(latlng);
     else miniMarcador = L.marker(latlng, { interactive: false, keyboard: false, icon: L.divIcon({ className: "", html: `<svg width="26" height="34" viewBox="0 0 26 34"><path d="M13 1C6.4 1 1 6.2 1 12.7 1 21.4 13 33 13 33s12-11.6 12-20.3C25 6.2 19.6 1 13 1Z" fill="${getComputedStyle(document.documentElement).getPropertyValue("--accent").trim()}" stroke="#fff" stroke-width="2"/><circle cx="13" cy="13" r="4.5" fill="#fff"/></svg>`, iconSize: [26, 34], iconAnchor: [13, 33] }) }).addTo(miniMapa);
-    miniMapa.setView(latlng, 16);
+    miniMapa.setView(latlng, 16, { animate: false }); // sin animación: si la vista cambia a media animación, Leaflet falla
   }
   if (miniMapa) {
     mostrarEnMapa();
@@ -1900,7 +1942,7 @@ function vistaMisAportes(raiz) {
   const yo = usuarioActual();
   const mios = demo.aportes.filter((a) => a.autor_id === yo.id);
   const cuerpo = mios.length
-    ? h("div", { class: "tabla-wrap" }, h("table", null,
+    ? h("div", TABLA_DESPLAZABLE, h("table", null,
         h("thead", null, h("tr", null, ["Fecha", "Tipo", "Descripción", "Estado", "Foto"].map((t) => h("th", null, t)))),
         h("tbody", null, mios.map((a) => h("tr", null,
           h("td", { class: "num", style: "white-space: nowrap" }, fecha(a.creado_en)),
@@ -2060,7 +2102,7 @@ function panelCatalogo() {
     h("div", { class: "field" }, h("label", { class: "label", for: "o-zona" }, "Zona (opcional)"), oZona),
     h("p", { class: "hint" }, "El contacto de la organización es interno y no se publica."),
     errO, h("div", null, h("button", { class: "btn primary", type: "submit" }, "Crear organización")),
-    h("div", { class: "tabla-wrap" }, h("table", null, h("thead", null, h("tr", null, h("th", null, "Organización"), h("th", null, "Zona"))),
+    h("div", TABLA_DESPLAZABLE, h("table", null, h("thead", null, h("tr", null, h("th", null, "Organización"), h("th", null, "Zona"))),
       h("tbody", null, demo.organizaciones.map((o) => h("tr", null, h("td", null, o.nombre), h("td", null, o.zona || "—")))))));
   fO.addEventListener("submit", (e) => {
     e.preventDefault(); errO.textContent = "";
@@ -2077,6 +2119,8 @@ function necesitaSegundoAdmin(rolActualUsuario, rolNuevo, administradores) {
   if (rolActualUsuario === rolNuevo || (rolActualUsuario !== "administrador" && rolNuevo !== "administrador")) return false;
   return !(rolNuevo === "administrador" && administradores <= 1);
 }
+/* Las tablas anchas se desplazan de lado en el teléfono: con tabindex se pueden mover con el teclado (axe, F16). */
+const TABLA_DESPLAZABLE = { class: "tabla-wrap", tabindex: "0", role: "region", "aria-label": "Tabla; se desplaza con las flechas" };
 const CLASE_SOLICITUD = { pendiente: "pendiente", aprobada: "aprobado", rechazada: "rechazado", cancelada: "duplicado", vencida: "duplicado" };
 function tarjetaSolicitudes(solicitudes, miId, decidir, nota) {
   if (!solicitudes.length) return null;
@@ -2104,7 +2148,7 @@ function panelUsuarios() {
     s.estado = "cancelada"; s.resuelto_por = { id: yo.id, nombre: yo.nombre }; s.resuelto_en = new Date().toISOString();
     auditar("solicitudes_rol", "solicitud_cancelada", s.usuario.id); toast("Solicitud cancelada."); recargar();
   };
-  const tabla = h("div", { class: "tabla-wrap" }, h("table", null,
+  const tabla = h("div", TABLA_DESPLAZABLE, h("table", null,
     h("thead", null, h("tr", null, h("th", null, "Usuario"), h("th", null, "Rol"), h("th", null, "Estado"))),
     h("tbody", null, USUARIOS.map((u) => {
       const propio = u.id === yo.id;
@@ -2191,7 +2235,7 @@ function panelMetricas(m, nota) {
         dato("Cambios de administrador por confirmar", m.pendientes_de_rol)))));
 }
 function panelAuditoria() {
-  return h("div", { class: "tabla-wrap" }, h("table", null,
+  return h("div", TABLA_DESPLAZABLE, h("table", null,
     h("thead", null, h("tr", null, ["Fecha", "Tabla", "Acción", "Usuario", "Registro"].map((t) => h("th", null, t)))),
     h("tbody", null, demo.auditoria.map((r) => h("tr", null,
       h("td", { class: "num", style: "white-space: nowrap" }, fechaHora(r.creado_en)), h("td", { class: "mono" }, r.tabla), h("td", { class: "mono" }, r.accion),
@@ -2302,7 +2346,7 @@ async function vistaMisAportesVivo(raiz) {
       cont.replaceChildren(h("div", { class: "card" }, h("p", null, "Todavía no has enviado reportes."), h("a", { class: "btn primary", href: "#reportar" }, "Reportar un problema")));
       return;
     }
-    cont.replaceChildren(h("div", { class: "tabla-wrap" }, h("table", null,
+    cont.replaceChildren(h("div", TABLA_DESPLAZABLE, h("table", null,
       h("thead", null, h("tr", null, ["Fecha", "Tipo", "Descripción", "Estado", "Foto"].map((t) => h("th", null, t)))),
       h("tbody", null, r.datos.map((a) => h("tr", null,
         h("td", { class: "num", style: "white-space: nowrap" }, fecha(a.creado_en)),
@@ -2464,7 +2508,7 @@ async function panelCatalogoVivo(recargar) {
     h("div", { class: "field" }, h("label", { class: "label", for: "o-zona" }, "Zona (opcional)"), oZona),
     h("div", { class: "field" }, h("label", { class: "label", for: "o-contacto" }, "Contacto interno (opcional)"), oContacto, h("span", { class: "hint" }, "Lo ve el personal; la API pública nunca lo muestra.")),
     errO, h("div", null, h("button", { class: "btn primary", type: "submit" }, "Crear organización")),
-    h("div", { class: "tabla-wrap" }, h("table", null, h("thead", null, h("tr", null, h("th", null, "Organización"), h("th", null, "Zona"))),
+    h("div", TABLA_DESPLAZABLE, h("table", null, h("thead", null, h("tr", null, h("th", null, "Organización"), h("th", null, "Zona"))),
       h("tbody", null, orgs.map((o) => h("tr", null, h("td", null, o.nombre), h("td", null, o.zona || "—")))))));
   fO.addEventListener("submit", async (e) => {
     e.preventDefault(); errO.textContent = "";
@@ -2524,7 +2568,7 @@ async function panelConocimientoVivo(recargar) {
     catch (x) { boton.disabled = false; toast("No se pudo cambiar: " + mensajeError(x)); }
   };
   const lista = r.datos.length
-    ? h("div", { class: "tabla-wrap" }, h("table", { id: "k-lista" },
+    ? h("div", TABLA_DESPLAZABLE, h("table", { id: "k-lista" },
         h("thead", null, h("tr", null, ["Documento", "Fuente", "Fragmentos", "Estado", ""].map((t) => h("th", null, t)))),
         h("tbody", null, r.datos.map((d) => {
           const boton = h("button", { class: "btn", type: "button" }, d.activo ? "Desactivar" : "Activar");
@@ -2556,7 +2600,7 @@ async function panelUsuariosVivo() {
     } catch (e) { toast("No se pudo resolver la solicitud: " + mensajeError(e)); }
     await recargar();
   };
-  const tabla = h("div", { class: "tabla-wrap" }, h("table", null,
+  const tabla = h("div", TABLA_DESPLAZABLE, h("table", null,
     h("thead", null, h("tr", null, ["Usuario", "Correo", "Rol", "Estado"].map((t) => h("th", null, t)))),
     h("tbody", null, r.datos.map((u) => {
       const propio = u.id === estado.sesion.id;
@@ -2581,7 +2625,7 @@ async function panelUsuariosVivo() {
 async function panelAuditoriaVivo() {
   const r = await api("/admin/auditoria?limite=50");
   if (!r.datos.length) return h("div", { class: "card" }, h("p", { class: "muted" }, "Todavía no hay registros de auditoría."));
-  return h("div", { class: "tabla-wrap" }, h("table", null,
+  return h("div", TABLA_DESPLAZABLE, h("table", null,
     h("thead", null, h("tr", null, ["Fecha", "Tabla", "Acción", "Usuario", "Registro"].map((t) => h("th", null, t)))),
     h("tbody", null, r.datos.map((x) => h("tr", null,
       h("td", { class: "num", style: "white-space: nowrap" }, fechaHora(x.creado_en)), h("td", { class: "mono" }, x.tabla), h("td", { class: "mono" }, x.accion),
@@ -2638,8 +2682,9 @@ const VISTAS_VIVO = { "mis-aportes": vistaMisAportesVivo, moderacion: vistaModer
 function mostrar() {
   const id = (location.hash || "#mapa").slice(1);
   estado.vista = id === "cuenta" || id === "privacidad" || VISTAS.some((v) => v.id === id) ? id : "mapa";
-  if (mapa) { mapa.remove(); mapa = null; }
-  if (miniMapa) { miniMapa.remove(); miniMapa = null; miniMarcador = null; }
+  // stop() corta un flyTo en curso antes de quitar el mapa (si no, Leaflet falla al terminar la animación).
+  if (mapa) { mapa.stop(); mapa.remove(); mapa = null; }
+  if (miniMapa) { miniMapa.stop(); miniMapa.remove(); miniMapa = null; miniMarcador = null; }
   const raiz = document.getElementById("main");
   pintarTabs(); pintarBanner();
   if (estado.vista === "cuenta") vistaCuenta(raiz);
@@ -2651,6 +2696,23 @@ function mostrar() {
   document.documentElement.style.setProperty("--hdr", hdr + "px");
 }
 
+/* Alto contraste: se recuerda en este navegador; sin preferencia guardada, sigue la del sistema. */
+function prepararContraste() {
+  const boton = document.getElementById("contraste");
+  const aplicar = (alto) => {
+    if (alto) document.documentElement.dataset.contraste = "alto"; else delete document.documentElement.dataset.contraste;
+    boton.setAttribute("aria-pressed", String(alto));
+  };
+  const guardado = leer("contraste");
+  let sistema = false;
+  try { sistema = window.matchMedia("(prefers-contrast: more)").matches; } catch (e) { /* navegador sin soporte */ }
+  aplicar(guardado ? guardado === "alto" : sistema);
+  boton.addEventListener("click", () => {
+    const alto = boton.getAttribute("aria-pressed") !== "true";
+    aplicar(alto); guardar("contraste", alto ? "alto" : "normal");
+    if (mapa) pintarMarcadores();
+  });
+}
 function iniciar() {
   const rolGuardado = leer("rol"), fuenteGuardada = leer("fuente");
   if (rolGuardado && ROLES[rolGuardado]) estado.rol = rolGuardado;
@@ -2661,6 +2723,7 @@ function iniciar() {
     document.querySelector(".brand .tag").textContent = "piloto";
   }
   pintarPie();
+  prepararContraste();
   const selRol = document.getElementById("rol"), selFuente = document.getElementById("fuente");
   selRol.value = estado.rol; selFuente.value = estado.fuente;
   selRol.addEventListener("change", () => { estado.rol = selRol.value; guardar("rol", estado.rol); mostrar(); });
