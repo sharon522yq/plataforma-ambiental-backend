@@ -4,7 +4,7 @@ Formato: cada decisión tiene opciones, recomendación y estado. Una decisión s
 
 | ID | Tema | Opciones | Recomendación | Estado |
 |---|---|---|---|---|
-| D-01 | Dimensión de `fragmentos.embedding` | 768 (valor del prompt) u otra según el modelo de embeddings | 768 y confirmar el modelo en la fase de agente | Abierta (fase 8) |
+| D-01 | Dimensión de `fragmentos.embedding` | 768 (valor del prompt) u otra según el modelo de embeddings | 768 y confirmar el modelo en la fase de agente | Cerrada (F14, 2026-11-05): 768 con `gemini-embedding-001` (`outputDimensionality: 768`); el backend normaliza cada vector porque Gemini solo los normaliza en 3072. El modelo se puede cambiar con `GEMINI_MODELO_EMBEDDINGS`, pero los documentos cargados con otro modelo deben volver a cargarse |
 | D-02 | Render plan gratuito se duerme tras 15 min sin tráfico | Aceptar el riesgo en el piloto, o pagar un plan | Aceptar en piloto y documentarlo para usuarios | Cerrada (sharon, 2026-10-29): se acepta para el piloto; antes del lanzamiento, pasar a un plan de pago |
 | D-03 | Datos de Gemini en plan gratuito | Vincular facturación en Google Cloud (M5) o no | Vincular antes del lanzamiento público | Abierta (usuario, M5) |
 | D-04 | Línea de Express | Express 4.x (prompt) o Express 5 | Express 4.x, como indica el prompt | Cerrada |

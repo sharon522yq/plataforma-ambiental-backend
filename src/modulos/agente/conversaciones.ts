@@ -11,6 +11,8 @@ export interface Conversacion {
   modelo: string;
   /** Herramientas que usó el agente, en orden (F13). Sirve para evaluar, sin datos personales. */
   herramientas?: string[];
+  /** Títulos de los documentos de conocimiento que consultó (F14). */
+  documentos?: string[];
 }
 
 export interface RegistroConversaciones {
@@ -25,11 +27,11 @@ export interface RegistroConversaciones {
 export function crearRegistroConversaciones(servicio: SupabaseClient, ahora: () => number = Date.now): RegistroConversaciones {
   let ultimaPurga = 0;
   return {
-    async guardar({ usuario_id, pregunta, respuesta, modelo, herramientas = [] }) {
+    async guardar({ usuario_id, pregunta, respuesta, modelo, herramientas = [], documentos = [] }) {
       try {
         const { error } = await servicio
           .from("conversaciones_agente")
-          .insert({ usuario_id, pregunta, respuesta, fuentes: { modelo, herramientas } });
+          .insert({ usuario_id, pregunta, respuesta, fuentes: { modelo, herramientas, documentos } });
         if (error) registrar("error", "conversacion_no_guardada", {});
 
         if (ahora() - ultimaPurga >= INTERVALO_PURGA_MS) {

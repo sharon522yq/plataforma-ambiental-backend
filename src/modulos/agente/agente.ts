@@ -1,7 +1,7 @@
 import { ErrorAplicacion } from "../../compartido/errores.js";
 import { registrar } from "../../compartido/registro.js";
 import { MAXIMO_LLAMADAS_POR_PASO, type ContenidoGemini, type ModeloIA } from "./gemini.js";
-import type { ContextoHerramientas, Herramientas, PuntoEnMapa } from "./herramientas.js";
+import type { ContextoHerramientas, FuenteConocimiento, Herramientas, PuntoEnMapa } from "./herramientas.js";
 
 /** Pasos del modelo como máximo por pregunta: evita ciclos y gasto de cuota. */
 export const MAXIMO_PASOS = 4;
@@ -12,6 +12,8 @@ export interface RespuestaAgente {
   modelo: string;
   /** Puntos que el mapa puede mostrar como resultado de la pregunta. */
   puntos: PuntoEnMapa[];
+  /** Documentos de la base de conocimiento que consultó (F14), para citarlos. */
+  fuentes: FuenteConocimiento[];
   /** Herramientas que usó, en orden (para evaluar y auditar). */
   herramientas: string[];
   /** true si respondió el respaldo sin IA porque Gemini no estaba disponible. */
@@ -35,6 +37,7 @@ export async function responderConHerramientas(
 ): Promise<RespuestaAgente> {
   const contenidos: ContenidoGemini[] = [{ role: "user", parts: [{ text: pregunta }] }];
   const puntos = new Map<string, PuntoEnMapa>();
+  const fuentes = new Map<string, FuenteConocimiento>();
   const usadas: string[] = [];
 
   for (let paso = 0; paso < MAXIMO_PASOS; paso++) {
@@ -42,7 +45,7 @@ export async function responderConHerramientas(
     const r = await ia.paso(contenidos, herramientas.declaraciones, { sinHerramientas: ultimo });
     if (r.llamadas.length === 0 || ultimo) {
       if (!r.texto) throw new ErrorAplicacion(503, "AGENTE_NO_DISPONIBLE", "El asistente no está disponible, intenta más tarde");
-      return { texto: r.texto, modelo: ia.modelo, puntos: [...puntos.values()], herramientas: usadas, respaldo: false };
+      return { texto: r.texto, modelo: ia.modelo, puntos: [...puntos.values()], fuentes: [...fuentes.values()], herramientas: usadas, respaldo: false };
     }
     contenidos.push(r.contenido);
     const llamadas = r.llamadas.slice(0, MAXIMO_LLAMADAS_POR_PASO);
@@ -51,6 +54,7 @@ export async function responderConHerramientas(
       usadas.push(l.nombre);
       const resultado = resultados[i];
       if (resultado) acumularPuntos(puntos, resultado.puntos);
+      for (const f of resultado?.fuentes ?? []) fuentes.set(`${f.titulo}|${f.fuente}`, f);
       return { functionResponse: { name: l.nombre, response: resultado?.respuesta ?? { error: "sin resultado" } } };
     });
     contenidos.push({ role: "user", parts: partes });
@@ -111,7 +115,7 @@ export async function responderSinIA(herramientas: Herramientas, pregunta: strin
     for (const p of lista) lineas.push(`- **${p.titulo}** (gravedad ${String(p.gravedad)} de 5)`);
     lineas.push("", "Abre cada punto en el mapa para ver los detalles y **cómo ayudar**.");
   }
-  return { texto: lineas.join("\n"), modelo: MODELO_RESPALDO, puntos: r.puntos, herramientas: ["buscar_puntos"], respaldo: true };
+  return { texto: lineas.join("\n"), modelo: MODELO_RESPALDO, puntos: r.puntos, fuentes: [], herramientas: ["buscar_puntos"], respaldo: true };
 }
 
 /**

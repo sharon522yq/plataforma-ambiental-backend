@@ -67,10 +67,10 @@ El backend cumple su prompt; la plataforma completa, no. Detalle y plan en el do
 | ID | Brecha | Severidad | Fase |
 |---|---|---|---|
 | B-01 | El agente no usa herramientas ni filtra el mapa | Crítica | F13 (hecho, falta la evaluación real) |
-| B-02 | Sin RAG ni respuestas con fuente (D-01 abierta) | Crítica | F14 |
+| B-02 | Sin RAG ni respuestas con fuente (D-01 abierta) | Crítica | F14 (hecho, falta cargar documentos) |
 | B-03 | Frontend sin publicar | Crítica | F12 (hecho, falta sincronizar en Render) |
 | B-04 | Sin aviso de privacidad | Crítica | F12 (hecho, falta el correo de contacto) |
-| B-05 | Los editores no pueden cargar documentos de conocimiento | Alta | F14 |
+| B-05 | Los editores no pueden cargar documentos de conocimiento | Alta | F14 (hecho) |
 | B-06 | Sin respaldos de la base | Alta | F15 |
 | B-07 | Facturación de Gemini sin activar (D-03) | Alta | F17 (sharon) |
 | B-08 | Cambiar un rol no pide un segundo administrador | Media | F15 |

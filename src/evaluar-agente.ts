@@ -4,13 +4,14 @@ import path from "node:path";
 import { createClient } from "@supabase/supabase-js";
 import { z } from "zod";
 import { APROBADOS_MINIMOS, CASOS, evaluarAgente, informe } from "./modulos/agente/evaluacion.js";
+import { crearEmbeddings } from "./modulos/agente/embeddings.js";
 import { crearGemini } from "./modulos/agente/gemini.js";
 import { crearHerramientas } from "./modulos/agente/herramientas.js";
 
 /**
  * npm run evaluar:agente — hace las 20 preguntas de prueba al agente real (Gemini + la base de
  * Supabase con la llave pública) y guarda el informe en docs/evaluaciones/.
- * Gasta cuota de Gemini: unas 40 llamadas. Nunca imprime llaves.
+ * Gasta cuota de Gemini: unas 40 llamadas (más algunos embeddings). Nunca imprime llaves.
  *
  *   npm run evaluar:agente                  todas las preguntas, 15 s entre una y otra
  *   npm run evaluar:agente -- --limite=3    solo las primeras 3 (prueba rápida)
@@ -22,6 +23,7 @@ const entorno = z
     SUPABASE_ANON_KEY: z.string().trim().min(1),
     GEMINI_API_KEY: z.string().trim().min(1),
     GEMINI_MODELO: z.string().trim().min(1).default("gemini-2.5-flash"),
+    GEMINI_MODELO_EMBEDDINGS: z.string().trim().min(1).default("gemini-embedding-001"),
   })
   .safeParse(Object.fromEntries(Object.entries(process.env).filter(([, v]) => v?.trim())));
 if (!entorno.success) {
@@ -33,13 +35,14 @@ const argumento = (nombre: string) => process.argv.find((a) => a.startsWith(`--$
 const limite = Math.min(Math.max(Number(argumento("limite") ?? CASOS.length) || CASOS.length, 1), CASOS.length);
 const pausaSegundos = Math.min(Math.max(Number(argumento("pausa") ?? 15) || 15, 0), 120);
 
-const { SUPABASE_URL, SUPABASE_ANON_KEY, GEMINI_API_KEY, GEMINI_MODELO } = entorno.data;
+const { SUPABASE_URL, SUPABASE_ANON_KEY, GEMINI_API_KEY, GEMINI_MODELO, GEMINI_MODELO_EMBEDDINGS } = entorno.data;
 const publico = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, { auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false } });
 const ia = crearGemini({ llave: GEMINI_API_KEY, modelo: GEMINI_MODELO });
 const casos = CASOS.slice(0, limite);
 
 console.log(`Evaluando el agente con ${GEMINI_MODELO}: ${String(casos.length)} preguntas, ${String(pausaSegundos)} s entre cada una.`);
-const resultados = await evaluarAgente(ia, crearHerramientas(publico), casos, {
+const embeddings = crearEmbeddings({ llave: GEMINI_API_KEY, modelo: GEMINI_MODELO_EMBEDDINGS });
+const resultados = await evaluarAgente(ia, crearHerramientas(publico, embeddings), casos, {
   pausaMs: pausaSegundos * 1000,
   alTerminarCaso: (r, i) => {
     const marca = r.fallas.length === 0 ? "OK   " : "FALLA";

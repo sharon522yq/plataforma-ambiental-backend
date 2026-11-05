@@ -62,6 +62,13 @@ Para conseguir un token: inicia sesión en Supabase Auth y copia el `access_toke
 4. Marca «Usar mi ubicación», acepta el permiso del navegador y pregunta «¿Qué hay cerca de mí?». Esperado: puntos cercanos, o que diga que no hay. Sin la casilla, debe pedirte la ubicación o una ciudad.
 5. Respaldo: en Render pon `GEMINI_MODELO=modelo-que-no-existe`, pregunta «¿hay basura reportada?» y espera «Respuesta automática sin IA» con la lista del mapa. Regresa `GEMINI_MODELO` a su valor.
 
+## Base de conocimiento (F14)
+1. Con la migración 013 aplicada, entra como editor y ve a Administración → «Base de conocimiento».
+2. Carga un documento real: título, fuente (por ejemplo, PROFEPA), el enlace https y el texto copiado de la página oficial. Esperado: «Documento cargado en N fragmentos» y la fila en la lista.
+3. En el asistente, pregunta algo que responda ese documento. Esperado: la respuesta usa esa información y abajo aparece «Fuentes» con el título y el enlace.
+4. Desactiva el documento y repite la pregunta: ya no debe aparecer como fuente.
+5. Como administrador, en Auditoría: aparecen `documento_creado` y `documento_actualizado`.
+
 ## Sitio público y aviso de privacidad (F12)
 1. Abre la URL del sitio desde un teléfono. Esperado: el mapa con los puntos publicados, la etiqueta «piloto» y sin selector «Datos».
 2. Pulsa «Aviso de privacidad» en el pie: se lee completo, con la sección de derechos ARCO.

@@ -10,6 +10,8 @@ import {
   usuarioRolCambiado,
 } from "../../src/modulos/administracion/esquemas.js";
 import { accion } from "../../src/modulos/acciones/rutas.js";
+import { fragmentoEncontrado } from "../../src/modulos/agente/herramientas.js";
+import { documento } from "../../src/modulos/conocimiento/rutas.js";
 import { aporteModeracion, aportePropio, aporteRevisado } from "../../src/modulos/aportes/esquemas.js";
 import { puntoModeracion } from "../../src/modulos/moderacion/esquemas.js";
 import { organizacion } from "../../src/modulos/organizaciones/rutas.js";
@@ -146,6 +148,20 @@ describe.skipIf(!process.env.TEST_DATABASE_URL)("contrato entre funciones SQL y 
       validar(usuarioRolCambiado, await como(u.admin, "cambiar_rol($1, 'editor')", [u.ciudadana]));
       await como(u.admin, "cambiar_rol($1, 'ciudadano')", [u.ciudadana]);
       armarPagina(await como(u.admin, "listar_auditoria()"), registroAuditoria, { pagina: 1, limite: 50 });
+    });
+  });
+
+  describe("base de conocimiento (migración 013)", () => {
+    it("guardar, listar, cambiar estado y la búsqueda pública cumplen sus esquemas", async () => {
+      const v = JSON.stringify(Array.from({ length: 768 }, (_, i) => (i === 0 ? 1 : 0)));
+      const fragmentos = JSON.stringify([{ texto: "Documenta y denuncia.", embedding: JSON.parse(v) as number[] }]);
+      const d = validar(documento, await como(u.admin,
+        "guardar_documento_conocimiento('Cómo denunciar', 'PROFEPA', $1::jsonb, 'gemini-embedding-001', 'https://www.gob.mx/profepa', '2025-03-01')", [fragmentos]));
+      expect(d).toMatchObject({ fecha_fuente: "2025-03-01", fragmentos: 1, modelo: "gemini-embedding-001" });
+      armarPagina(await como(u.admin, "listar_documentos_conocimiento()"), documento, PAGINA);
+      validar(documento, await como(u.admin, "cambiar_estado_documento($1, true)", [d.id]));
+      const encontrados = validar(fragmentoEncontrado.array(), await como(null, "buscar_conocimiento_publico($1::vector, 4)", [v]));
+      expect(encontrados[0]).toMatchObject({ titulo: "Cómo denunciar", distancia: 0 });
     });
   });
 });

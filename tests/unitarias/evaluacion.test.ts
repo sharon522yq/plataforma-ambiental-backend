@@ -2,16 +2,16 @@ import { describe, expect, it } from "vitest";
 import { ErrorAplicacion } from "../../src/compartido/errores.js";
 import type { RespuestaAgente } from "../../src/modulos/agente/agente.js";
 import { APROBADOS_MINIMOS, CASOS, evaluarAgente, informe, revisar, UBICACION_PRUEBA } from "../../src/modulos/agente/evaluacion.js";
-import { DECLARACIONES } from "../../src/modulos/agente/herramientas.js";
+import { DECLARACION_CONOCIMIENTO, DECLARACIONES } from "../../src/modulos/agente/herramientas.js";
 import { herramientasFalsas, iaFalsa } from "../ayudas/ia-falsa.js";
 
-const respuesta = (texto: string, herramientas: string[] = []): RespuestaAgente => ({ texto, modelo: "m", puntos: [], herramientas, respaldo: false });
+const respuesta = (texto: string, herramientas: string[] = []): RespuestaAgente => ({ texto, modelo: "m", puntos: [], fuentes: [], herramientas, respaldo: false });
 
 describe("casos de evaluación", () => {
   it("son 20, con mínimo de 18, y solo nombran herramientas que existen", () => {
     expect(CASOS).toHaveLength(20);
     expect(APROBADOS_MINIMOS).toBe(18);
-    const nombres = DECLARACIONES.map((d) => d.name);
+    const nombres = [...DECLARACIONES, DECLARACION_CONOCIMIENTO].map((d) => d.name);
     for (const c of CASOS) for (const h of c.usaAlguna ?? []) expect(nombres).toContain(h);
     // Cada herramienta se evalúa al menos una vez.
     for (const n of nombres) expect(CASOS.some((c) => c.usaAlguna?.includes(n))).toBe(true);

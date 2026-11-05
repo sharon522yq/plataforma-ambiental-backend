@@ -52,8 +52,9 @@ export function crearRutasAgente({ ia, herramientas, conversaciones, limitePorMi
           respuesta,
           modelo: r.modelo,
           herramientas: r.herramientas,
+          documentos: r.fuentes.map((f) => f.titulo),
         });
-        res.json({ respuesta, modelo: r.modelo, aviso: AVISO_IA, puntos: r.puntos, respaldo: r.respaldo });
+        res.json({ respuesta, modelo: r.modelo, aviso: AVISO_IA, puntos: r.puntos, fuentes: r.fuentes, respaldo: r.respaldo });
       })
       .catch(siguiente);
   });

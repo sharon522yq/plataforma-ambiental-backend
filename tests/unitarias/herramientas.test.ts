@@ -1,4 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
+import type { ModeloEmbeddings } from "../../src/modulos/agente/embeddings.js";
+import { ErrorAplicacion } from "../../src/compartido/errores.js";
 import { crearHerramientas, DECLARACIONES } from "../../src/modulos/agente/herramientas.js";
 import { ok, rpcFalso } from "../ayudas/rpc-falso.js";
 
@@ -139,5 +141,64 @@ describe("herramientas del agente", () => {
     expect(r).toEqual({ respuesta: { error: "No se pudo consultar la base en este momento." }, puntos: [] });
     expect(JSON.stringify(r)).not.toContain("secreto");
     expect(espia.mock.calls.flat().join(" ")).toContain("herramienta_fallida");
+  });
+
+  describe("buscar_conocimiento (F14)", () => {
+    const embeddingsFalsos = (falla?: Error) => {
+      const pedidos: { textos: string[]; tarea: string }[] = [];
+      const e: ModeloEmbeddings = {
+        modelo: "emb",
+        embeber(textos, tarea) {
+          pedidos.push({ textos, tarea });
+          return falla ? Promise.reject(falla) : Promise.resolve(textos.map(() => [0.6, 0.8]));
+        },
+      };
+      return { e, pedidos };
+    };
+    const encontrado = (texto: string, titulo: string, distancia: number) =>
+      ({ texto, titulo, fuente: "PROFEPA", enlace: "https://www.gob.mx/profepa", fecha_fuente: "2025-03-01", distancia });
+
+    it("solo se declara si hay embeddings", () => {
+      const { cliente } = rpcFalso({});
+      expect(crearHerramientas(cliente).declaraciones.map((d) => d.name)).not.toContain("buscar_conocimiento");
+      expect(crearHerramientas(cliente, embeddingsFalsos().e).declaraciones.map((d) => d.name)).toContain("buscar_conocimiento");
+    });
+
+    it("embebe la consulta, filtra lo poco parecido y devuelve las fuentes sin repetir", async () => {
+      const { e, pedidos } = embeddingsFalsos();
+      const { cliente, llamadas } = rpcFalso({
+        buscar_conocimiento_publico: ok([
+          encontrado("Paso 1", "Cómo denunciar", 0.2),
+          encontrado("Paso 2", "Cómo denunciar", 0.3),
+          encontrado("Otra cosa", "Quemas", 0.7),
+        ]),
+      });
+      const r = await crearHerramientas(cliente, e).ejecutar("buscar_conocimiento", { consulta: " denunciar descarga " }, SIN_UBICACION);
+      expect(pedidos).toEqual([{ textos: ["denunciar descarga"], tarea: "consulta" }]);
+      expect(llamadas[0]).toEqual({ nombre: "buscar_conocimiento_publico", parametros: { consulta: "[0.6,0.8]", cantidad: 4 } });
+      expect(r.respuesta).toEqual({
+        total: 2,
+        fragmentos: [
+          { texto: "Paso 1", titulo: "Cómo denunciar", fuente: "PROFEPA", fecha: "2025-03-01" },
+          { texto: "Paso 2", titulo: "Cómo denunciar", fuente: "PROFEPA", fecha: "2025-03-01" },
+        ],
+      });
+      expect(r.fuentes).toEqual([{ titulo: "Cómo denunciar", fuente: "PROFEPA", enlace: "https://www.gob.mx/profepa", fecha_fuente: "2025-03-01" }]);
+      expect(r.puntos).toEqual([]);
+    });
+
+    it("sin embeddings, o con argumentos inválidos, responde un error legible", async () => {
+      const { cliente } = rpcFalso({});
+      expect((await crearHerramientas(cliente).ejecutar("buscar_conocimiento", { consulta: "x y z" }, SIN_UBICACION)).respuesta.error).toMatch(/No existe/);
+      expect((await crearHerramientas(cliente, embeddingsFalsos().e).ejecutar("buscar_conocimiento", {}, SIN_UBICACION)).respuesta.error).toMatch(/Argumentos inválidos/);
+    });
+
+    it("si los embeddings fallan, el modelo recibe un error genérico y puede seguir", async () => {
+      const { cliente, llamadas } = rpcFalso({});
+      const falla = new ErrorAplicacion(503, "IA_NO_DISPONIBLE", "x");
+      const r = await crearHerramientas(cliente, embeddingsFalsos(falla).e).ejecutar("buscar_conocimiento", { consulta: "residuos" }, SIN_UBICACION);
+      expect(r.respuesta).toEqual({ error: "No se pudo consultar la base en este momento." });
+      expect(llamadas).toHaveLength(0);
+    });
   });
 });

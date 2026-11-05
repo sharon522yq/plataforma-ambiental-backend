@@ -11,6 +11,8 @@ const esquema = z.object({
   DATABASE_URL: z.string().min(1).optional(),
   GEMINI_API_KEY: z.string().min(1),
   GEMINI_MODELO: z.string().default("gemini-2.5-flash"),
+  /** Modelo de embeddings de la base de conocimiento (F14). Debe aceptar outputDimensionality 768. */
+  GEMINI_MODELO_EMBEDDINGS: z.string().default("gemini-embedding-001"),
   CORS_ORIGENES: z
     .string()
     .transform((v) => v.split(",").map((o) => o.trim()).filter(Boolean)),

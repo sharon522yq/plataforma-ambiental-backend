@@ -15,7 +15,7 @@ describe("responderConHerramientas", () => {
     const { ia, pasos } = iaFalsa({ guion: [{ texto: "Separa tus residuos." }] });
     const { herramientas, llamadas } = herramientasFalsas();
     const r = await responderConHerramientas(ia, herramientas, "¿Cómo separo?", SIN_UBICACION);
-    expect(r).toEqual({ texto: "Separa tus residuos.", modelo: "modelo-prueba", puntos: [], herramientas: [], respaldo: false });
+    expect(r).toEqual({ texto: "Separa tus residuos.", modelo: "modelo-prueba", puntos: [], fuentes: [], herramientas: [], respaldo: false });
     expect(pasos).toHaveLength(1);
     expect(llamadas).toHaveLength(0);
   });
@@ -50,6 +50,18 @@ describe("responderConHerramientas", () => {
     expect(r.puntos).toHaveLength(20);
     expect(new Set(r.puntos.map((p) => p.id)).size).toBe(20);
     expect(r.herramientas).toEqual(["buscar_puntos", "detalle_punto"]);
+  });
+
+  it("junta las fuentes consultadas sin repetirlas", async () => {
+    const fuente = { titulo: "Cómo denunciar", fuente: "PROFEPA", enlace: null, fecha_fuente: null };
+    const { ia } = iaFalsa({
+      guion: [
+        { llamadas: [{ nombre: "buscar_conocimiento", argumentos: { consulta: "a" } }, { nombre: "buscar_conocimiento", argumentos: { consulta: "b" } }] },
+        { texto: "Fuente: Cómo denunciar (PROFEPA)." },
+      ],
+    });
+    const { herramientas } = herramientasFalsas({ buscar_conocimiento: { respuesta: { total: 1 }, puntos: [], fuentes: [fuente] } });
+    expect((await responderConHerramientas(ia, herramientas, "x", SIN_UBICACION)).fuentes).toEqual([fuente]);
   });
 
   it("ejecuta como máximo 5 herramientas por paso", async () => {

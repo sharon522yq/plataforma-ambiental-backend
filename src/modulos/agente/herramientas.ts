@@ -7,6 +7,7 @@ import { accion, TIPOS_ACCION } from "../acciones/rutas.js";
 import { organizacion } from "../organizaciones/rutas.js";
 import { TIPOS_PUNTO } from "../puntos/esquemas.js";
 import { listarPuntos, obtenerPunto, puntosCercanos } from "../puntos/servicio.js";
+import type { ModeloEmbeddings } from "./embeddings.js";
 import type { DeclaracionHerramienta } from "./gemini.js";
 
 /**
@@ -29,11 +30,21 @@ export interface PuntoEnMapa {
   ubicacion: Ubicacion;
 }
 
+/** Documento de la base de conocimiento que respaldó una respuesta (F14). */
+export interface FuenteConocimiento {
+  titulo: string;
+  fuente: string;
+  enlace: string | null;
+  fecha_fuente: string | null;
+}
+
 export interface ResultadoHerramienta {
   /** Lo que se le devuelve al modelo. */
   respuesta: Record<string, unknown>;
   /** Puntos que el mapa puede resaltar. */
   puntos: PuntoEnMapa[];
+  /** Documentos consultados, para citarlos al usuario. */
+  fuentes?: FuenteConocimiento[];
 }
 
 export interface ContextoHerramientas {
@@ -69,6 +80,19 @@ const argsBuscarPuntos = z.object({
 const argsDetallePunto = z.object({ id: z.uuid() });
 const argsBuscarAcciones = z.object({ tipo: z.enum(TIPOS_ACCION).optional(), punto_id: z.uuid().optional() });
 const argsBuscarOrganizaciones = z.object({ zona: z.string().trim().min(1).max(80).optional() });
+const argsBuscarConocimiento = z.object({ consulta: z.string().trim().min(3).max(300) });
+
+/** Fragmentos que se le dan al modelo y distancia coseno máxima para considerarlos útiles. */
+const FRAGMENTOS_POR_CONSULTA = 4;
+export const DISTANCIA_MAXIMA = 0.5;
+export const fragmentoEncontrado = z.object({
+  texto: z.string(),
+  titulo: z.string(),
+  fuente: z.string(),
+  enlace: z.string().nullable(),
+  fecha_fuente: z.string().nullable(),
+  distancia: z.number(),
+});
 
 export const DECLARACIONES: DeclaracionHerramienta[] = [
   {
@@ -111,9 +135,22 @@ export const DECLARACIONES: DeclaracionHerramienta[] = [
   },
 ];
 
+/** Se declara solo si hay embeddings (F14): busca en los documentos que cargaron los editores. */
+export const DECLARACION_CONOCIMIENTO: DeclaracionHerramienta = {
+  name: "buscar_conocimiento",
+  description:
+    "Busca en documentos de fuentes confiables que cargó el equipo (cómo denunciar, leyes y trámites, residuos, agua, aire, " +
+    "bosques). Devuelve fragmentos con su título y fuente. Úsala para preguntas generales o de procedimientos.",
+  parameters: {
+    type: "object",
+    properties: { consulta: { type: "string", description: "Lo que se busca, en pocas palabras y en español." } },
+    required: ["consulta"],
+  },
+};
+
 const sinPuntos = (respuesta: Record<string, unknown>): ResultadoHerramienta => ({ respuesta, puntos: [] });
 
-export function crearHerramientas(publico: SupabaseClient): Herramientas {
+export function crearHerramientas(publico: SupabaseClient, embeddings?: ModeloEmbeddings): Herramientas {
   async function buscarPuntos(a: z.infer<typeof argsBuscarPuntos>, contexto: ContextoHerramientas): Promise<ResultadoHerramienta> {
     let centro: Ubicacion | null = null;
     if (a.cerca_de_mi) {
@@ -192,8 +229,27 @@ export function crearHerramientas(publico: SupabaseClient): Herramientas {
     return sinPuntos({ total: pagina.paginacion.total, organizaciones: pagina.datos.map((o) => ({ nombre: o.nombre, zona: o.zona })) });
   }
 
+  async function buscarConocimiento(a: z.infer<typeof argsBuscarConocimiento>, modelo: ModeloEmbeddings): Promise<ResultadoHerramienta> {
+    const [vector] = await modelo.embeber([a.consulta], "consulta");
+    const r = await llamarFuncion(publico, "buscar_conocimiento_publico", {
+      consulta: JSON.stringify(vector),
+      cantidad: FRAGMENTOS_POR_CONSULTA,
+    });
+    const utiles = z.array(fragmentoEncontrado).parse(r).filter((f) => f.distancia <= DISTANCIA_MAXIMA);
+    const fuentes = new Map<string, FuenteConocimiento>();
+    for (const { titulo, fuente, enlace, fecha_fuente } of utiles) fuentes.set(`${titulo}|${fuente}`, { titulo, fuente, enlace, fecha_fuente });
+    return {
+      respuesta: {
+        total: utiles.length,
+        fragmentos: utiles.map((f) => ({ texto: f.texto, titulo: f.titulo, fuente: f.fuente, fecha: f.fecha_fuente })),
+      },
+      puntos: [],
+      fuentes: [...fuentes.values()],
+    };
+  }
+
   return {
-    declaraciones: DECLARACIONES,
+    declaraciones: embeddings ? [...DECLARACIONES, DECLARACION_CONOCIMIENTO] : DECLARACIONES,
     async ejecutar(nombre, argumentos, contexto) {
       try {
         switch (nombre) {
@@ -205,6 +261,9 @@ export function crearHerramientas(publico: SupabaseClient): Herramientas {
             return await buscarAcciones(argsBuscarAcciones.parse(argumentos));
           case "buscar_organizaciones":
             return await buscarOrganizaciones(argsBuscarOrganizaciones.parse(argumentos));
+          case "buscar_conocimiento":
+            if (embeddings) return await buscarConocimiento(argsBuscarConocimiento.parse(argumentos), embeddings);
+            return sinPuntos({ error: "No existe la herramienta buscar_conocimiento." });
           default:
             return sinPuntos({ error: `No existe la herramienta ${nombre}.` });
         }

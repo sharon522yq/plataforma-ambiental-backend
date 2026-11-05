@@ -118,6 +118,12 @@ Auditoría del 2026-11-05 contra el plan maestro (ver `docs/auditoria.md`, secci
 - **Pruebas:** unitarias de `gemini.paso`, del ciclo del agente, de las herramientas y de la evaluación, más integración de la ruta. Mutaciones detectadas (7 de 7): no forzar la respuesta en el último paso, no limitar las herramientas por paso, no devolverle a Gemini su turno, mandarle la ubicación al modelo, devolver el contacto de las organizaciones, mostrar el razonamiento interno y pasar al respaldo con un 422. En navegador (Playwright): 25 de 25 comprobaciones.
 - **Criterio de salida:** 18 de 20 en la evaluación real.
 
+## Fase 14: Base de conocimiento y respuestas con fuente (B-02, B-05, D-01)
+- **Estado:** **lista en código y pruebas (2026-11-05), en la rama `f14-conocimiento`.** Se fusiona a main después de que sharon aplique la migración 013 con `npm run migrar`.
+- **Alcance:** migración 013 (enlace de la fuente, posición y modelo de cada fragmento, funciones para guardar, listar, activar y buscar, auditoría). Rutas `/admin/conocimiento` para editor y administrador; el servidor parte el texto y calcula embeddings con `gemini-embedding-001` (768, normalizados). Herramienta `buscar_conocimiento` para el agente, con las fuentes en la respuesta. Pantalla «Base de conocimiento» en Administración y fuentes en el chat.
+- **Pruebas:** 13 SQL, 16 HTTP, 1 de contrato y unitarias de embeddings, fragmentos, herramienta, agente e instrucciones. Mutaciones detectadas (9 de 9): quitar la revisión del rol, buscar en documentos inactivos, aceptar otra dimensión, dar permiso de carga al anónimo, no filtrar por parecido, no normalizar, embeber sin el título, dar las reglas de conocimiento sin la herramienta y no devolver las fuentes. En navegador (Playwright): 15 de 15.
+- **Criterio de salida:** con al menos un documento real cargado, el asistente lo cita al responder.
+
 ## Orden de ejecución
 F1 → F2 → F3 → F4 → F5 → F6 → F7 → F8 → F9 → F10 → F11. Cada fase espera tu aprobación antes de empezar.
 

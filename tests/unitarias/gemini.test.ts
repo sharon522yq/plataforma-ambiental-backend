@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { crearGemini, INSTRUCCIONES_HERRAMIENTAS, INSTRUCCIONES_SISTEMA } from "../../src/modulos/agente/gemini.js";
-import { DECLARACIONES } from "../../src/modulos/agente/herramientas.js";
+import { crearGemini, INSTRUCCIONES_CONOCIMIENTO, INSTRUCCIONES_HERRAMIENTAS, INSTRUCCIONES_SISTEMA } from "../../src/modulos/agente/gemini.js";
+import { DECLARACION_CONOCIMIENTO, DECLARACIONES } from "../../src/modulos/agente/herramientas.js";
 
 const LLAVE = "llave-secreta-de-prueba";
 
@@ -123,6 +123,18 @@ describe("crearGemini().paso", () => {
 
   it("503 si Google no devuelve candidatos", async () => {
     await expect(crearGemini({ llave: LLAVE, modelo: "m", fetch: fetchFalso(json({})).f }).paso(pregunta, [])).rejects.toMatchObject({ estado: 503 });
+  });
+
+  it("agrega las reglas de la base de conocimiento solo si se declara buscar_conocimiento", async () => {
+    const respuesta = () => json({ candidates: [{ content: { parts: [{ text: "ok" }] } }] });
+    const sin = fetchFalso(respuesta());
+    await crearGemini({ llave: LLAVE, modelo: "m", fetch: sin.f }).paso(pregunta, DECLARACIONES);
+    expect(JSON.stringify(cuerpoDe(sin.llamadas[0]?.init))).not.toContain(INSTRUCCIONES_CONOCIMIENTO);
+    const con = fetchFalso(respuesta());
+    await crearGemini({ llave: LLAVE, modelo: "m", fetch: con.f }).paso(pregunta, [...DECLARACIONES, DECLARACION_CONOCIMIENTO]);
+    expect(cuerpoDe(con.llamadas[0]?.init)).toMatchObject({
+      systemInstruction: { parts: [{ text: `${INSTRUCCIONES_SISTEMA} ${INSTRUCCIONES_HERRAMIENTAS} ${INSTRUCCIONES_CONOCIMIENTO}` }] },
+    });
   });
 
   it("expone el nombre del modelo", () => {
