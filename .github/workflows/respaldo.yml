@@ -1,0 +1,79 @@
+# Respaldo cifrado de la base de producción (F15, B-06). Corre dos veces por semana y a mano
+# (pestaña Actions → «Respaldo» → Run workflow). Cada respaldo se prueba restaurándolo en un
+# PostgreSQL desechable antes de guardarlo. Ver docs/respaldos.md.
+#
+# Necesita dos secretos del repositorio (paso M11). Sin ellos, la acción avisa y termina sin error:
+#   RESPALDO_DATABASE_URL  cadena «Session pooler» de Supabase (la conexión directa es solo IPv6)
+#   RESPALDO_CLAVE         frase de al menos 20 caracteres; sin ella el respaldo no se puede abrir
+name: Respaldo
+
+on:
+  schedule:
+    # Lunes y jueves a las 09:00 UTC (03:00 en Guadalajara).
+    - cron: "0 9 * * 1,4"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: respaldo
+  cancel-in-progress: false
+
+jobs:
+  respaldo:
+    name: Respaldar y probar la restauración
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    env:
+      RESPALDO_DATABASE_URL: ${{ secrets.RESPALDO_DATABASE_URL }}
+      RESPALDO_CLAVE: ${{ secrets.RESPALDO_CLAVE }}
+    steps:
+      - name: Comprobar los secretos
+        id: secretos
+        run: |
+          if [ -n "$RESPALDO_DATABASE_URL" ] && [ -n "$RESPALDO_CLAVE" ]; then
+            echo "hay=si" >> "$GITHUB_OUTPUT"
+          else
+            echo "::notice::Faltan los secretos RESPALDO_DATABASE_URL y RESPALDO_CLAVE: no se respalda (paso M11)."
+            echo "hay=no" >> "$GITHUB_OUTPUT"
+          fi
+
+      - if: steps.secretos.outputs.hay == 'si'
+        uses: actions/checkout@v5
+
+      # pg_dump tiene que ser de la misma versión mayor que el servidor de Supabase (o más nueva):
+      # se pregunta la versión y se instala esa del repositorio oficial de PostgreSQL, junto con un
+      # servidor desechable con PostGIS y pgvector para la prueba de restauración.
+      - name: Instalar PostgreSQL de la versión del servidor
+        if: steps.secretos.outputs.hay == 'si'
+        run: |
+          sudo /usr/share/postgresql-common/pgdg/apt.postgresql.org.sh -y > /dev/null
+          sudo apt-get install -y -qq postgresql-client-17 > /dev/null
+          mayor=$(psql "$RESPALDO_DATABASE_URL" -X -At -c "show server_version_num" | cut -c1-2)
+          echo "Servidor de producción: PostgreSQL $mayor"
+          sudo apt-get install -y -qq "postgresql-$mayor" "postgresql-$mayor-postgis-3" "postgresql-$mayor-pgvector" > /dev/null
+          clave=$(openssl rand -hex 16)
+          echo "::add-mask::$clave"
+          sudo pg_createcluster "$mayor" prueba --port=5499 --start > /dev/null
+          sudo -u postgres psql -p 5499 -qc "alter user postgres password '$clave'"
+          echo "PGPASSWORD=$clave" >> "$GITHUB_ENV"
+          echo "PRUEBA_DATABASE_URL=postgresql://postgres@127.0.0.1:5499/postgres" >> "$GITHUB_ENV"
+
+      - name: Respaldar
+        if: steps.secretos.outputs.hay == 'si'
+        # PGPASSWORD es de la base desechable; la de producción va dentro de su URL.
+        run: env -u PGPASSWORD scripts/respaldo/respaldar.sh respaldos
+
+      - name: Probar la restauración
+        if: steps.secretos.outputs.hay == 'si'
+        run: scripts/respaldo/probar-restauracion.sh respaldos/*.tar.gpg
+
+      # Solo se guarda un respaldo que pasó la prueba. Va cifrado; GitHub lo borra a los 90 días.
+      - if: steps.secretos.outputs.hay == 'si'
+        uses: actions/upload-artifact@v6
+        with:
+          name: respaldo-${{ github.run_id }}
+          path: respaldos/*.tar.gpg
+          retention-days: 90
+          if-no-files-found: error

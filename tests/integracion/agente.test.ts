@@ -56,10 +56,13 @@ describe("POST /api/v1/agente/consulta", () => {
       modelo: "modelo-prueba",
       aviso: expect.stringContaining("inteligencia artificial") as unknown,
       puntos: [],
+      fuentes: [],
       respaldo: false,
     });
     expect(r.headers["cache-control"]).toBe("no-store");
-    expect(guardadas).toEqual([{ usuario_id: null, pregunta: "¿Cómo separo la basura?", respuesta: "Separa orgánicos e inorgánicos.", modelo: "modelo-prueba", herramientas: [] }]);
+    expect(guardadas).toEqual([
+      { usuario_id: null, pregunta: "¿Cómo separo la basura?", respuesta: "Separa orgánicos e inorgánicos.", modelo: "modelo-prueba", herramientas: [], documentos: [] },
+    ]);
   });
 
   it("quita correos y teléfonos antes de enviar a Gemini y de guardar, también de la respuesta", async () => {
@@ -127,6 +130,18 @@ describe("POST /api/v1/agente/consulta", () => {
     expect(JSON.stringify(pasos)).not.toMatch(/20\.61|103\.41/);
     expect(guardadas[0]?.herramientas).toEqual(["buscar_puntos"]);
     expect(JSON.stringify(guardadas)).not.toMatch(/20\.61|103\.41/);
+  });
+
+  it("cita los documentos de la base de conocimiento y guarda sus títulos", async () => {
+    const fuente = { titulo: "Cómo denunciar ante PROFEPA", fuente: "PROFEPA", enlace: "https://www.gob.mx/profepa", fecha_fuente: "2025-03-01" };
+    const { app: a, guardadas } = app(
+      { guion: [{ llamadas: [{ nombre: "buscar_conocimiento", argumentos: { consulta: "denunciar descarga" } }] }, { texto: "Documenta y denuncia. Fuente: Cómo denunciar ante PROFEPA." }] },
+      {},
+      { buscar_conocimiento: { respuesta: { total: 1 }, puntos: [], fuentes: [fuente] } },
+    );
+    const r = await request(a).post(RUTA).send({ pregunta: "¿Cómo denuncio una descarga?" });
+    expect(r.body).toMatchObject({ fuentes: [fuente], puntos: [] });
+    expect(guardadas[0]).toMatchObject({ herramientas: ["buscar_conocimiento"], documentos: ["Cómo denunciar ante PROFEPA"] });
   });
 
   it("429 al pasar el límite por minuto, sin llamar más a Gemini", async () => {

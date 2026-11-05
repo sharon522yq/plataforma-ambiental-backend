@@ -54,6 +54,9 @@ describe("matriz de permisos de administración", () => {
     ["get", "/api/v1/admin/usuarios", ["administrador"]],
     ["patch", `/api/v1/admin/usuarios/${OTRO}/rol`, ["administrador"]],
     ["get", "/api/v1/admin/auditoria", ["administrador"]],
+    ["get", "/api/v1/admin/solicitudes-rol", ["administrador"]],
+    ["patch", `/api/v1/admin/solicitudes-rol/${OTRO}`, ["administrador"]],
+    ["get", "/api/v1/admin/metricas", ["administrador"]],
   ];
   const quienes: [string, string][] = [["ciudadano", CIUDADANO], ["moderador", MODERADOR], ["editor", EDITOR], ["administrador", ADMIN]];
 
@@ -193,6 +196,96 @@ describe("usuarios y roles", () => {
     const { app: a } = app({ cambiar_rol: { data: null, error: { code: "P0002", message: "El usuario no existe", hint: "publico" } } });
     const r = await request(a).patch(`/api/v1/admin/usuarios/${OTRO}/rol`).set("Authorization", await bearer(ADMIN)).send({ rol: "editor" });
     expect(r.status).toBe(404);
+  });
+});
+
+describe("solicitudes de rol (dos administradores, migración 014)", () => {
+  const SOLICITUD = randomUUID();
+  const solicitud = {
+    id: SOLICITUD, usuario: { id: OTRO, nombre: "Ana" }, rol_anterior: "ciudadano", rol_nuevo: "administrador",
+    solicitado_por: { id: ADMIN, nombre: "Admin" }, estado: "pendiente", resuelto_por: null, creado_en: FECHA, resuelto_en: null,
+  };
+
+  it("PATCH /admin/usuarios/:id/rol responde 202 con la solicitud cuando falta otro administrador", async () => {
+    const { app: a } = app({ cambiar_rol: ok({ id: OTRO, nombre: "Ana", rol: "ciudadano", activo: true, actualizado_en: FECHA, solicitud }) });
+    const r = await request(a).patch(`/api/v1/admin/usuarios/${OTRO}/rol`).set("Authorization", await bearer(ADMIN)).send({ rol: "administrador" });
+    expect(r.status).toBe(202);
+    expect(r.body).toMatchObject({ rol: "ciudadano", solicitud: { id: SOLICITUD, estado: "pendiente", rol_nuevo: "administrador" } });
+  });
+
+  it("PATCH /admin/usuarios/:id/rol responde 200 y solicitud null cuando el cambio es inmediato", async () => {
+    const { app: a } = app({ cambiar_rol: ok({ id: OTRO, nombre: "Ana", rol: "editor", activo: true, actualizado_en: FECHA, solicitud: null }) });
+    const r = await request(a).patch(`/api/v1/admin/usuarios/${OTRO}/rol`).set("Authorization", await bearer(ADMIN)).send({ rol: "editor" });
+    expect(r.status).toBe(200);
+    expect((r.body as { solicitud: unknown }).solicitud).toBeNull();
+  });
+
+  it("GET /admin/solicitudes-rol lista sin correos", async () => {
+    const { app: a, llamadas } = app({ listar_solicitudes_rol: ok([{ ...solicitud, usuario: { ...solicitud.usuario, email: "ana@correo.mx" } }]) });
+    const r = await request(a).get("/api/v1/admin/solicitudes-rol").set("Authorization", await bearer(ADMIN));
+    expect(r.status).toBe(200);
+    expect(r.headers["cache-control"]).toBe("no-store");
+    expect(r.body).toEqual({ datos: [solicitud] });
+    expect(llamadas[0]).toEqual({ nombre: "listar_solicitudes_rol", parametros: {} });
+  });
+
+  it("PATCH /admin/solicitudes-rol/:id envía la decisión", async () => {
+    const aprobada = { ...solicitud, estado: "aprobada", resuelto_por: { id: OTRO, nombre: "Otra" }, resuelto_en: FECHA };
+    const { app: a, llamadas } = app({ resolver_solicitud_rol: ok(aprobada) });
+    const r = await request(a).patch(`/api/v1/admin/solicitudes-rol/${SOLICITUD}`).set("Authorization", await bearer(ADMIN)).send({ aprobar: true });
+    expect(r.status).toBe(200);
+    expect(r.body).toMatchObject({ estado: "aprobada" });
+    expect(llamadas[0]).toEqual({ nombre: "resolver_solicitud_rol", parametros: { solicitud_id: SOLICITUD, aprobar: true } });
+  });
+
+  it.each([
+    ["sin decisión", `/api/v1/admin/solicitudes-rol/${SOLICITUD}`, {}],
+    ["decisión que no es booleana", `/api/v1/admin/solicitudes-rol/${SOLICITUD}`, { aprobar: "sí" }],
+    ["campos de más", `/api/v1/admin/solicitudes-rol/${SOLICITUD}`, { aprobar: true, estado: "aprobada" }],
+    ["id que no es uuid", "/api/v1/admin/solicitudes-rol/abc", { aprobar: true }],
+  ])("400 con %s", async (_caso, ruta, cuerpo) => {
+    const { app: a, llamadas } = app({});
+    expect((await request(a).patch(ruta).set("Authorization", await bearer(ADMIN)).send(cuerpo)).status).toBe(400);
+    expect(llamadas).toHaveLength(0);
+  });
+
+  it.each([
+    ["42501", 403, "Otro administrador debe confirmar el cambio"],
+    ["55000", 409, "La solicitud ya fue resuelta"],
+    ["P0002", 404, "La solicitud no existe"],
+  ])("traduce el error %s de la base a %i con su mensaje", async (code, estado, message) => {
+    const { app: a } = app({ resolver_solicitud_rol: { data: null, error: { code, message, hint: "publico" } } });
+    const r = await request(a).patch(`/api/v1/admin/solicitudes-rol/${SOLICITUD}`).set("Authorization", await bearer(ADMIN)).send({ aprobar: true });
+    expect(r.status).toBe(estado);
+    expect(r.body).toMatchObject({ error: { mensaje: message } });
+  });
+});
+
+describe("GET /api/v1/admin/metricas", () => {
+  const datos = {
+    generado_en: FECHA,
+    puntos: { publicados: 3, en_revision: 1, archivados: 0, por_tipo: { residuos: 3 }, por_gravedad: { "4": 3 } },
+    aportes: { pendientes: 1, aprobados: 2, rechazados: 0, duplicados: 0, ultimos_30_dias: 3, horas_revision_mediana: 4.5, por_semana: [{ semana: "2026-11-02", recibidos: 3 }] },
+    usuarios: { total: 4, activos: 4, nuevos_30_dias: 1, por_rol: { administrador: 2, ciudadano: 2 } },
+    catalogo: { acciones_activas: 5, organizaciones_activas: 2, documentos_activos: 1, fragmentos: 3 },
+    asistente: { conversaciones_7_dias: 10, con_herramientas: 7, con_documentos: 2, sin_ia: 1 },
+    pendientes_de_rol: 0,
+  };
+
+  it("200 con las métricas y sin caché", async () => {
+    const { app: a, llamadas } = app({ metricas_plataforma: ok(datos) });
+    const r = await request(a).get("/api/v1/admin/metricas").set("Authorization", await bearer(ADMIN));
+    expect(r.status).toBe(200);
+    expect(r.headers["cache-control"]).toBe("no-store");
+    expect(r.body).toEqual(datos);
+    expect(llamadas[0]).toEqual({ nombre: "metricas_plataforma", parametros: {} });
+  });
+
+  it("500 sin detalles si la base responde algo inesperado", async () => {
+    const { app: a } = app({ metricas_plataforma: ok({ puntos: "muchos" }) });
+    const r = await request(a).get("/api/v1/admin/metricas").set("Authorization", await bearer(ADMIN));
+    expect(r.status).toBe(500);
+    expect(JSON.stringify(r.body)).not.toMatch(/muchos/);
   });
 });
 

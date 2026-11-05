@@ -29,7 +29,8 @@ export async function llamarFuncion(cliente: SupabaseClient, nombre: string, par
   const datos: unknown = respuesta.data;
   if (error) {
     const traducir = ERRORES[error.code];
-    if (!traducir) throw new Error(`Falló la consulta ${nombre}`);
+    // El código (p. ej. PGRST202 si la función no existe) va en cause para el registro; nunca al usuario.
+    if (!traducir) throw new Error(`Falló la consulta ${nombre}`, { cause: error.code || "sin_codigo" });
     const publico = error.hint === MENSAJE_PUBLICO || error.code === PARAMETRO_INVALIDO;
     throw traducir(publico ? error.message : undefined);
   }
