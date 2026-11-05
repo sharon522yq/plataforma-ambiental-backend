@@ -17,6 +17,7 @@ import { crearRutasAcciones } from "./modulos/acciones/rutas.js";
 import { crearRutasAdministracion } from "./modulos/administracion/rutas.js";
 import { crearRegistroConversaciones, type RegistroConversaciones } from "./modulos/agente/conversaciones.js";
 import { crearGemini, type ModeloIA } from "./modulos/agente/gemini.js";
+import { crearHerramientas, type Herramientas } from "./modulos/agente/herramientas.js";
 import { crearRutasAgente } from "./modulos/agente/rutas.js";
 import { crearRutasComunidad } from "./modulos/comunidad/rutas.js";
 import { crearRutasConfiguracion } from "./modulos/configuracion/rutas.js";
@@ -40,6 +41,8 @@ export interface Dependencias {
   almacen?: AlmacenEvidencias;
   /** Gemini. Las pruebas usan uno simulado: nunca llaman a la API real. */
   ia?: ModeloIA;
+  /** Herramientas del agente. Por defecto, consultas públicas con el cliente anon. */
+  herramientas?: Herramientas;
   /** Dónde se guardan las conversaciones del agente. */
   conversaciones?: RegistroConversaciones;
 }
@@ -56,6 +59,7 @@ export function crearApp(entorno: Entorno, dependencias?: Dependencias) {
   const clienteUsuario = dependencias?.clienteUsuario ?? ((token: string) => crearClienteUsuario(entorno, token));
   const ia = dependencias?.ia ?? crearGemini({ llave: entorno.GEMINI_API_KEY, modelo: entorno.GEMINI_MODELO });
   const conversaciones = dependencias?.conversaciones ?? crearRegistroConversaciones(clienteServicio());
+  const herramientas = dependencias?.herramientas ?? crearHerramientas(publico);
   const autenticar = crearAutenticar(verificador);
   const autorizar = crearAutorizar(perfiles);
 
@@ -98,6 +102,7 @@ export function crearApp(entorno: Entorno, dependencias?: Dependencias) {
     "/agente",
     crearRutasAgente({
       ia,
+      herramientas,
       conversaciones,
       limitePorMinuto: entorno.LIMITE_AGENTE_POR_MINUTO,
       autenticarOpcional: crearAutenticarOpcional(autenticar),

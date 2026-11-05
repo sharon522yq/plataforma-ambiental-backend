@@ -9,7 +9,7 @@ import { PREGUNTA_DE_PRUEBA } from "../../src/modulos/salud/rutas.js";
 import { almacenFalso } from "../ayudas/almacen-falso.js";
 import { clienteFalso } from "../ayudas/cliente-falso.js";
 import { entornoDePrueba } from "../ayudas/entorno.js";
-import { conversacionesFalsas, iaFalsa } from "../ayudas/ia-falsa.js";
+import { conversacionesFalsas, herramientasFalsas, iaFalsa } from "../ayudas/ia-falsa.js";
 import { perfilesFalsos } from "../ayudas/perfiles-falsos.js";
 import { rpcFalso } from "../ayudas/rpc-falso.js";
 import { EMISOR_PRUEBA, SECRETO_PRUEBA, tokenDePrueba } from "../ayudas/tokens.js";
@@ -23,9 +23,14 @@ const tabla: Record<string, Perfil> = {
   [ADMIN]: { rol: "administrador", activo: true },
 };
 
-function app(opciones: Parameters<typeof iaFalsa>[0] = {}, entorno: Record<string, string> = {}) {
+function app(
+  opciones: Parameters<typeof iaFalsa>[0] = {},
+  entorno: Record<string, string> = {},
+  resultados: Parameters<typeof herramientasFalsas>[0] = {},
+) {
   const falsa = iaFalsa(opciones);
   const registro = conversacionesFalsas();
+  const h = herramientasFalsas(resultados);
   const a = crearApp(entornoDePrueba(entorno), {
     publico: clienteFalso({ error: null }),
     verificador: crearVerificadorJwt({ secreto: SECRETO_PRUEBA, emisor: EMISOR_PRUEBA }),
@@ -33,9 +38,10 @@ function app(opciones: Parameters<typeof iaFalsa>[0] = {}, entorno: Record<strin
     clienteUsuario: () => rpcFalso({}).cliente,
     almacen: almacenFalso().almacen,
     ia: falsa.ia,
+    herramientas: h.herramientas,
     conversaciones: registro.conversaciones,
   });
-  return { app: a, preguntas: falsa.preguntas, guardadas: registro.guardadas };
+  return { app: a, preguntas: falsa.preguntas, pasos: falsa.pasos, guardadas: registro.guardadas, llamadas: h.llamadas };
 }
 const bearer = async (sub: string) => `Bearer ${await tokenDePrueba({ sub })}`;
 const RUTA = "/api/v1/agente/consulta";
@@ -45,9 +51,15 @@ describe("POST /api/v1/agente/consulta", () => {
     const { app: a, guardadas } = app({ texto: "Separa orgánicos e inorgánicos." });
     const r = await request(a).post(RUTA).send({ pregunta: "¿Cómo separo la basura?" });
     expect(r.status).toBe(200);
-    expect(r.body).toEqual({ respuesta: "Separa orgánicos e inorgánicos.", modelo: "modelo-prueba", aviso: expect.stringContaining("inteligencia artificial") as unknown });
+    expect(r.body).toEqual({
+      respuesta: "Separa orgánicos e inorgánicos.",
+      modelo: "modelo-prueba",
+      aviso: expect.stringContaining("inteligencia artificial") as unknown,
+      puntos: [],
+      respaldo: false,
+    });
     expect(r.headers["cache-control"]).toBe("no-store");
-    expect(guardadas).toEqual([{ usuario_id: null, pregunta: "¿Cómo separo la basura?", respuesta: "Separa orgánicos e inorgánicos.", modelo: "modelo-prueba" }]);
+    expect(guardadas).toEqual([{ usuario_id: null, pregunta: "¿Cómo separo la basura?", respuesta: "Separa orgánicos e inorgánicos.", modelo: "modelo-prueba", herramientas: [] }]);
   });
 
   it("quita correos y teléfonos antes de enviar a Gemini y de guardar, también de la respuesta", async () => {
@@ -69,18 +81,52 @@ describe("POST /api/v1/agente/consulta", () => {
     ["con una pregunta muy corta", { pregunta: "a" }],
     ["con una pregunta de más de 1000 caracteres", { pregunta: "a".repeat(1001) }],
     ["con campos de más", { pregunta: "¿Qué es la composta?", modelo: "otro" }],
+    ["con una ubicación fuera de rango", { pregunta: "¿Qué hay cerca?", ubicacion: { lat: 95, lng: -103 } }],
+    ["con una ubicación con campos de más", { pregunta: "¿Qué hay cerca?", ubicacion: { lat: 20, lng: -103, precision: 5 } }],
   ])("400 %s, sin llamar a Gemini", async (_caso, cuerpo) => {
     const { app: a, preguntas } = app();
     expect((await request(a).post(RUTA).send(cuerpo)).status).toBe(400);
     expect(preguntas).toHaveLength(0);
   });
 
-  it("503 si Gemini falla, sin guardar nada ni mostrar la llave", async () => {
-    const { app: a, guardadas } = app({ error: new ErrorAplicacion(503, "AGENTE_NO_DISPONIBLE", "El asistente no está disponible, intenta más tarde") });
-    const r = await request(a).post(RUTA).send({ pregunta: "¿Qué es la composta?" });
-    expect(r.status).toBe(503);
+  it("si Gemini falla responde el respaldo sin IA con puntos del mapa, sin mostrar la llave", async () => {
+    const punto = { id: randomUUID(), titulo: "Río con descargas", tipo: "contaminacion_agua", gravedad: 4, ubicacion: { lat: 19.28, lng: -98.22 } };
+    const { app: a, guardadas, llamadas } = app(
+      { error: new ErrorAplicacion(503, "AGENTE_NO_DISPONIBLE", "El asistente no está disponible, intenta más tarde") },
+      {},
+      { buscar_puntos: { respuesta: { total: 1 }, puntos: [punto] } },
+    );
+    const r = await request(a).post(RUTA).send({ pregunta: "¿Dónde hay contaminación del río?" });
+    expect(r.status).toBe(200);
+    expect(r.body).toMatchObject({ modelo: "respaldo-sin-ia", respaldo: true, puntos: [punto] });
+    expect((r.body as { respuesta: string }).respuesta).toContain("Río con descargas");
+    expect(llamadas[0]).toMatchObject({ nombre: "buscar_puntos", argumentos: { tipo: "contaminacion_agua" } });
     expect(JSON.stringify(r.body)).not.toContain("llave-gemini-falsa");
+    expect(guardadas[0]).toMatchObject({ modelo: "respaldo-sin-ia", herramientas: ["buscar_puntos"] });
+  });
+
+  it("422 si Gemini bloquea la pregunta: no pasa al respaldo", async () => {
+    const { app: a, llamadas, guardadas } = app({ error: new ErrorAplicacion(422, "CONSULTA_NO_PERMITIDA", "El asistente no puede responder esa pregunta") });
+    const r = await request(a).post(RUTA).send({ pregunta: "¿Qué es la composta?" });
+    expect(r.status).toBe(422);
+    expect(llamadas).toHaveLength(0);
     expect(guardadas).toHaveLength(0);
+  });
+
+  it("usa herramientas, devuelve los puntos para el mapa y la ubicación nunca llega a Gemini", async () => {
+    const punto = { id: randomUUID(), titulo: "Tiradero en el arroyo", tipo: "residuos", gravedad: 3, ubicacion: { lat: 20.61, lng: -103.41 } };
+    const { app: a, pasos, llamadas, guardadas } = app(
+      { guion: [{ llamadas: [{ nombre: "buscar_puntos", argumentos: { cerca_de_mi: true, tipo: "residuos" } }] }, { texto: "Hay un tiradero en el arroyo." }] },
+      {},
+      { buscar_puntos: { respuesta: { total: 1, puntos: [{ id: punto.id, titulo: punto.titulo }] }, puntos: [punto] } },
+    );
+    const r = await request(a).post(RUTA).send({ pregunta: "¿Hay basura cerca de mí?", ubicacion: { lat: 20.6123456, lng: -103.4123456 } });
+    expect(r.status).toBe(200);
+    expect(r.body).toMatchObject({ respuesta: "Hay un tiradero en el arroyo.", puntos: [punto], respaldo: false });
+    expect(llamadas[0]?.contexto).toEqual({ ubicacion: { lat: 20.6123456, lng: -103.4123456 } });
+    expect(JSON.stringify(pasos)).not.toMatch(/20\.61|103\.41/);
+    expect(guardadas[0]?.herramientas).toEqual(["buscar_puntos"]);
+    expect(JSON.stringify(guardadas)).not.toMatch(/20\.61|103\.41/);
   });
 
   it("429 al pasar el límite por minuto, sin llamar más a Gemini", async () => {

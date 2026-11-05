@@ -16,7 +16,8 @@
     "lint": "eslint . --max-warnings=0",
     "typecheck": "tsc --noEmit && tsc -p tsconfig.pruebas.json",
     "migrar": "tsx src/migrar.ts",
-    "verificar:gemini": "tsx src/verificar-gemini.ts"
+    "verificar:gemini": "tsx src/verificar-gemini.ts",
+    "evaluar:agente": "tsx src/evaluar-agente.ts"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.45.0",

@@ -125,7 +125,13 @@ Después, ese administrador cambia los demás roles desde la API.
 
 ## Agente
 
-`POST /api/v1/agente/consulta` con `{ "pregunta": "..." }` (de 3 a 1000 caracteres). Es público; si viene un token, la conversación se asocia al usuario. Responde `{ respuesta, modelo, aviso }`. Límite: `LIMITE_AGENTE_POR_MINUTO` consultas por minuto por persona (429 al pasarlo). Todavía no consulta documentos propios (RAG, fase posterior).
+`POST /api/v1/agente/consulta` con `{ "pregunta": "...", "ubicacion": { "lat": 20.67, "lng": -103.35 } }` (pregunta de 3 a 1000 caracteres; `ubicacion` es opcional). Es público; si viene un token, la conversación se asocia al usuario. Responde `{ respuesta, modelo, aviso, puntos, respaldo }`. Límite: `LIMITE_AGENTE_POR_MINUTO` consultas por minuto por persona (429 al pasarlo). Todavía no consulta documentos propios (RAG, F14).
+
+Desde F13 Gemini usa herramientas de solo lectura sobre el mapa (`src/modulos/agente/herramientas.ts`): `buscar_puntos` (por tipo, gravedad, cerca de la persona o de un lugar de México), `detalle_punto`, `buscar_acciones` y `buscar_organizaciones`. Todas usan la llave pública, así que ven lo mismo que un visitante. El ciclo hace como máximo 4 pasos y 5 herramientas por paso. `puntos` trae los puntos que encontró, para que el mapa los muestre.
+
+- **Ubicación:** la manda el navegador solo si la persona marca «Usar mi ubicación» (redondeada a unos 100 m). Se queda en el servidor: Gemini solo pide `cerca_de_mi` y nunca recibe las coordenadas, y no se guarda en la conversación.
+- **Respaldo sin IA:** si Gemini no responde (cuota agotada, caída o error), el servidor busca por palabras clave en el mapa y responde con una lista fija, `modelo: "respaldo-sin-ia"` y `respaldo: true`. Una pregunta bloqueada por seguridad (422) no pasa al respaldo.
+- **Evaluación:** `npm run evaluar:agente` hace 20 preguntas de prueba al agente real (Gemini y la base con la llave pública) y guarda el informe en `docs/evaluaciones/`. Gasta unas 40 llamadas de cuota; aprueba con 18 de 20. `-- --limite=3` hace una prueba rápida y `-- --pausa=30` espera más entre preguntas si Google responde 429.
 
 `GET /api/v1/salud/ia` (solo administrador) comprueba que la llave y el modelo responden, sin generar texto. Con `?generar=1` además pide una respuesta corta real (gasta un poco de cuota) y la muestra en `prueba`.
 
@@ -188,6 +194,7 @@ Pasos (los haces tú, una vez):
 | `npm run typecheck` | Revisa tipos (src y pruebas) |
 | `npm run migrar` | Aplica las migraciones pendientes a `DATABASE_URL` |
 | `npm run verificar:gemini` | Comprueba la llave de Gemini sin gastar cuota |
+| `npm run evaluar:agente` | Hace 20 preguntas de prueba al agente real (gasta cuota) |
 | `npm run lint` | Revisa estilo y errores |
 | `npm test` | Ejecuta las pruebas |
 | `npm run test:cobertura` | Pruebas con cobertura (meta 70 %) |

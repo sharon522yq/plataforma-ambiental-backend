@@ -112,6 +112,12 @@ Auditoría del 2026-11-05 contra el plan maestro (ver `docs/auditoria.md`, secci
 - **Pruebas:** `tests/unitarias/sitio-publico.test.ts` (7): la política deja pasar cada script, estilo y conexión que usa la página, cabeceras de seguridad, codificación y aviso. Mutaciones detectadas: quitar Nominatim de la política, quitar `<meta charset>` e inventar un contacto. En navegador (Playwright contra un servidor local con las mismas cabeceras de `render.yaml`, API y Supabase simulados): 25 de 25 comprobaciones, entre ellas cero violaciones de la política, registro bloqueado sin aceptar el aviso, versión del aviso y regreso al sitio en la llamada a Supabase, reporte bloqueado sin la casilla, mensaje claro con la API caída y sin desplazamiento horizontal en un iPhone 13.
 - **Criterio de salida:** una persona externa entra desde su teléfono, consulta y envía un reporte sin ayuda (lo verifica sharon con el sitio publicado).
 
+## Fase 13: Agente con herramientas y respaldo sin IA (B-01, B-11)
+- **Estado:** **lista en código y pruebas (2026-11-05).** Falta la corrida real de `npm run evaluar:agente` en la PC de sharon (gasta cuota).
+- **Alcance:** Gemini usa herramientas de solo lectura sobre el mapa (`buscar_puntos`, `detalle_punto`, `buscar_acciones`, `buscar_organizaciones`) con la llave pública; ciclo de 4 pasos como máximo. «Usar mi ubicación» en el chat: la ubicación se queda en el servidor. La respuesta trae los puntos y el chat ofrece verlos en el mapa. Si Gemini falla, respaldo sin IA por palabras clave. Evaluación con 20 preguntas (`npm run evaluar:agente`).
+- **Pruebas:** unitarias de `gemini.paso`, del ciclo del agente, de las herramientas y de la evaluación, más integración de la ruta. Mutaciones detectadas (7 de 7): no forzar la respuesta en el último paso, no limitar las herramientas por paso, no devolverle a Gemini su turno, mandarle la ubicación al modelo, devolver el contacto de las organizaciones, mostrar el razonamiento interno y pasar al respaldo con un 422. En navegador (Playwright): 25 de 25 comprobaciones.
+- **Criterio de salida:** 18 de 20 en la evaluación real.
+
 ## Orden de ejecución
 F1 → F2 → F3 → F4 → F5 → F6 → F7 → F8 → F9 → F10 → F11. Cada fase espera tu aprobación antes de empezar.
 

@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { crearGemini, INSTRUCCIONES_SISTEMA } from "../../src/modulos/agente/gemini.js";
+import { crearGemini, INSTRUCCIONES_HERRAMIENTAS, INSTRUCCIONES_SISTEMA } from "../../src/modulos/agente/gemini.js";
+import { DECLARACIONES } from "../../src/modulos/agente/herramientas.js";
 
 const LLAVE = "llave-secreta-de-prueba";
 
@@ -74,5 +75,57 @@ describe("crearGemini().comprobar", () => {
     expect(await crearGemini({ llave: LLAVE, modelo: "m", fetch: fetchFalso(json({}, 404)).f }).comprobar()).toBe("no_disponible");
     expect(await crearGemini({ llave: LLAVE, modelo: "m", fetch: fetchFalso(new Error("x")).f }).comprobar()).toBe("no_disponible");
     espia.mockRestore();
+  });
+});
+
+describe("crearGemini().paso", () => {
+  const espia = vi.spyOn(console, "error").mockImplementation(() => undefined);
+  afterEach(() => espia.mockClear());
+  const pregunta = [{ role: "user" as const, parts: [{ text: "¿Qué hay cerca?" }] }];
+  const cuerpoDe = (init: RequestInit | undefined) => JSON.parse(typeof init?.body === "string" ? init.body : "") as Record<string, unknown>;
+
+  it("envía herramientas en modo AUTO y devuelve las llamadas con el turno intacto (firmas incluidas)", async () => {
+    const partes = [
+      { text: "pensando", thought: true },
+      { functionCall: { name: "buscar_puntos", args: { cerca_de_mi: true }, id: "c1" }, thoughtSignature: "firma" },
+      { functionCall: { name: "buscar_acciones" } },
+    ];
+    const { f, llamadas } = fetchFalso(json({ candidates: [{ content: { role: "model", parts: partes }, finishReason: "STOP" }] }));
+    const r = await crearGemini({ llave: LLAVE, modelo: "m", fetch: f }).paso(pregunta, DECLARACIONES);
+    expect(r.llamadas).toEqual([
+      { nombre: "buscar_puntos", argumentos: { cerca_de_mi: true } },
+      { nombre: "buscar_acciones", argumentos: {} },
+    ]);
+    expect(r.texto).toBe("");
+    expect(r.contenido).toEqual({ role: "model", parts: partes });
+    const cuerpo = cuerpoDe(llamadas[0]?.init);
+    expect(cuerpo).toMatchObject({
+      systemInstruction: { parts: [{ text: `${INSTRUCCIONES_SISTEMA} ${INSTRUCCIONES_HERRAMIENTAS}` }] },
+      contents: pregunta,
+      tools: [{ functionDeclarations: DECLARACIONES }],
+      toolConfig: { functionCallingConfig: { mode: "AUTO" } },
+    });
+  });
+
+  it("con sinHerramientas pide modo NONE y devuelve el texto sin el razonamiento", async () => {
+    const { f, llamadas } = fetchFalso(json({ candidates: [{ content: { parts: [{ text: "oculto", thought: true }, { text: " Hay 2 puntos. " }] } }] }));
+    const r = await crearGemini({ llave: LLAVE, modelo: "m", fetch: f }).paso(pregunta, DECLARACIONES, { sinHerramientas: true });
+    expect(r).toMatchObject({ texto: "Hay 2 puntos.", llamadas: [] });
+    expect(cuerpoDe(llamadas[0]?.init)).toMatchObject({ toolConfig: { functionCallingConfig: { mode: "NONE" } } });
+  });
+
+  it("503 si no hay texto ni llamadas, 422 si se cortó por seguridad", async () => {
+    const vacio = json({ candidates: [{ content: { parts: [] }, finishReason: "MAX_TOKENS" }] });
+    await expect(crearGemini({ llave: LLAVE, modelo: "m", fetch: fetchFalso(vacio).f }).paso(pregunta, [])).rejects.toMatchObject({ estado: 503 });
+    const seguridad = json({ candidates: [{ finishReason: "SAFETY" }] });
+    await expect(crearGemini({ llave: LLAVE, modelo: "m", fetch: fetchFalso(seguridad).f }).paso(pregunta, [])).rejects.toMatchObject({ estado: 422 });
+  });
+
+  it("503 si Google no devuelve candidatos", async () => {
+    await expect(crearGemini({ llave: LLAVE, modelo: "m", fetch: fetchFalso(json({})).f }).paso(pregunta, [])).rejects.toMatchObject({ estado: 503 });
+  });
+
+  it("expone el nombre del modelo", () => {
+    expect(crearGemini({ llave: LLAVE, modelo: "gemini-x" }).modelo).toBe("gemini-x");
   });
 });

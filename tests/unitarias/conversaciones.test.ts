@@ -13,11 +13,13 @@ function servicioFalso(opciones: { errorInsert?: boolean; lanza?: boolean } = {}
 const conversacion = { usuario_id: null, pregunta: "p", respuesta: "r", modelo: "m" };
 
 describe("crearRegistroConversaciones", () => {
-  it("guarda pregunta, respuesta y modelo en conversaciones_agente", async () => {
+  it("guarda pregunta, respuesta, modelo y herramientas usadas en conversaciones_agente", async () => {
     const s = servicioFalso();
     await crearRegistroConversaciones(s.cliente).guardar(conversacion);
     expect(s.from).toHaveBeenCalledWith("conversaciones_agente");
-    expect(s.insert).toHaveBeenCalledWith({ usuario_id: null, pregunta: "p", respuesta: "r", fuentes: { modelo: "m" } });
+    expect(s.insert).toHaveBeenCalledWith({ usuario_id: null, pregunta: "p", respuesta: "r", fuentes: { modelo: "m", herramientas: [] } });
+    await crearRegistroConversaciones(s.cliente).guardar({ ...conversacion, herramientas: ["buscar_puntos"] });
+    expect(s.insert).toHaveBeenLastCalledWith({ usuario_id: null, pregunta: "p", respuesta: "r", fuentes: { modelo: "m", herramientas: ["buscar_puntos"] } });
   });
 
   it("purga las vencidas como máximo una vez por hora", async () => {
