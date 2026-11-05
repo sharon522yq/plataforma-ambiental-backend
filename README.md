@@ -107,10 +107,24 @@ Requieren sesión. Las acciones y organizaciones las gestionan el editor y el ad
 | `POST /api/v1/admin/acciones` | Editor, administrador | Crea una acción (`tipo`, `nombre`, opcionales `descripcion`, `enlace` https, `organizacion_id`, `punto_id` de un punto publicado) |
 | `POST /api/v1/admin/organizaciones` | Editor, administrador | Crea una organización (`nombre`, opcionales `contacto` interno y `zona`) |
 | `GET /api/v1/admin/usuarios` | Administrador | Lista con correo, sin teléfono. Filtros `rol` y `busqueda` (nombre o correo) |
-| `PATCH /api/v1/admin/usuarios/:id/rol` | Administrador | Cambia el rol. Nadie puede cambiar el suyo |
+| `PATCH /api/v1/admin/usuarios/:id/rol` | Administrador | Cambia el rol. Nadie puede cambiar el suyo. Si el cambio da o quita el rol de administrador, responde 202 con una `solicitud` pendiente en vez de aplicarlo |
+| `GET /api/v1/admin/solicitudes-rol` | Administrador | Solicitudes de administrador: pendientes y las resueltas en los últimos 30 días |
+| `PATCH /api/v1/admin/solicitudes-rol/:id` | Administrador | `{ "aprobar": true }` confirma (solo otro administrador); `false` rechaza o, si es tuya, cancela |
+| `GET /api/v1/admin/metricas` | Administrador | Conteos de puntos, reportes, tiempo de revisión, cuentas, catálogo y asistente. Sin datos personales |
 | `GET /api/v1/admin/auditoria` | Administrador | Registros del más reciente al más antiguo. Filtros `tabla`, `accion`, `usuario_id`, `registro_id`, `desde`, `hasta` (fechas ISO) |
 
-Cada creación, cambio o borrado de acciones y organizaciones, y cada cambio de rol o activación, deja un registro en `auditoria` (triggers de la migración 010).
+Cada creación, cambio o borrado de acciones y organizaciones, y cada cambio de rol, activación o solicitud de administrador, deja un registro en `auditoria` (triggers de las migraciones 010 y 014).
+
+### Dos administradores para cambiar administradores (migración 014)
+
+Dar o quitar el rol de administrador lo confirma **otro** administrador: así una sola cuenta robada o un error no deja a la plataforma sin control. La regla vive en un trigger de la base, de modo que aplica también a quien use la API de Supabase directo.
+
+- Quien pide el cambio no puede confirmarlo. La persona a la que le quitan el rol sí puede confirmarlo (es su consentimiento).
+- Si solo hay un administrador activo, puede nombrar al segundo sin confirmación.
+- A un administrador no se le desactiva directamente: primero se le quita el rol con esta regla.
+- Las solicitudes vencen a los 7 días, y no se aplican si el rol cambió mientras tanto o si quien la pidió ya no es administrador.
+- Los cambios entre ciudadano, moderador y editor siguen siendo inmediatos.
+- La llave de servicio (Supabase → SQL Editor) no tiene la regla: es la vía para recuperar el acceso.
 
 ### Nombrar al primer administrador
 
@@ -121,7 +135,7 @@ update perfiles set rol = 'administrador'
 where id = (select id from auth.users where email = 'tu-correo@ejemplo.com');
 ```
 
-Después, ese administrador cambia los demás roles desde la API.
+Después, ese administrador cambia los demás roles desde la API y nombra al segundo administrador (inmediato mientras sea el único). Desde ahí, cualquier cambio de administrador necesita a los dos.
 
 ## Agente
 
@@ -168,6 +182,12 @@ En el prototipo: Administración → «Base de conocimiento». Cada carga, cambi
 `.github/workflows/ci.yml` corre en cada push y pull request a `main`: `typecheck`, `lint`, `build`, todas las pruebas con cobertura y `npm audit` (falla solo con vulnerabilidades críticas, D-36). Las pruebas de base de datos usan un PostgreSQL 16 con PostGIS y pgvector que GitHub crea y borra en cada corrida; nunca tocan Supabase.
 
 Las pruebas contra Supabase corren solo si el repositorio tiene estos secretos de un proyecto **de pruebas** (Settings → Secrets and variables → Actions): `PRUEBAS_SUPABASE_URL`, `PRUEBAS_SUPABASE_ANON_KEY`, `PRUEBAS_SUPABASE_SERVICE_ROLE_KEY`, `PRUEBAS_SUPABASE_JWT_SECRET` y, opcionales, `PRUEBAS_SUPABASE_EMAIL` y `PRUEBAS_SUPABASE_CLAVE`. Sin ellos, ese paso se omite con un aviso. No pongas ahí las llaves de producción.
+
+## Respaldos y mantenimiento
+
+- **Respaldos:** `.github/workflows/respaldo.yml` respalda la base los lunes y jueves, cifrada con AES-256, la prueba restaurándola en una base desechable y la guarda 90 días. Necesita los secretos `RESPALDO_DATABASE_URL` y `RESPALDO_CLAVE`. Cómo configurarlo, abrir un respaldo y restaurar: `docs/respaldos.md`. Las fotos no se respaldan.
+- **Pausa de Supabase:** el plan gratuito pausa el proyecto tras 7 días sin actividad; el respaldo se conecta dos veces por semana y lo evita.
+- **Dependencias:** Dependabot (`.github/dependabot.yml`) abre un pull request semanal con actualizaciones de npm y uno mensual de las acciones de GitHub, solo con versiones publicadas hace 14 días o más. La CI las prueba; se fusionan a mano.
 
 ## Despliegue en Render
 
@@ -219,6 +239,7 @@ Pasos (los haces tú, una vez):
 - `docs/decisiones-pendientes.md`: decisiones abiertas y supuestos
 - `docs/incidencias.md`: fallos de pruebas
 - `docs/pruebas-manuales.md`: casos para probar sin programar
+- `docs/respaldos.md`: respaldos, cómo abrirlos y cómo restaurar
 
 ## Riesgos conocidos
 

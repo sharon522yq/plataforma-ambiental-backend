@@ -10,12 +10,16 @@ import {
   accionAdmin,
   consultaAuditoria,
   consultaUsuarios,
+  cuerpoDecisionRol,
   cuerpoNuevaAccion,
   cuerpoNuevaOrganizacion,
   cuerpoRol,
+  metricas,
   organizacionAdmin,
+  parametrosSolicitud,
   parametrosUsuario,
   registroAuditoria,
+  solicitudRol,
   usuarioAdmin,
   usuarioRolCambiado,
 } from "./esquemas.js";
@@ -77,7 +81,31 @@ export function crearRutasAdministracion(autenticar: RequestHandler, autorizar: 
       return;
     }
     llamarFuncion(cliente(req.usuario?.token), "cambiar_rol", { usuario_id: id, rol })
-      .then((r) => res.json(usuarioRolCambiado.parse(r)))
+      .then((r) => {
+        const cambio = usuarioRolCambiado.parse(r);
+        // 202: el cambio quedó pendiente de que otro administrador lo confirme (migración 014).
+        res.status(cambio.solicitud ? 202 : 200).json(cambio);
+      })
+      .catch(siguiente);
+  });
+
+  rutas.get("/solicitudes-rol", ...soloAdministrador, (req, res, siguiente) => {
+    llamarFuncion(cliente(req.usuario?.token), "listar_solicitudes_rol", {})
+      .then((r) => res.json({ datos: solicitudRol.array().parse(r) }))
+      .catch(siguiente);
+  });
+
+  rutas.patch("/solicitudes-rol/:id", ...soloAdministrador, validar({ params: parametrosSolicitud, body: cuerpoDecisionRol }), (req, res, siguiente) => {
+    const { id } = req.params as z.infer<typeof parametrosSolicitud>;
+    const { aprobar } = req.body as z.infer<typeof cuerpoDecisionRol>;
+    llamarFuncion(cliente(req.usuario?.token), "resolver_solicitud_rol", { solicitud_id: id, aprobar })
+      .then((r) => res.json(solicitudRol.parse(r)))
+      .catch(siguiente);
+  });
+
+  rutas.get("/metricas", ...soloAdministrador, (req, res, siguiente) => {
+    llamarFuncion(cliente(req.usuario?.token), "metricas_plataforma", {})
+      .then((r) => res.json(metricas.parse(r)))
       .catch(siguiente);
   });
 

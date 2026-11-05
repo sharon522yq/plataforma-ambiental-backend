@@ -69,6 +69,17 @@ Para conseguir un token: inicia sesión en Supabase Auth y copia el `access_toke
 4. Desactiva el documento y repite la pregunta: ya no debe aparecer como fuente.
 5. Como administrador, en Auditoría: aparecen `documento_creado` y `documento_actualizado`.
 
+## Operación (F15)
+Necesita la migración 014 aplicada y dos cuentas de administrador reales (A y B) más una tercera cuenta (C).
+1. Con solo A como administradora, A cambia a B a «Administrador»: se aplica al momento.
+2. A cambia a C a «Administrador»: el selector vuelve a «Ciudadano» y aparece «Cambios de administrador» con la solicitud pendiente y solo el botón «Cancelar solicitud».
+3. B entra, ve la misma solicitud con «Confirmar cambio» y la confirma: C ya es administradora.
+4. A pide quitarle el rol a C; C entra y confirma: C deja de ser administradora (consintió).
+5. A intenta desactivar a B desde el SQL Editor con su sesión o desde la API de Supabase: rechazado. Desde el SQL Editor del panel (llave de servicio) sí funciona; no lo hagas salvo para recuperar el acceso.
+6. Administración → Métricas: las cifras cuadran con lo que ves en el mapa y en Moderación, y no aparece ningún nombre ni correo.
+7. Auditoría: aparecen `rol_solicitado`, `solicitud_aprobada`, `solicitud_cancelada` o `solicitud_rechazada`, y `rol_cambiado`.
+8. Respaldo: en GitHub → Actions → Respaldo → Run workflow. Termina en verde con «Restauración correcta» y deja un artefacto `respaldo-…`. Descárgalo y ábrelo con tu frase (`docs/respaldos.md`).
+
 ## Sitio público y aviso de privacidad (F12)
 1. Abre la URL del sitio desde un teléfono. Esperado: el mapa con los puntos publicados, la etiqueta «piloto» y sin selector «Datos».
 2. Pulsa «Aviso de privacidad» en el pie: se lee completo, con la sección de derechos ARCO.

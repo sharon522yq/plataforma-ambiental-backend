@@ -6,7 +6,7 @@ Cada fase tiene: alcance, criterio de salida, pruebas y permisos que hay que ped
 - Antes de cualquier acción que cambie dependencias, borre archivos, ejecute SQL contra una base o use un servicio externo, se pide permiso.
 - Cada fase termina con `npm run typecheck`, `npm run lint` y `npm test` en verde.
 - Cada fase deja su registro en `docs/`; no se dejan archivos temporales dentro del proyecto.
-- Los pasos M1 a M10 los hace el usuario. El agente solo verifica que la variable exista en `.env`, sin mostrar su valor.
+- Los pasos M1 a M10 los hace el usuario, y también M11 (secretos del respaldo, agregado en F15). El agente solo verifica que la variable exista en `.env`, sin mostrar su valor.
 
 ## Fase 0: Auditoría y documentación base
 - **Estado:** completada (esta entrega).
@@ -123,6 +123,12 @@ Auditoría del 2026-11-05 contra el plan maestro (ver `docs/auditoria.md`, secci
 - **Alcance:** migración 013 (enlace de la fuente, posición y modelo de cada fragmento, funciones para guardar, listar, activar y buscar, auditoría). Rutas `/admin/conocimiento` para editor y administrador; el servidor parte el texto y calcula embeddings con `gemini-embedding-001` (768, normalizados). Herramienta `buscar_conocimiento` para el agente, con las fuentes en la respuesta. Pantalla «Base de conocimiento» en Administración y fuentes en el chat.
 - **Pruebas:** 13 SQL, 16 HTTP, 1 de contrato y unitarias de embeddings, fragmentos, herramienta, agente e instrucciones. Mutaciones detectadas (9 de 9): quitar la revisión del rol, buscar en documentos inactivos, aceptar otra dimensión, dar permiso de carga al anónimo, no filtrar por parecido, no normalizar, embeber sin el título, dar las reglas de conocimiento sin la herramienta y no devolver las fuentes. En navegador (Playwright): 15 de 15.
 - **Criterio de salida:** con al menos un documento real cargado, el asistente lo cita al responder.
+
+## Fase 15: Operación y gobierno (B-06, B-08, B-12, B-13, B-14)
+- **Estado:** **lista en código y pruebas (2026-11-05), en la rama `f15-operacion`.** Se fusiona a main después de F14 y de que sharon aplique la migración 014 con `npm run migrar`. Falta que sharon cree los secretos del respaldo (M11) y lo lance una vez.
+- **Alcance:** acción «Respaldo» de GitHub dos veces por semana: volcado cifrado (AES-256) de la base y de las cuentas, probado restaurándolo en un PostgreSQL desechable antes de guardarlo 90 días; de paso evita la pausa de Supabase (`docs/respaldos.md`). Migración 014: dar o quitar el rol de administrador necesita a otro administrador (solicitudes con vencimiento de 7 días, impuesto por trigger) y función de métricas. Rutas `/admin/solicitudes-rol` y `/admin/metricas`, con sus pantallas en Administración. Dependabot con espera de 14 días. El `overrides` de qs se quita cuando qs 6.16.2 cumpla 14 días (2026-11-10, D-36); Dependabot lo propondrá.
+- **Pruebas:** 14 SQL de la regla y las métricas (contra datos conocidos), 18 HTTP, 1 de contrato, ajuste de la prueba de la 010. Restauración ensayada con la base simulada de producción: 11 tablas, 2 cuentas y el trigger de registro; con clave equivocada o archivo cortado falla. Mutaciones detectadas (9 de 10): quitar la exigencia de aprobación, dejar que quien pide confirme, permitir el arranque con dos administradores, aceptar aprobaciones de otra transacción, permitir desactivar a un administrador, aprobar vencidas, aprobar con el rol cambiado, aprobar si quien pidió ya no es administrador y mostrar métricas sin ser administrador. La décima (quitar `anon` del `revoke`) no se nota en local porque PostgreSQL solo da permiso a `public`; en Supabase la cubre `supabase.test.ts`. En navegador (Playwright): 23 de 23, y F12, F13 y F14 siguen en verde. ShellCheck y actionlint sin avisos.
+- **Criterio de salida:** un respaldo restaurado con éxito en GitHub y la regla de dos administradores probada con dos cuentas reales (`docs/pruebas-manuales.md`, «Operación (F15)»).
 
 ## Orden de ejecución
 F1 → F2 → F3 → F4 → F5 → F6 → F7 → F8 → F9 → F10 → F11. Cada fase espera tu aprobación antes de empezar.

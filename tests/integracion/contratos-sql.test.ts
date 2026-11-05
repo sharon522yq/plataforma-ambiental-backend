@@ -4,8 +4,10 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import type { z } from "zod";
 import {
   accionAdmin,
+  metricas,
   organizacionAdmin,
   registroAuditoria,
+  solicitudRol,
   usuarioAdmin,
   usuarioRolCambiado,
 } from "../../src/modulos/administracion/esquemas.js";
@@ -162,6 +164,19 @@ describe.skipIf(!process.env.TEST_DATABASE_URL)("contrato entre funciones SQL y 
       validar(documento, await como(u.admin, "cambiar_estado_documento($1, true)", [d.id]));
       const encontrados = validar(fragmentoEncontrado.array(), await como(null, "buscar_conocimiento_publico($1::vector, 4)", [v]));
       expect(encontrados[0]).toMatchObject({ titulo: "Cómo denunciar", distancia: 0 });
+    });
+  });
+
+  describe("operación (migración 014)", () => {
+    it("solicitudes de rol y métricas cumplen sus esquemas", async () => {
+      // Con un solo administrador, nombrar al segundo es inmediato (solicitud null).
+      expect(validar(usuarioRolCambiado, await como(u.admin, "cambiar_rol($1, 'administrador')", [u.moderadora])).solicitud).toBeNull();
+      const pendiente = validar(usuarioRolCambiado, await como(u.admin, "cambiar_rol($1, 'administrador')", [u.ciudadana]));
+      expect(pendiente.solicitud).toMatchObject({ estado: "pendiente" });
+      expect(validar(solicitudRol.array(), await como(u.moderadora, "listar_solicitudes_rol()"))).toHaveLength(1);
+      validar(solicitudRol, await como(u.moderadora, "resolver_solicitud_rol($1, false)", [pendiente.solicitud?.id]));
+      validar(metricas, await como(u.admin, "metricas_plataforma()"));
+      await cliente().query("update perfiles set rol = 'moderador' where id = $1", [u.moderadora]);
     });
   });
 });
