@@ -160,3 +160,66 @@ describe.skipIf(!process.env.TEST_DATABASE_URL)("base de conocimiento en la base
     expect(await puede("authenticated", "guardar_documento_conocimiento(text, text, jsonb, text, text, date)")).toBe(true);
   });
 });
+
+/** Actualizar una base que ya tenía fragmentos (antes de la 013 no había posición). */
+describe.skipIf(!process.env.TEST_DATABASE_URL)("migración 013 sobre fragmentos existentes", () => {
+  let base: BaseDePruebas;
+  let carpeta: string;
+
+  beforeAll(async () => {
+    const { mkdtemp, readdir, copyFile } = await import("node:fs/promises");
+    const { tmpdir } = await import("node:os");
+    const path = await import("node:path");
+    const { fileURLToPath } = await import("node:url");
+    const migraciones = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../migrations");
+    carpeta = await mkdtemp(path.join(tmpdir(), "migraciones-012-"));
+    for (const archivo of await readdir(migraciones)) {
+      if (archivo < "013") await copyFile(path.join(migraciones, archivo), path.join(carpeta, archivo));
+    }
+    base = await crearBaseDePruebas({ migrar: false });
+    const { aplicarMigraciones } = await import("../../src/config/migraciones.js");
+    await aplicarMigraciones(base.url, carpeta);
+    const cliente = new pg.Client({ connectionString: base.url });
+    await cliente.connect();
+    try {
+      const { rows } = await cliente.query<{ id: string }>(
+        "insert into documentos_conocimiento (titulo, fuente) values ('Ley previa', 'Prueba') returning id",
+      );
+      const id = rows[0]?.id;
+      for (const [texto, minutos] of [["primero", 3], ["segundo", 2], ["tercero", 1]] as const) {
+        await cliente.query(
+          "insert into fragmentos (documento_id, texto, creado_en) values ($1, $2, now() - make_interval(mins => $3))",
+          [id, texto, minutos],
+        );
+      }
+    } finally {
+      await cliente.end();
+    }
+    await aplicarMigraciones(base.url, migraciones);
+  }, 60_000);
+
+  afterAll(async () => {
+    await base.limpiar();
+    const { rm } = await import("node:fs/promises");
+    await rm(carpeta, { recursive: true, force: true });
+  });
+
+  it("numera los fragmentos que ya existían por orden de creación y crea el índice único", async () => {
+    const cliente = new pg.Client({ connectionString: base.url });
+    await cliente.connect();
+    try {
+      const { rows } = await cliente.query<{ texto: string; posicion: number }>(
+        "select texto, posicion from fragmentos order by posicion",
+      );
+      expect(rows).toEqual([
+        { texto: "primero", posicion: 0 },
+        { texto: "segundo", posicion: 1 },
+        { texto: "tercero", posicion: 2 },
+      ]);
+      const indice = await cliente.query("select 1 from pg_indexes where indexname = 'fragmentos_documento_posicion_idx'");
+      expect(indice.rowCount).toBe(1);
+    } finally {
+      await cliente.end();
+    }
+  });
+});
