@@ -244,6 +244,9 @@ El detalle de cada punto trae «Cómo llegar» con enlaces a Google Maps y OpenS
 - `docs/incidencias.md`: fallos de pruebas
 - `docs/pruebas-manuales.md`: casos para probar sin programar
 - `docs/respaldos.md`: respaldos, cómo abrirlos y cómo restaurar
+- `docs/piloto.md`: guía del piloto con colectivos y lista de lanzamiento
+- `docs/hallazgos-piloto.md`: registro de lo que se encuentre en el piloto
+- [Informe final](https://claude.ai/artifact/25PZAjvawRXnPCz2ZD8ako): metas frente a lo entregado, evidencias y pendientes
 
 ## Riesgos conocidos
 

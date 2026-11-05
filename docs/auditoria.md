@@ -72,7 +72,7 @@ El backend cumple su prompt; la plataforma completa, no. Detalle y plan en el do
 | B-04 | Sin aviso de privacidad | Crítica | F12 (hecho, falta el correo de contacto) |
 | B-05 | Los editores no pueden cargar documentos de conocimiento | Alta | F14 (hecho) |
 | B-06 | Sin respaldos de la base | Alta | F15 (hecho, faltan los secretos M11) |
-| B-07 | Facturación de Gemini sin activar (D-03) | Alta | F17 (sharon) |
+| B-07 | Facturación de Gemini sin activar (D-03) | Alta | F17 (sharon; paso 6 de `docs/piloto.md`) |
 | B-08 | Cambiar un rol no pide un segundo administrador | Media | F15 (hecho, migración 014) |
 | B-09 | Sin «cómo llegar» | Media | F16 (hecho) |
 | B-10 | Accesibilidad sin revisar | Media | F16 (hecho: axe sin violaciones; falta la prueba con lector de pantalla) |

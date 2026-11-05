@@ -136,6 +136,12 @@ Auditoría del 2026-11-05 contra el plan maestro (ver `docs/auditoria.md`, secci
 - **Pruebas:** axe sin violaciones en modo claro, oscuro, alto contraste claro y oscuro, teléfono y sitio público, en todas las vistas (mapa con detalle, lista, reportar, mis aportes, asistente, administración y aviso). Playwright solo con teclado: abrir un punto desde la lista, seguir «Cómo llegar» y enviar un reporte completo sin ratón; sin desplazamiento horizontal en el teléfono; sin errores de JavaScript ni de la política de contenido. 5 pruebas nuevas en `sitio-publico.test.ts`. Mutaciones detectadas (2 de 2): mandar el origen en la ruta de Google y quitar el `tabindex` de una tabla. F12 a F15 en navegador sin regresiones.
 - **Criterio de salida:** una persona recorre el sitio solo con el teclado y con el lector de pantalla del teléfono, y «Cómo llegar» abre la ruta (`docs/pruebas-manuales.md`, «Rutas y accesibilidad (F16)»).
 
+## Fase 17: Piloto y cierre
+- **Estado:** **materiales listos (2026-11-05), en la rama `f17-piloto`.** El piloto lo hace sharon con los colectivos; no tiene código.
+- **Alcance:** guía del piloto (`docs/piloto.md`): lista de lo que tiene que estar listo antes de invitar a nadie, cómo archivar los datos `[PRUEBA]` sin borrarlos, a quién invitar, mensaje de invitación con los datos que solo sharon puede poner, guion de 7 tareas para una sesión de 45 minutos, sesión de moderadores, qué medir y lista de lanzamiento. Registro de hallazgos sin nombres de participantes (`docs/hallazgos-piloto.md`). [Informe final](https://claude.ai/artifact/25PZAjvawRXnPCz2ZD8ako) con las metas del plan maestro frente a lo entregado, arquitectura, evidencias, pendientes y riesgos.
+- **Pruebas:** cada paso de la guía remite a una sección que existe (README, `pruebas-manuales.md`, `respaldos.md`) y cada pantalla que nombra existe en el sitio (Moderación, Administración → Catálogo, Usuarios y roles, Métricas). Las sentencias para archivar los datos de prueba se probaron en la base local.
+- **Criterio de salida:** el del plan maestro: lista de correcciones prioritarias cerrada (ningún hallazgo «Bloquea» abierto) y al menos un moderador por zona.
+
 ## Orden de ejecución
 F1 → F2 → F3 → F4 → F5 → F6 → F7 → F8 → F9 → F10 → F11. Cada fase espera tu aprobación antes de empezar.
 
