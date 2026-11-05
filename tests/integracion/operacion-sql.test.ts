@@ -238,3 +238,92 @@ describe.skipIf(!process.env.TEST_DATABASE_URL)("operación en la base (migraci�
     });
   });
 });
+
+/** Casos que necesitan una base propia: dos sesiones a la vez y muchas solicitudes. */
+describe.skipIf(!process.env.TEST_DATABASE_URL)("regla de dos administradores con sesiones simultáneas", () => {
+  let base: BaseDePruebas | undefined;
+  const conexiones: pg.Client[] = [];
+  const u = { ana: randomUUID(), beto: randomUUID(), carla: randomUUID() };
+
+  async function conectar(): Promise<pg.Client> {
+    if (!base) throw new Error("Sin base");
+    const c = new pg.Client({ connectionString: base.url });
+    await c.connect();
+    conexiones.push(c);
+    return c;
+  }
+  async function abrirComo(c: pg.Client, uid: string): Promise<void> {
+    await c.query("begin");
+    await c.query("select set_config('request.jwt.claim.sub', $1, true)", [uid]);
+    await c.query("set local role authenticated");
+  }
+  async function solicitar(c: pg.Client, quien: string, a: string, nuevo: string): Promise<string> {
+    await abrirComo(c, quien);
+    const { rows } = await c.query<{ r: { solicitud: { id: string } | null } }>("select cambiar_rol($1, $2) as r", [a, nuevo]);
+    await c.query("commit");
+    const id = rows[0]?.r.solicitud?.id;
+    if (!id) throw new Error("No se creó la solicitud");
+    return id;
+  }
+
+  beforeAll(async () => {
+    base = await crearBaseDePruebas();
+    const c = await conectar();
+    for (const [nombre, id] of Object.entries(u)) {
+      await c.query("insert into auth.users (id, email, raw_user_meta_data) values ($1, $2, $3)", [id, `${nombre}@prueba.local`, { nombre }]);
+    }
+    // Dos administradores nombrados con la llave de servicio.
+    await c.query("update perfiles set rol = 'administrador' where id = any($1)", [[u.ana, u.beto]]);
+  }, 120_000);
+
+  afterAll(async () => {
+    for (const c of conexiones) await c.end();
+    await base?.limpiar();
+  });
+
+  it("si los dos últimos administradores aceptan a la vez quitarse el rol, la segunda falla", async () => {
+    const [c1, c2, c3] = [await conectar(), await conectar(), await conectar()];
+    const quitarBeto = await solicitar(c3, u.ana, u.beto, "ciudadano");
+    const quitarAna = await solicitar(c3, u.beto, u.ana, "ciudadano");
+
+    await abrirComo(c1, u.beto);
+    await c1.query("select resolver_solicitud_rol($1, true)", [quitarBeto]);
+    await abrirComo(c2, u.ana);
+    const segunda = c2.query("select resolver_solicitud_rol($1, true)", [quitarAna]).then(
+      () => null,
+      (error: unknown) => error,
+    );
+    await new Promise((listo) => setTimeout(listo, 300));
+    await c1.query("commit");
+    const error = await segunda;
+    await c2.query(error ? "rollback" : "commit");
+
+    expect(error).toMatchObject({ code: "42501", message: "Debe quedar al menos un administrador activo" });
+    const { rows } = await c3.query<{ n: number }>("select count(*)::int as n from perfiles where rol = 'administrador' and activo");
+    expect(rows[0]?.n).toBe(1);
+  });
+
+  it("una solicitud pendiente sigue en la lista aunque haya más de 50 resueltas después", async () => {
+    const c = await conectar();
+    // Queda un solo administrador (Ana); nombra a Carla al momento y después pide quitarle el rol.
+    const admin = (await c.query<{ id: string }>("select id from perfiles where rol = 'administrador' and activo")).rows[0]?.id;
+    if (!admin) throw new Error("Sin administrador");
+    const otra = admin === u.ana ? u.beto : u.ana;
+    await abrirComo(c, admin);
+    await c.query("select cambiar_rol($1, 'administrador')", [u.carla]);
+    await c.query("commit");
+    const pendiente = await solicitar(c, admin, u.carla, "ciudadano");
+    await c.query(
+      `insert into solicitudes_rol (usuario_id, rol_anterior, rol_nuevo, solicitado_por, estado, resuelto_por, creado_en, resuelto_en)
+       select $1, 'ciudadano', 'administrador', $2, 'rechazada', $2, now() + make_interval(secs => g), now() + make_interval(secs => g)
+       from generate_series(1, 60) g`,
+      [otra, admin],
+    );
+    await abrirComo(c, admin);
+    const { rows } = await c.query<{ r: { id: string; estado: string }[] }>("select listar_solicitudes_rol() as r");
+    await c.query("rollback");
+    const lista = rows[0]?.r ?? [];
+    expect(lista).toHaveLength(50);
+    expect(lista[0]).toMatchObject({ id: pendiente, estado: "pendiente" });
+  });
+});

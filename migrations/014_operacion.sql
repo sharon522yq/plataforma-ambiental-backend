@@ -100,6 +100,10 @@ begin
     return new;
   end if;
 
+  -- Un solo cambio de administrador a la vez: sin esto, los dos últimos administradores podrían
+  -- quitarse el rol en transacciones simultáneas (cada una contaría 2) y no quedaría ninguno.
+  -- El conteo de abajo corre después del candado y ve lo que la otra ya confirmó.
+  perform pg_advisory_xact_lock(hashtext('perfiles_administradores'));
   select count(*) into activos from perfiles where rol = 'administrador' and activo;
   if new.rol = 'administrador' and activos <= 1 then
     return new;  -- el único administrador nombra al segundo
@@ -298,7 +302,7 @@ begin
     where s.id in (
       select x.id from solicitudes_rol x
       where x.estado = 'pendiente' or x.creado_en > now() - interval '30 days'
-      order by x.creado_en desc
+      order by (x.estado = 'pendiente' and not solicitud_vencida(x)) desc, x.creado_en desc
       limit 50
     )
   ), '[]'::jsonb);
