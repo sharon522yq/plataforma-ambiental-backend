@@ -67,16 +67,16 @@ El backend cumple su prompt; la plataforma completa, no. Detalle y plan en el do
 | ID | Brecha | Severidad | Fase |
 |---|---|---|---|
 | B-01 | El agente no usa herramientas ni filtra el mapa | Crítica | F13 (hecho, falta la evaluación real) |
-| B-02 | Sin RAG ni respuestas con fuente (D-01 abierta) | Crítica | F14 |
+| B-02 | Sin RAG ni respuestas con fuente (D-01 abierta) | Crítica | F14 (hecho, falta cargar documentos) |
 | B-03 | Frontend sin publicar | Crítica | F12 (hecho, falta sincronizar en Render) |
 | B-04 | Sin aviso de privacidad | Crítica | F12 (hecho, falta el correo de contacto) |
-| B-05 | Los editores no pueden cargar documentos de conocimiento | Alta | F14 |
-| B-06 | Sin respaldos de la base | Alta | F15 |
+| B-05 | Los editores no pueden cargar documentos de conocimiento | Alta | F14 (hecho) |
+| B-06 | Sin respaldos de la base | Alta | F15 (hecho, faltan los secretos M11) |
 | B-07 | Facturación de Gemini sin activar (D-03) | Alta | F17 (sharon) |
-| B-08 | Cambiar un rol no pide un segundo administrador | Media | F15 |
-| B-09 | Sin «cómo llegar» | Media | F16 |
-| B-10 | Accesibilidad sin revisar | Media | F16 |
+| B-08 | Cambiar un rol no pide un segundo administrador | Media | F15 (hecho, migración 014) |
+| B-09 | Sin «cómo llegar» | Media | F16 (hecho) |
+| B-10 | Accesibilidad sin revisar | Media | F16 (hecho: axe sin violaciones; falta la prueba con lector de pantalla) |
 | B-11 | Sin respuesta de respaldo cuando Gemini falla | Media | F13 (hecho) |
-| B-12 | Sin métricas | Baja | F15 |
-| B-13 | Pausa de Supabase y arranque lento de Render | Baja | F15 |
-| B-14 | Mantenimiento de dependencias y CI sin Supabase de pruebas | Baja | F15 |
+| B-12 | Sin métricas | Baja | F15 (hecho) |
+| B-13 | Pausa de Supabase y arranque lento de Render | Baja | F15 (pausa: el respaldo la evita; el arranque lento de Render se acepta para el piloto, D-02) |
+| B-14 | Mantenimiento de dependencias y CI sin Supabase de pruebas | Baja | F15 (Dependabot hecho; el job de Supabase de pruebas ya existe y espera los secretos M9) |

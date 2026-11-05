@@ -715,6 +715,25 @@ svg.leaflet-image-layer.leaflet-interactive path {
   color-scheme: dark;
 }
 
+/* Alto contraste (F16): botón «Alto contraste» o preferencia del sistema (prefers-contrast: more). */
+:root[data-contraste="alto"] {
+  --bg: #ffffff; --surface: #ffffff; --surface-2: #eef2f0; --ink: #000000; --muted: #24302b; --line: #4d5d56;
+  --accent: #00473b; --accent-soft: #d2ebe3; --ok: #155c2e; --warn: #6b3d00; --bad: #8a1a12; --focus: #0047a8;
+}
+@media (prefers-color-scheme: dark) {
+  :root[data-contraste="alto"]:not([data-theme="light"]) {
+    --bg: #000000; --surface: #070b0a; --surface-2: #121a17; --ink: #ffffff; --muted: #d9e3de; --line: #8fa59c;
+    --accent: #6fe3c8; --accent-ink: #00140f; --accent-soft: #0f3a30; --ok: #8be3a8; --warn: #ffc56e; --bad: #ff9a8f; --focus: #a6d4ff;
+  }
+}
+:root[data-theme="dark"][data-contraste="alto"] {
+  --bg: #000000; --surface: #070b0a; --surface-2: #121a17; --ink: #ffffff; --muted: #d9e3de; --line: #8fa59c;
+  --accent: #6fe3c8; --accent-ink: #00140f; --accent-soft: #0f3a30; --ok: #8be3a8; --warn: #ffc56e; --bad: #ff9a8f; --focus: #a6d4ff;
+}
+:root[data-contraste="alto"] :focus-visible { outline-width: 3px; outline-offset: 3px; }
+:root[data-contraste="alto"] main a:not(.btn) { text-decoration: underline; }
+.btn-contraste { font-size: .82rem; padding: 4px 10px; }
+
 * { box-sizing: border-box; }
 [hidden] { display: none !important; }
 html, body { height: 100%; }
@@ -801,7 +820,7 @@ main { min-height: 0; }
 .btn[disabled] { opacity: .55; cursor: not-allowed; }
 .lista { list-style: none; margin: 0; padding: 0; }
 .item { display: grid; grid-template-columns: 6px 1fr; gap: 12px; padding: 12px 16px; border-bottom: 1px solid var(--line); cursor: pointer; background: none; width: 100%; text-align: left; border-left: 0; border-right: 0; border-top: 0; }
-.item:hover, .item[aria-selected="true"] { background: var(--surface-2); }
+.item:hover, .item[aria-current="true"] { background: var(--surface-2); }
 .item .stripe { border-radius: 3px; }
 .item h3 { font-family: var(--f-body); font-size: .93rem; font-weight: 600; line-height: 1.3; }
 .meta { display: flex; gap: 6px 10px; flex-wrap: wrap; align-items: center; margin-top: 5px; font-size: .78rem; color: var(--muted); }
@@ -809,9 +828,10 @@ main { min-height: 0; }
 .sev { display: inline-flex; align-items: center; gap: 5px; font: 500 .75rem/1 var(--f-mono); white-space: nowrap; }
 .sev i { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
 .estado { display: inline-block; padding: 2px 8px; border-radius: 4px; font: 500 .72rem/1.5 var(--f-mono); text-transform: uppercase; letter-spacing: .05em; }
-.estado.pendiente { background: color-mix(in srgb, var(--warn) 18%, transparent); color: var(--warn); }
-.estado.aprobado { background: color-mix(in srgb, var(--ok) 18%, transparent); color: var(--ok); }
-.estado.rechazado { background: color-mix(in srgb, var(--bad) 16%, transparent); color: var(--bad); }
+/* El texto se mezcla con --ink para pasar 4.5:1 en claro y en oscuro (axe, F16). */
+.estado.pendiente { background: color-mix(in srgb, var(--warn) 18%, transparent); color: color-mix(in srgb, var(--warn) 70%, var(--ink)); }
+.estado.aprobado { background: color-mix(in srgb, var(--ok) 18%, transparent); color: color-mix(in srgb, var(--ok) 75%, var(--ink)); }
+.estado.rechazado { background: color-mix(in srgb, var(--bad) 16%, transparent); color: color-mix(in srgb, var(--bad) 70%, var(--ink)); }
 .estado.duplicado { background: var(--surface-2); color: var(--muted); border: 1px solid var(--line); }
 .vacio { padding: 24px 16px; color: var(--muted); font-size: .9rem; }
 .mapa-wrap { position: relative; min-width: 0; }
@@ -856,6 +876,29 @@ th { font: 500 .7rem/1.2 var(--f-mono); text-transform: uppercase; letter-spacin
 tr:last-child td { border-bottom: 0; }
 td.num { font-variant-numeric: tabular-nums; }
 .cola { display: grid; gap: 14px; }
+.pila { display: grid; gap: 16px; }
+.como-llegar { display: grid; gap: 6px; }
+.como-llegar .btn { padding: 6px 12px; font-size: .85rem; }
+.solicitudes { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
+.solicitudes li { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 6px 12px; align-items: start; padding-top: 10px; border-top: 1px solid var(--line); }
+.solicitudes li:first-child { border-top: 0; padding-top: 0; }
+.solicitudes li .row { grid-column: 1 / -1; }
+.metricas { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; }
+.metrica { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 14px; display: grid; gap: 6px; align-content: start; }
+.metrica .valor { font: 600 1.6rem/1 var(--f-mono); font-variant-numeric: tabular-nums; }
+.barras { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.barras li { display: grid; grid-template-columns: minmax(0, 9rem) minmax(0, 1fr) 2.5rem; gap: 10px; align-items: center; font-size: .86rem; }
+.barra { height: 10px; background: var(--surface-2); border-radius: 999px; overflow: hidden; }
+.barra > span { display: block; height: 100%; background: var(--accent); border-radius: 999px; }
+.barras .num { text-align: right; font-variant-numeric: tabular-nums; }
+.semanas { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(8, minmax(0, 1fr)); gap: 6px; align-items: end; height: 150px; }
+.semanas li { display: grid; grid-template-rows: 1fr auto auto; height: 100%; gap: 2px; text-align: center; font-size: .72rem; }
+.semanas .columna { align-self: end; background: var(--accent); border-radius: 4px 4px 0 0; min-height: 2px; }
+.semanas .num { font-variant-numeric: tabular-nums; font-size: .8rem; }
+.lista-datos { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; font-size: .88rem; }
+.lista-datos li { display: flex; justify-content: space-between; gap: 12px; border-bottom: 1px solid var(--line); padding-bottom: 6px; }
+.lista-datos li:last-child { border-bottom: 0; }
+.lista-datos .num { font-variant-numeric: tabular-nums; font-weight: 600; }
 .decision { display: grid; gap: 10px; border-top: 1px solid var(--line); padding-top: 12px; }
 .subtabs { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 16px; }
 .subtabs button { padding: 6px 12px; border-radius: 999px; border: 1px solid var(--line); background: var(--surface); cursor: pointer; font-size: .85rem; }
@@ -868,6 +911,8 @@ td.num { font-variant-numeric: tabular-nums; }
 .msg.yo { justify-self: end; background: var(--accent); color: var(--accent-ink); }
 .msg.ia { justify-self: start; background: var(--surface); border: 1px solid var(--line); display: grid; gap: 8px; }
 .msg.ia ul, .msg.ia ol { margin: 0; padding-left: 20px; display: grid; gap: 4px; }
+.msg.ia .fuentes { display: grid; gap: 4px; font-size: .84rem; }
+.msg.ia .fuentes ul { margin: 0; }
 .msg.ia .pie { border-top: 1px dashed var(--line); padding-top: 8px; font-size: .76rem; color: var(--muted); display: grid; gap: 2px; }
 .sugerencias { display: flex; gap: 8px; flex-wrap: wrap; }
 .sugerencias button { padding: 6px 12px; border-radius: 999px; border: 1px solid var(--line); background: var(--surface); cursor: pointer; font-size: .84rem; text-align: left; }
@@ -903,6 +948,7 @@ td.num { font-variant-numeric: tabular-nums; }
         </select>
       </label>
       <span class="controls" id="cuenta" hidden></span>
+      <button type="button" class="btn ghost btn-contraste" id="contraste" aria-pressed="false">Alto contraste</button>
       <label class="control" for="rol" id="ctl-rol">Ver como
         <select id="rol">
           <option value="visitante">Visitante (sin sesión)</option>
@@ -1315,6 +1361,8 @@ function pintarTabs() {
 function candado() {
   const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
   svg.setAttribute("viewBox", "0 0 16 16"); svg.setAttribute("aria-hidden", "true");
+  // Tamaño fijo: sin él, dentro de los botones de apartado el ícono ocupaba todo el ancho.
+  svg.setAttribute("width", "12"); svg.setAttribute("height", "12");
   const p = document.createElementNS("http://www.w3.org/2000/svg", "path");
   p.setAttribute("d", "M4.5 7V5a3.5 3.5 0 0 1 7 0v2h.5a1 1 0 0 1 1 1v6a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V8a1 1 0 0 1 1-1h.5Zm1.5 0h4V5a2 2 0 0 0-4 0v2Z");
   p.setAttribute("fill", "currentColor"); svg.append(p); return svg;
@@ -1481,7 +1529,7 @@ function pintarPanel(panel) {
           h("button", { class: "btn", type: "button", onclick: () => { estado.delAsistente = null; pintarPanel(panel); refrescarPuntos(panel); } }, "Quitar filtro"),
           h("a", { class: "btn ghost", href: "#asistente" }, "Volver al asistente"))),
       h("div", { style: "min-height: 0" },
-        h("div", { class: "panel-sec", style: "padding-block: 12px; border-bottom: 1px solid var(--line)" }, h("span", { class: "label", id: "conteo" }, "Puntos")),
+        h("div", { class: "panel-sec", style: "padding-block: 12px; border-bottom: 1px solid var(--line)" }, h("h2", { class: "label", id: "conteo" }, "Puntos")),
         h("ul", { class: "lista", id: "lista-puntos" })));
     pintarLista(panel);
     return;
@@ -1513,7 +1561,7 @@ function pintarPanel(panel) {
       h("div", { class: "row" }, buscar, quitar),
       estado.cerca ? h("p", { class: "hint" }, "Centro: ", h("span", { class: "mono" }, coord(estado.cerca))) : h("p", { class: "hint" }, "Mueve el mapa y busca los puntos dentro del radio (PostGIS en el backend).")),
     h("div", { style: "min-height: 0" },
-      h("div", { class: "panel-sec", style: "padding-block: 12px; border-bottom: 1px solid var(--line)" }, h("span", { class: "label", id: "conteo" }, "Puntos")),
+      h("div", { class: "panel-sec", style: "padding-block: 12px; border-bottom: 1px solid var(--line)" }, h("h2", { class: "label", id: "conteo" }, "Puntos")),
       h("ul", { class: "lista", id: "lista-puntos" })));
   pintarLista(panel);
 }
@@ -1526,7 +1574,7 @@ function pintarLista(panel) {
   if (estado.fuente === "vivo" && estado.errorVivo && !estado.delAsistente) { ul.replaceChildren(h("li", { class: "vacio err" }, estado.errorVivo)); return; }
   if (!lista.length) { ul.replaceChildren(h("li", { class: "vacio" }, "Ningún punto cumple los filtros. Baja la gravedad mínima o amplía el radio.")); return; }
   ul.replaceChildren(...lista.map((p) => h("li", null,
-    h("button", { class: "item", type: "button", "aria-selected": String(estado.seleccionado === p.id), onclick: () => seleccionar(p.id),
+    h("button", { class: "item", type: "button", "aria-current": estado.seleccionado === p.id ? "true" : null, onclick: () => seleccionar(p.id),
       onmouseenter: () => { const m = marcadores.get(p.id); if (m) m.openTooltip(); }, onmouseleave: () => { const m = marcadores.get(p.id); if (m) m.closeTooltip(); } },
       h("span", { class: "stripe", style: `background: var(--sev-${p.gravedad})` }),
       h("span", null, h("h3", null, p.titulo),
@@ -1559,7 +1607,8 @@ async function pintarDetalle(panel) {
     h("dl", { class: "kv" },
       h("dt", null, "Ubicación"), h("dd", { class: "mono" }, coord(p.ubicacion)),
       h("dt", null, "Publicado"), h("dd", null, fecha(p.creado_en)),
-      h("dt", null, "Actualizado"), h("dd", null, fecha(p.actualizado_en)))),
+      h("dt", null, "Actualizado"), h("dd", null, fecha(p.actualizado_en))),
+    comoLlegar(p)),
     h("div", { class: "panel-sec" },
       h("h3", null, "Cómo ayudar"),
       p.acciones.length ? p.acciones.map(conRetirar) : h("p", { class: "hint" }, "Este punto todavía no tiene enlaces para ayudar."),
@@ -1568,6 +1617,24 @@ async function pintarDetalle(panel) {
         ? [formEnlacePunto(p, panel),
            h("a", { class: "btn", href: "#reportar", onclick: () => { estado.reportePunto = p; } }, "Aportar información sobre este punto")]
         : h("p", { class: "hint" }, "Inicia sesión para agregar enlaces o aportar información sobre este punto.")));
+}
+/* «Cómo llegar» (F16): abre la ruta en Google Maps u OpenStreetMap, sin llaves ni costo. La
+   ruta sale de donde esté la persona: su ubicación la pide el sitio de mapas, nunca esta plataforma. */
+function rutasA(u) {
+  const lat = Number(u.lat).toFixed(6), lng = Number(u.lng).toFixed(6);
+  return {
+    google: `https://www.google.com/maps/dir/?api=1&destination=${lat}%2C${lng}`,
+    osm: `https://www.openstreetmap.org/directions?to=${lat}%2C${lng}#map=16/${lat}/${lng}`,
+  };
+}
+function comoLlegar(p) {
+  const r = rutasA(p.ubicacion), destino = `a «${p.titulo}»`;
+  return h("div", { class: "como-llegar", role: "group", "aria-labelledby": "como-llegar-t" },
+    h("span", { class: "label", id: "como-llegar-t" }, "Cómo llegar"),
+    h("div", { class: "row" },
+      h("a", { class: "btn", href: r.google, target: "_blank", rel: "noopener noreferrer", "aria-label": `Ruta ${destino} en Google Maps (abre otra pestaña)` }, "Google Maps"),
+      h("a", { class: "btn", href: r.osm, target: "_blank", rel: "noopener noreferrer", "aria-label": `Ruta ${destino} en OpenStreetMap (abre otra pestaña)` }, "OpenStreetMap")),
+    h("span", { class: "hint" }, "Se abre en otra pestaña y traza la ruta desde donde estés. Esta plataforma no recibe tu ubicación."));
 }
 /* Formulario plegable: cualquier cuenta activa agrega un enlace al punto y se publica al momento (POST /puntos/:id/acciones). */
 function formEnlacePunto(p, panel) {
@@ -1861,7 +1928,7 @@ function vistaReportar(raiz) {
     const latlng = L.latLng(ubic.lat, ubic.lng);
     if (miniMarcador) miniMarcador.setLatLng(latlng);
     else miniMarcador = L.marker(latlng, { interactive: false, keyboard: false, icon: L.divIcon({ className: "", html: `<svg width="26" height="34" viewBox="0 0 26 34"><path d="M13 1C6.4 1 1 6.2 1 12.7 1 21.4 13 33 13 33s12-11.6 12-20.3C25 6.2 19.6 1 13 1Z" fill="${getComputedStyle(document.documentElement).getPropertyValue("--accent").trim()}" stroke="#fff" stroke-width="2"/><circle cx="13" cy="13" r="4.5" fill="#fff"/></svg>`, iconSize: [26, 34], iconAnchor: [13, 33] }) }).addTo(miniMapa);
-    miniMapa.setView(latlng, 16);
+    miniMapa.setView(latlng, 16, { animate: false }); // sin animación: si la vista cambia a media animación, Leaflet falla
   }
   if (miniMapa) {
     mostrarEnMapa();
@@ -1875,7 +1942,7 @@ function vistaMisAportes(raiz) {
   const yo = usuarioActual();
   const mios = demo.aportes.filter((a) => a.autor_id === yo.id);
   const cuerpo = mios.length
-    ? h("div", { class: "tabla-wrap" }, h("table", null,
+    ? h("div", TABLA_DESPLAZABLE, h("table", null,
         h("thead", null, h("tr", null, ["Fecha", "Tipo", "Descripción", "Estado", "Foto"].map((t) => h("th", null, t)))),
         h("tbody", null, mios.map((a) => h("tr", null,
           h("td", { class: "num", style: "white-space: nowrap" }, fecha(a.creado_en)),
@@ -1983,15 +2050,19 @@ function tituloSugerido(a) {
 function vistaAdministracion(raiz) {
   raiz.className = "view gutter";
   const esAdmin = estado.rol === "administrador";
-  const tabs = [["catalogo", "Catálogo", true], ["usuarios", "Usuarios y roles", esAdmin], ["auditoria", "Auditoría", esAdmin]];
-  if (!esAdmin && estado.adminTab !== "catalogo") estado.adminTab = "catalogo";
+  const tabs = [["catalogo", "Catálogo", true], ["conocimiento", "Base de conocimiento", true], ["usuarios", "Usuarios y roles", esAdmin], ["metricas", "Métricas", esAdmin], ["auditoria", "Auditoría", esAdmin]];
+  if (!esAdmin && !["catalogo", "conocimiento"].includes(estado.adminTab)) estado.adminTab = "catalogo";
   const cont = h("div");
   if (estado.adminTab === "catalogo") cont.append(panelCatalogo());
+  if (estado.adminTab === "conocimiento") cont.append(h("div", { class: "card" }, h("h3", null, "Base de conocimiento"),
+    h("p", null, "Aquí el personal carga documentos de fuentes confiables (por ejemplo, cómo denunciar ante PROFEPA). El asistente los consulta y cita la fuente en sus respuestas."),
+    h("p", { class: "hint" }, "En el modo de ejemplo no hay documentos. Cambia «Datos» a API en vivo e inicia sesión como editor para cargarlos.")));
   if (estado.adminTab === "usuarios") cont.append(panelUsuarios());
+  if (estado.adminTab === "metricas") cont.append(panelMetricas(metricasDemo(), "Cifras calculadas con los datos de ejemplo. Con la API en vivo salen de la base real."));
   if (estado.adminTab === "auditoria") cont.append(panelAuditoria());
   raiz.replaceChildren(h("div", { class: "wrap" },
     h("div", { class: "view-head" }, h("div", null, h("h2", null, "Administración"),
-      h("p", null, esAdmin ? "Catálogo de acciones y organizaciones, roles de usuario y registro de auditoría." : "Con el rol de editor administras el catálogo de acciones y organizaciones. Usuarios y auditoría son solo para administración."))),
+      h("p", null, esAdmin ? "Catálogo de acciones y organizaciones, roles de usuario, métricas y registro de auditoría." : "Con el rol de editor administras el catálogo de acciones y organizaciones y la base de conocimiento del asistente. Usuarios y auditoría son solo para administración."))),
     h("div", { class: "subtabs", role: "group", "aria-label": "Apartado" }, tabs.map(([id, nombre, ok]) => h("button", { type: "button", "aria-pressed": String(estado.adminTab === id), disabled: !ok,
       title: ok ? null : "Solo administración", onclick: () => { estado.adminTab = id; vistaAdministracion(raiz); } }, ok ? nombre : [candado(), " ", nombre]))),
     cont));
@@ -2031,7 +2102,7 @@ function panelCatalogo() {
     h("div", { class: "field" }, h("label", { class: "label", for: "o-zona" }, "Zona (opcional)"), oZona),
     h("p", { class: "hint" }, "El contacto de la organización es interno y no se publica."),
     errO, h("div", null, h("button", { class: "btn primary", type: "submit" }, "Crear organización")),
-    h("div", { class: "tabla-wrap" }, h("table", null, h("thead", null, h("tr", null, h("th", null, "Organización"), h("th", null, "Zona"))),
+    h("div", TABLA_DESPLAZABLE, h("table", null, h("thead", null, h("tr", null, h("th", null, "Organización"), h("th", null, "Zona"))),
       h("tbody", null, demo.organizaciones.map((o) => h("tr", null, h("td", null, o.nombre), h("td", null, o.zona || "—")))))));
   fO.addEventListener("submit", (e) => {
     e.preventDefault(); errO.textContent = "";
@@ -2042,21 +2113,129 @@ function panelCatalogo() {
   });
   return h("div", { class: "grid-2" }, fA, fO);
 }
+/* Misma regla que la migración 014: dar o quitar el rol de administrador lo confirma otro
+   administrador, salvo cuando solo hay uno (puede nombrar al segundo). */
+function necesitaSegundoAdmin(rolActualUsuario, rolNuevo, administradores) {
+  if (rolActualUsuario === rolNuevo || (rolActualUsuario !== "administrador" && rolNuevo !== "administrador")) return false;
+  return !(rolNuevo === "administrador" && administradores <= 1);
+}
+/* Las tablas anchas se desplazan de lado en el teléfono: con tabindex se pueden mover con el teclado (axe, F16). */
+const TABLA_DESPLAZABLE = { class: "tabla-wrap", tabindex: "0", role: "region", "aria-label": "Tabla; se desplaza con las flechas" };
+const CLASE_SOLICITUD = { pendiente: "pendiente", aprobada: "aprobado", rechazada: "rechazado", cancelada: "duplicado", vencida: "duplicado" };
+function tarjetaSolicitudes(solicitudes, miId, decidir, nota) {
+  if (!solicitudes.length) return null;
+  const quien = (p) => (p.id === miId ? "ti" : p.nombre);
+  return h("div", { class: "card", id: "solicitudes-rol" }, h("h3", null, "Cambios de administrador"),
+    h("p", { class: "hint" }, nota || "Dar o quitar el rol de administrador necesita que otro administrador lo confirme. Las solicitudes vencen a los 7 días."),
+    h("ul", { class: "solicitudes" }, solicitudes.map((s) => {
+      const mia = s.solicitado_por.id === miId;
+      return h("li", null,
+        h("div", null, h("strong", null, s.usuario.nombre), `: de ${ROLES[s.rol_anterior].toLowerCase()} a ${ROLES[s.rol_nuevo].toLowerCase()}`,
+          h("div", { class: "hint" }, `Lo pidió ${quien(s.solicitado_por)} el ${fechaHora(s.creado_en)}`, s.resuelto_por ? ` · lo resolvió ${quien(s.resuelto_por)}` : "")),
+        h("span", { class: "estado " + CLASE_SOLICITUD[s.estado] }, s.estado),
+        s.estado === "pendiente" ? h("div", { class: "row" },
+          mia ? null : h("button", { class: "btn primary", type: "button", onclick: () => decidir(s, true) }, "Confirmar cambio"),
+          h("button", { class: "btn", type: "button", onclick: () => decidir(s, false) }, mia ? "Cancelar solicitud" : "Rechazar"),
+          mia ? h("span", { class: "hint" }, "Esperando a otro administrador.") : null) : null);
+    })));
+}
 function panelUsuarios() {
   const yo = usuarioActual();
-  return h("div", { class: "tabla-wrap" }, h("table", null,
+  if (!demo.solicitudesRol) demo.solicitudesRol = [];
+  const recargar = () => vistaAdministracion(document.getElementById("main"));
+  const decidir = (s, aprobar) => {
+    if (aprobar) return; // en el ejemplo solo hay quien pidió el cambio: no puede confirmarlo
+    s.estado = "cancelada"; s.resuelto_por = { id: yo.id, nombre: yo.nombre }; s.resuelto_en = new Date().toISOString();
+    auditar("solicitudes_rol", "solicitud_cancelada", s.usuario.id); toast("Solicitud cancelada."); recargar();
+  };
+  const tabla = h("div", TABLA_DESPLAZABLE, h("table", null,
     h("thead", null, h("tr", null, h("th", null, "Usuario"), h("th", null, "Rol"), h("th", null, "Estado"))),
     h("tbody", null, USUARIOS.map((u) => {
       const propio = u.id === yo.id;
       const sel = h("select", { class: "inp", "aria-label": "Rol de " + u.nombre, disabled: propio, style: "max-width: 200px",
-        onchange: (e) => { u.rol = e.target.value; auditar("perfiles", "cambiar_rol", u.id); toast(`Rol de ${u.nombre} cambiado a ${ROLES[u.rol].toLowerCase()}.`); } },
+        onchange: (e) => {
+          const nuevo = e.target.value;
+          const administradores = USUARIOS.filter((x) => x.rol === "administrador" && x.activo).length;
+          if (necesitaSegundoAdmin(u.rol, nuevo, administradores)) {
+            e.target.value = u.rol;
+            if (demo.solicitudesRol.some((x) => x.usuario.id === u.id && x.estado === "pendiente")) { toast("Ya hay una solicitud pendiente para esta persona."); return; }
+            demo.solicitudesRol.unshift({ id: uid(), usuario: { id: u.id, nombre: u.nombre }, rol_anterior: u.rol, rol_nuevo: nuevo,
+              solicitado_por: { id: yo.id, nombre: yo.nombre }, estado: "pendiente", resuelto_por: null, creado_en: new Date().toISOString(), resuelto_en: null });
+            auditar("solicitudes_rol", "rol_solicitado", u.id);
+            toast(`Solicitud creada: otro administrador debe confirmar que ${u.nombre} pase a ${ROLES[nuevo].toLowerCase()}.`); recargar(); return;
+          }
+          u.rol = nuevo; auditar("perfiles", "cambiar_rol", u.id); toast(`Rol de ${u.nombre} cambiado a ${ROLES[u.rol].toLowerCase()}.`); recargar();
+        } },
         ["ciudadano", "moderador", "editor", "administrador"].map((r) => h("option", { value: r, selected: u.rol === r }, ROLES[r])));
       return h("tr", null, h("td", null, u.nombre, propio ? h("div", { class: "hint" }, "No puedes cambiar tu propio rol.") : null), h("td", null, sel),
         h("td", null, h("span", { class: "estado " + (u.activo ? "aprobado" : "rechazado") }, u.activo ? "activo" : "inactivo")));
     }))));
+  return h("div", { class: "pila" }, tarjetaSolicitudes(demo.solicitudesRol, yo.id, decidir,
+    "Dar o quitar el rol de administrador necesita que otro administrador lo confirme. En el ejemplo hay una sola cuenta que pide los cambios, así que la solicitud se queda esperando."), tabla);
+}
+function metricasDemo() {
+  const contar = (lista, clave) => lista.reduce((m, x) => ({ ...m, [x[clave]]: (m[x[clave]] || 0) + 1 }), {});
+  const aportes = demo.aportes, ahora = Date.now(), dia = 864e5;
+  const lunes = new Date(); lunes.setHours(12, 0, 0, 0); lunes.setDate(lunes.getDate() - ((lunes.getDay() + 6) % 7));
+  const por_semana = Array.from({ length: 8 }, (_, i) => {
+    const inicio = new Date(lunes.getTime() - (7 - i) * 7 * dia);
+    const fin = inicio.getTime() + 7 * dia;
+    return { semana: inicio.toISOString().slice(0, 10), recibidos: aportes.filter((a) => { const t = new Date(a.creado_en).getTime(); return t >= inicio.getTime() - dia / 2 && t < fin - dia / 2; }).length };
+  });
+  const activos = USUARIOS.filter((u) => u.activo);
+  return {
+    generado_en: new Date().toISOString(),
+    puntos: { publicados: demo.puntos.length, en_revision: 0, archivados: 0, por_tipo: contar(demo.puntos, "tipo"), por_gravedad: contar(demo.puntos, "gravedad") },
+    aportes: { pendientes: aportes.filter((a) => a.estado === "pendiente").length, aprobados: aportes.filter((a) => a.estado === "aprobado").length,
+      rechazados: aportes.filter((a) => a.estado === "rechazado").length, duplicados: aportes.filter((a) => a.estado === "duplicado").length,
+      ultimos_30_dias: aportes.filter((a) => ahora - new Date(a.creado_en).getTime() < 30 * dia).length, horas_revision_mediana: null, por_semana },
+    usuarios: { total: USUARIOS.length, activos: activos.length, nuevos_30_dias: 0, por_rol: contar(activos, "rol") },
+    catalogo: { acciones_activas: demo.acciones.length, organizaciones_activas: demo.organizaciones.length, documentos_activos: 0, fragmentos: 0 },
+    asistente: { conversaciones_7_dias: 0, con_herramientas: 0, con_documentos: 0, sin_ia: 0 },
+    pendientes_de_rol: (demo.solicitudesRol || []).filter((s) => s.estado === "pendiente").length,
+  };
+}
+/* Métricas (migración 014): solo conteos, sin datos de nadie. */
+function panelMetricas(m, nota) {
+  const cifra = (valor, texto) => h("div", { class: "metrica" }, h("span", { class: "valor" }, valor === null || valor === undefined ? "—" : String(valor)), h("span", { class: "label" }, texto));
+  const barras = (titulo, conteos, nombres) => {
+    const filas = Object.entries(conteos).sort((a, b) => b[1] - a[1]);
+    const mayor = Math.max(1, ...filas.map(([, n]) => n));
+    return h("div", { class: "card" }, h("h3", null, titulo), filas.length
+      ? h("ul", { class: "barras" }, filas.map(([k, n]) => h("li", null, h("span", null, nombres[k] || k),
+        h("span", { class: "barra", "aria-hidden": "true" }, h("span", { style: `width: ${Math.round((n / mayor) * 100)}%` })), h("span", { class: "num" }, String(n)))))
+      : h("p", { class: "muted" }, "Sin datos todavía."));
+  };
+  const semanas = m.aportes.por_semana, mayorSemana = Math.max(1, ...semanas.map((x) => x.recibidos));
+  const dato = (texto, n) => h("li", null, h("span", null, texto), h("span", { class: "num" }, String(n)));
+  return h("div", { class: "pila", id: "metricas" },
+    nota ? h("p", { class: "hint" }, nota) : null,
+    h("div", { class: "metricas" },
+      cifra(m.puntos.publicados, "Puntos publicados"),
+      cifra(m.aportes.pendientes, "Reportes por revisar"),
+      cifra(m.aportes.ultimos_30_dias, "Reportes en 30 días"),
+      cifra(m.aportes.horas_revision_mediana === null ? null : `${m.aportes.horas_revision_mediana} h`, "Tiempo de revisión (mediana)"),
+      cifra(m.usuarios.activos, "Cuentas activas"),
+      cifra(m.asistente.conversaciones_7_dias, "Preguntas al asistente (7 días)")),
+    h("div", { class: "grid-2" }, barras("Puntos publicados por tipo", m.puntos.por_tipo, TIPOS), barras("Cuentas activas por rol", m.usuarios.por_rol, ROLES)),
+    h("div", { class: "grid-2" },
+      h("div", { class: "card" }, h("h3", null, "Reportes recibidos por semana"),
+        h("ol", { class: "semanas", "aria-label": "Reportes por semana, de la más antigua a la actual" }, semanas.map((x) => {
+          const etiqueta = new Date(x.semana + "T12:00:00").toLocaleDateString("es-MX", { day: "numeric", month: "short" });
+          return h("li", { title: `Semana del ${etiqueta}: ${x.recibidos}` }, h("span", { class: "columna", "aria-hidden": "true", style: `height: ${Math.round((x.recibidos / mayorSemana) * 100)}%` }),
+            h("span", { class: "num" }, String(x.recibidos)), h("span", { class: "hint" }, etiqueta));
+        }))),
+      h("div", { class: "card" }, h("h3", null, "Asistente y catálogo"), h("ul", { class: "lista-datos" },
+        dato("Respuestas que consultaron el mapa (7 días)", m.asistente.con_herramientas),
+        dato("Respuestas con fuente de la base de conocimiento", m.asistente.con_documentos),
+        dato("Respuestas sin IA, porque Gemini no respondió", m.asistente.sin_ia),
+        dato("Acciones activas", m.catalogo.acciones_activas),
+        dato("Organizaciones activas", m.catalogo.organizaciones_activas),
+        dato("Documentos de conocimiento activos", m.catalogo.documentos_activos),
+        dato("Cambios de administrador por confirmar", m.pendientes_de_rol)))));
 }
 function panelAuditoria() {
-  return h("div", { class: "tabla-wrap" }, h("table", null,
+  return h("div", TABLA_DESPLAZABLE, h("table", null,
     h("thead", null, h("tr", null, ["Fecha", "Tabla", "Acción", "Usuario", "Registro"].map((t) => h("th", null, t)))),
     h("tbody", null, demo.auditoria.map((r) => h("tr", null,
       h("td", { class: "num", style: "white-space: nowrap" }, fechaHora(r.creado_en)), h("td", { class: "mono" }, r.tabla), h("td", { class: "mono" }, r.accion),
@@ -2075,6 +2254,11 @@ function vistaAsistente(raiz) {
           m.error || !(m.puntos && m.puntos.length) ? null
             : h("div", { class: "row" }, h("button", { class: "btn", type: "button", onclick: () => verEnMapa(m.puntos) },
                 m.puntos.length === 1 ? "Ver el punto en el mapa" : `Ver ${m.puntos.length} puntos en el mapa`)),
+          m.error || !(m.fuentes && m.fuentes.length) ? null
+            : h("div", { class: "fuentes" }, h("span", { class: "label" }, "Fuentes"),
+                h("ul", null, m.fuentes.map((f) => h("li", null,
+                  f.enlace && /^https:\/\//.test(f.enlace) ? h("a", { href: f.enlace, target: "_blank", rel: "noopener noreferrer" }, f.titulo) : f.titulo,
+                  " · ", f.fuente, f.fecha_fuente ? " · " + fecha(f.fecha_fuente + "T12:00:00") : "")))),
           m.error ? null : h("div", { class: "pie" },
             m.respaldo
               ? h("span", null, "Respuesta automática sin IA: el asistente no estaba disponible y se buscó directo en el mapa.")
@@ -2116,7 +2300,7 @@ function vistaAsistente(raiz) {
         const cuerpo = { pregunta };
         if (estado.miUbicacion) cuerpo.ubicacion = estado.miUbicacion;
         const r = await api("/agente/consulta", { metodo: "POST", json: cuerpo });
-        estado.chat.push({ de: "ia", texto: r.respuesta, modelo: r.modelo, aviso: r.aviso, puntos: r.puntos || [], respaldo: !!r.respaldo });
+        estado.chat.push({ de: "ia", texto: r.respuesta, modelo: r.modelo, aviso: r.aviso, puntos: r.puntos || [], fuentes: r.fuentes || [], respaldo: !!r.respaldo });
       } catch (e) {
         estado.chat.push({ de: "ia", error: true, texto: e.message === "Failed to fetch" ? (PUBLICO ? SIN_CONEXION_PUBLICO : "No se pudo conectar con la API. Revisa CORS_ORIGENES y que el servicio esté despierto.") : "La API respondió con un error: " + e.message });
       }
@@ -2162,7 +2346,7 @@ async function vistaMisAportesVivo(raiz) {
       cont.replaceChildren(h("div", { class: "card" }, h("p", null, "Todavía no has enviado reportes."), h("a", { class: "btn primary", href: "#reportar" }, "Reportar un problema")));
       return;
     }
-    cont.replaceChildren(h("div", { class: "tabla-wrap" }, h("table", null,
+    cont.replaceChildren(h("div", TABLA_DESPLAZABLE, h("table", null,
       h("thead", null, h("tr", null, ["Fecha", "Tipo", "Descripción", "Estado", "Foto"].map((t) => h("th", null, t)))),
       h("tbody", null, r.datos.map((a) => h("tr", null,
         h("td", { class: "num", style: "white-space: nowrap" }, fecha(a.creado_en)),
@@ -2266,18 +2450,20 @@ function tarjetaModeracionVivo(a, puntos, raiz) {
 async function vistaAdministracionVivo(raiz) {
   raiz.className = "view gutter";
   const esAdmin = rolActual() === "administrador";
-  if (!esAdmin && estado.adminTab !== "catalogo") estado.adminTab = "catalogo";
-  const tabs = [["catalogo", "Catálogo", true], ["usuarios", "Usuarios y roles", esAdmin], ["auditoria", "Auditoría", esAdmin]];
+  if (!esAdmin && !["catalogo", "conocimiento"].includes(estado.adminTab)) estado.adminTab = "catalogo";
+  const tabs = [["catalogo", "Catálogo", true], ["conocimiento", "Base de conocimiento", true], ["usuarios", "Usuarios y roles", esAdmin], ["metricas", "Métricas", esAdmin], ["auditoria", "Auditoría", esAdmin]];
   const cont = h("div", null, h("p", { class: "muted" }, "Cargando…"));
   raiz.replaceChildren(h("div", { class: "wrap" },
-    cabecera("Administración", esAdmin ? "Catálogo, roles y auditoría con datos reales de la base." : "Con el rol de editor administras el catálogo de acciones y organizaciones."),
+    cabecera("Administración", esAdmin ? "Catálogo, base de conocimiento, roles, métricas y auditoría con datos reales de la base." : "Con el rol de editor administras el catálogo de acciones y organizaciones y la base de conocimiento del asistente."),
     h("div", { class: "subtabs", role: "group", "aria-label": "Apartado" }, tabs.map(([id, nombre, ok]) => h("button", { type: "button", "aria-pressed": String(estado.adminTab === id), disabled: !ok,
       title: ok ? null : "Solo administración", onclick: () => { estado.adminTab = id; vistaAdministracionVivo(raiz); } }, ok ? nombre : [candado(), " ", nombre]))),
     cont));
   const recargar = () => vistaAdministracionVivo(raiz);
   try {
     if (estado.adminTab === "catalogo") cont.replaceChildren(await panelCatalogoVivo(recargar));
+    if (estado.adminTab === "conocimiento") cont.replaceChildren(await panelConocimientoVivo(recargar));
     if (estado.adminTab === "usuarios") cont.replaceChildren(await panelUsuariosVivo());
+    if (estado.adminTab === "metricas") cont.replaceChildren(await panelMetricasVivo());
     if (estado.adminTab === "auditoria") cont.replaceChildren(await panelAuditoriaVivo());
   } catch (e) { cont.replaceChildren(h("p", { class: "err" }, mensajeError(e))); }
 }
@@ -2322,7 +2508,7 @@ async function panelCatalogoVivo(recargar) {
     h("div", { class: "field" }, h("label", { class: "label", for: "o-zona" }, "Zona (opcional)"), oZona),
     h("div", { class: "field" }, h("label", { class: "label", for: "o-contacto" }, "Contacto interno (opcional)"), oContacto, h("span", { class: "hint" }, "Lo ve el personal; la API pública nunca lo muestra.")),
     errO, h("div", null, h("button", { class: "btn primary", type: "submit" }, "Crear organización")),
-    h("div", { class: "tabla-wrap" }, h("table", null, h("thead", null, h("tr", null, h("th", null, "Organización"), h("th", null, "Zona"))),
+    h("div", TABLA_DESPLAZABLE, h("table", null, h("thead", null, h("tr", null, h("th", null, "Organización"), h("th", null, "Zona"))),
       h("tbody", null, orgs.map((o) => h("tr", null, h("td", null, o.nombre), h("td", null, o.zona || "—")))))));
   fO.addEventListener("submit", async (e) => {
     e.preventDefault(); errO.textContent = "";
@@ -2335,9 +2521,98 @@ async function panelCatalogoVivo(recargar) {
   });
   return h("div", { class: "grid-2" }, fA, fO);
 }
+/* Junta todas las páginas de un listado de la API (100 por página, tope de 20 páginas). */
+async function todasLasPaginas(ruta) {
+  const datos = [];
+  let total = 0;
+  for (let pagina = 1; pagina <= 20; pagina++) {
+    const r = await api(`${ruta}${ruta.includes("?") ? "&" : "?"}limite=100&pagina=${pagina}`);
+    datos.push(...r.datos);
+    total = r.paginacion ? r.paginacion.total : datos.length;
+    if (!r.paginacion || pagina >= r.paginacion.paginas) break;
+  }
+  return { datos, paginacion: { pagina: 1, limite: datos.length, total, paginas: 1 } };
+}
+async function panelConocimientoVivo(recargar) {
+  const r = await todasLasPaginas("/admin/conocimiento");
+  const f = h("form", { class: "card", novalidate: true });
+  const titulo = h("input", { type: "text", id: "k-titulo", maxlength: "200", placeholder: "Cómo denunciar ante PROFEPA" });
+  const fuente = h("input", { type: "text", id: "k-fuente", maxlength: "200", placeholder: "PROFEPA" });
+  const enlace = h("input", { type: "url", id: "k-enlace", placeholder: "https://" });
+  const fechaFuente = h("input", { type: "date", id: "k-fecha", class: "inp" });
+  const texto = h("textarea", { id: "k-texto", maxlength: "40000", rows: "10", class: "inp" });
+  const cuenta = h("span", { class: "hint mono" }, "0 / 40000");
+  texto.addEventListener("input", () => { cuenta.textContent = `${texto.value.trim().length} / 40000`; });
+  const enviar = h("button", { class: "btn primary", type: "submit" }, "Cargar documento");
+  const err = h("div", { class: "err", role: "alert" });
+  f.append(h("h3", null, "Nuevo documento"),
+    h("p", { class: "hint" }, "Copia el texto de una fuente confiable y oficial. El asistente lo usará para responder y citará el título y la fuente. No pegues datos personales."),
+    h("div", { class: "field" }, h("label", { class: "label", for: "k-titulo" }, "Título"), titulo),
+    h("div", { class: "field" }, h("label", { class: "label", for: "k-fuente" }, "Fuente (quién lo publica)"), fuente),
+    h("div", { class: "field" }, h("label", { class: "label", for: "k-enlace" }, "Enlace a la fuente (opcional)"), enlace, h("span", { class: "hint" }, "Solo enlaces https.")),
+    h("div", { class: "field" }, h("label", { class: "label", for: "k-fecha" }, "Fecha de la fuente (opcional)"), fechaFuente),
+    h("div", { class: "field" }, h("label", { class: "label", for: "k-texto" }, "Texto"), texto, cuenta),
+    err, h("div", null, enviar));
+  f.addEventListener("submit", async (e) => {
+    e.preventDefault(); err.textContent = "";
+    const cuerpo = { titulo: titulo.value.trim(), fuente: fuente.value.trim(), texto: texto.value.trim() };
+    if (cuerpo.titulo.length < 3) { err.textContent = "El título necesita al menos 3 caracteres."; titulo.focus(); return; }
+    if (cuerpo.fuente.length < 2) { err.textContent = "Escribe quién publica la información."; fuente.focus(); return; }
+    if (cuerpo.texto.length < 50) { err.textContent = "El texto necesita al menos 50 caracteres."; texto.focus(); return; }
+    if (enlace.value.trim()) {
+      if (!/^https:\/\/\S+$/.test(enlace.value.trim())) { err.textContent = "El enlace debe empezar con https://"; enlace.focus(); return; }
+      cuerpo.enlace = enlace.value.trim();
+    }
+    if (fechaFuente.value) cuerpo.fecha_fuente = fechaFuente.value;
+    enviar.disabled = true; enviar.textContent = "Procesando con Gemini…";
+    try {
+      const d = await api("/admin/conocimiento", { metodo: "POST", json: cuerpo });
+      toast(`Documento cargado en ${d.fragmentos} ${d.fragmentos === 1 ? "fragmento" : "fragmentos"}. El asistente ya puede usarlo.`);
+      recargar();
+    } catch (x) {
+      err.textContent = "No se pudo cargar: " + mensajeError(x);
+      enviar.disabled = false; enviar.textContent = "Cargar documento";
+    }
+  });
+  const cambiar = async (d, boton) => {
+    boton.disabled = true;
+    try { await api(`/admin/conocimiento/${d.id}`, { metodo: "PATCH", json: { activo: !d.activo } }); toast(d.activo ? "Documento desactivado: el asistente ya no lo usa." : "Documento activado."); recargar(); }
+    catch (x) { boton.disabled = false; toast("No se pudo cambiar: " + mensajeError(x)); }
+  };
+  const lista = r.datos.length
+    ? h("div", TABLA_DESPLAZABLE, h("table", { id: "k-lista" },
+        h("thead", null, h("tr", null, ["Documento", "Fuente", "Fragmentos", "Estado", ""].map((t) => h("th", null, t)))),
+        h("tbody", null, r.datos.map((d) => {
+          const boton = h("button", { class: "btn", type: "button" }, d.activo ? "Desactivar" : "Activar");
+          boton.addEventListener("click", () => cambiar(d, boton));
+          return h("tr", null,
+            h("td", null, d.enlace ? h("a", { href: d.enlace, target: "_blank", rel: "noopener noreferrer" }, d.titulo) : d.titulo),
+            h("td", null, d.fuente, d.fecha_fuente ? h("span", { class: "hint" }, " · " + fecha(d.fecha_fuente + "T12:00:00")) : null),
+            h("td", { class: "num" }, String(d.fragmentos)),
+            h("td", null, h("span", { class: "estado " + (d.activo ? "aprobado" : "rechazado") }, d.activo ? "activo" : "inactivo")),
+            h("td", null, boton));
+        }))))
+    : h("p", { class: "muted" }, "Todavía no hay documentos. Carga el primero con el formulario.");
+  return h("div", { class: "grid-2" }, f, h("div", { class: "card" }, h("h3", null, `Documentos (${r.paginacion.total})`), lista));
+}
+async function panelMetricasVivo() {
+  const m = await api("/admin/metricas");
+  return panelMetricas(m, `Actualizado el ${fechaHora(m.generado_en)} · Las cifras del asistente son de los últimos 7 días, porque las conversaciones se borran a los 7 días.`);
+}
 async function panelUsuariosVivo() {
-  const r = await api("/admin/usuarios?limite=100");
-  return h("div", { class: "tabla-wrap" }, h("table", null,
+  const [r, solicitudes] = await Promise.all([api("/admin/usuarios?limite=100"), api("/admin/solicitudes-rol")]);
+  const recargar = async () => {
+    const actual = document.getElementById("panel-usuarios");
+    try { const nuevo = await panelUsuariosVivo(); if (actual) actual.replaceWith(nuevo); } catch (e) { toast(mensajeError(e)); }
+  };
+  const decidir = async (s, aprobar) => {
+    try {
+      const x = await api(`/admin/solicitudes-rol/${s.id}`, { metodo: "PATCH", json: { aprobar } });
+      toast(x.estado === "aprobada" ? `Cambio confirmado: ${s.usuario.nombre} ahora es ${ROLES[s.rol_nuevo].toLowerCase()}.` : x.estado === "cancelada" ? "Solicitud cancelada." : "Solicitud rechazada.");
+    } catch (e) { toast("No se pudo resolver la solicitud: " + mensajeError(e)); }
+    await recargar();
+  };
+  const tabla = h("div", TABLA_DESPLAZABLE, h("table", null,
     h("thead", null, h("tr", null, ["Usuario", "Correo", "Rol", "Estado"].map((t) => h("th", null, t)))),
     h("tbody", null, r.datos.map((u) => {
       const propio = u.id === estado.sesion.id;
@@ -2345,19 +2620,24 @@ async function panelUsuariosVivo() {
         ["ciudadano", "moderador", "editor", "administrador"].map((rol) => h("option", { value: rol, selected: u.rol === rol }, ROLES[rol])));
       sel.addEventListener("change", async () => {
         const anterior = u.rol;
-        try { const c = await api(`/admin/usuarios/${u.id}/rol`, { metodo: "PATCH", json: { rol: sel.value } }); u.rol = c.rol; toast(`Rol de ${u.nombre} cambiado a ${ROLES[c.rol].toLowerCase()}.`); }
-        catch (e) { sel.value = anterior; toast("No se pudo cambiar el rol: " + mensajeError(e)); }
+        const pedido = sel.value;
+        try {
+          const c = await api(`/admin/usuarios/${u.id}/rol`, { metodo: "PATCH", json: { rol: pedido } });
+          if (c.solicitud) { sel.value = anterior; toast(`Solicitud creada: otro administrador debe confirmar que ${u.nombre} pase a ${ROLES[pedido].toLowerCase()}.`); await recargar(); return; }
+          u.rol = c.rol; toast(`Rol de ${u.nombre} cambiado a ${ROLES[c.rol].toLowerCase()}.`);
+        } catch (e) { sel.value = anterior; toast("No se pudo cambiar el rol: " + mensajeError(e)); }
       });
       return h("tr", null,
         h("td", null, u.nombre, propio ? h("div", { class: "hint" }, "No puedes cambiar tu propio rol.") : null),
         h("td", { class: "small" }, u.email || "—"), h("td", null, sel),
         h("td", null, h("span", { class: "estado " + (u.activo ? "aprobado" : "rechazado") }, u.activo ? "activo" : "inactivo")));
     }))));
+  return h("div", { class: "pila", id: "panel-usuarios" }, tarjetaSolicitudes(solicitudes.datos, estado.sesion.id, decidir), tabla);
 }
 async function panelAuditoriaVivo() {
   const r = await api("/admin/auditoria?limite=50");
   if (!r.datos.length) return h("div", { class: "card" }, h("p", { class: "muted" }, "Todavía no hay registros de auditoría."));
-  return h("div", { class: "tabla-wrap" }, h("table", null,
+  return h("div", TABLA_DESPLAZABLE, h("table", null,
     h("thead", null, h("tr", null, ["Fecha", "Tabla", "Acción", "Usuario", "Registro"].map((t) => h("th", null, t)))),
     h("tbody", null, r.datos.map((x) => h("tr", null,
       h("td", { class: "num", style: "white-space: nowrap" }, fechaHora(x.creado_en)), h("td", { class: "mono" }, x.tabla), h("td", { class: "mono" }, x.accion),
@@ -2414,8 +2694,9 @@ const VISTAS_VIVO = { "mis-aportes": vistaMisAportesVivo, moderacion: vistaModer
 function mostrar() {
   const id = (location.hash || "#mapa").slice(1);
   estado.vista = id === "cuenta" || id === "privacidad" || VISTAS.some((v) => v.id === id) ? id : "mapa";
-  if (mapa) { mapa.remove(); mapa = null; }
-  if (miniMapa) { miniMapa.remove(); miniMapa = null; miniMarcador = null; }
+  // stop() corta un flyTo en curso antes de quitar el mapa (si no, Leaflet falla al terminar la animación).
+  if (mapa) { mapa.stop(); mapa.remove(); mapa = null; }
+  if (miniMapa) { miniMapa.stop(); miniMapa.remove(); miniMapa = null; miniMarcador = null; }
   const raiz = document.getElementById("main");
   pintarTabs(); pintarBanner();
   if (estado.vista === "cuenta") vistaCuenta(raiz);
@@ -2427,6 +2708,23 @@ function mostrar() {
   document.documentElement.style.setProperty("--hdr", hdr + "px");
 }
 
+/* Alto contraste: se recuerda en este navegador; sin preferencia guardada, sigue la del sistema. */
+function prepararContraste() {
+  const boton = document.getElementById("contraste");
+  const aplicar = (alto) => {
+    if (alto) document.documentElement.dataset.contraste = "alto"; else delete document.documentElement.dataset.contraste;
+    boton.setAttribute("aria-pressed", String(alto));
+  };
+  const guardado = leer("contraste");
+  let sistema = false;
+  try { sistema = window.matchMedia("(prefers-contrast: more)").matches; } catch (e) { /* navegador sin soporte */ }
+  aplicar(guardado ? guardado === "alto" : sistema);
+  boton.addEventListener("click", () => {
+    const alto = boton.getAttribute("aria-pressed") !== "true";
+    aplicar(alto); guardar("contraste", alto ? "alto" : "normal");
+    if (mapa) pintarMarcadores();
+  });
+}
 function iniciar() {
   const rolGuardado = leer("rol"), fuenteGuardada = leer("fuente");
   if (rolGuardado && ROLES[rolGuardado]) estado.rol = rolGuardado;
@@ -2437,6 +2735,7 @@ function iniciar() {
     document.querySelector(".brand .tag").textContent = "piloto";
   }
   pintarPie();
+  prepararContraste();
   const selRol = document.getElementById("rol"), selFuente = document.getElementById("fuente");
   selRol.value = estado.rol; selFuente.value = estado.fuente;
   selRol.addEventListener("change", () => { estado.rol = selRol.value; guardar("rol", estado.rol); mostrar(); });

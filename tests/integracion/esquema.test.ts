@@ -16,6 +16,7 @@ const TABLAS_ESPERADAS = [
   "organizaciones",
   "perfiles",
   "puntos",
+  "solicitudes_rol",
 ];
 
 describe.skipIf(!process.env.TEST_DATABASE_URL)("esquema de base de datos", () => {

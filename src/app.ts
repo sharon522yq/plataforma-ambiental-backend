@@ -16,11 +16,13 @@ import { manejadorErrores } from "./middleware/manejador-errores.js";
 import { crearRutasAcciones } from "./modulos/acciones/rutas.js";
 import { crearRutasAdministracion } from "./modulos/administracion/rutas.js";
 import { crearRegistroConversaciones, type RegistroConversaciones } from "./modulos/agente/conversaciones.js";
+import { crearEmbeddings, type ModeloEmbeddings } from "./modulos/agente/embeddings.js";
 import { crearGemini, type ModeloIA } from "./modulos/agente/gemini.js";
 import { crearHerramientas, type Herramientas } from "./modulos/agente/herramientas.js";
 import { crearRutasAgente } from "./modulos/agente/rutas.js";
 import { crearRutasComunidad } from "./modulos/comunidad/rutas.js";
 import { crearRutasConfiguracion } from "./modulos/configuracion/rutas.js";
+import { crearRutasConocimiento } from "./modulos/conocimiento/rutas.js";
 import { crearRutasAportes, type ClientePorUsuario } from "./modulos/aportes/rutas.js";
 import { crearRutasModeracion } from "./modulos/moderacion/rutas.js";
 import { crearRutasOrganizaciones } from "./modulos/organizaciones/rutas.js";
@@ -41,6 +43,8 @@ export interface Dependencias {
   almacen?: AlmacenEvidencias;
   /** Gemini. Las pruebas usan uno simulado: nunca llaman a la API real. */
   ia?: ModeloIA;
+  /** Embeddings de Gemini (base de conocimiento). Las pruebas usan unos simulados. */
+  embeddings?: ModeloEmbeddings;
   /** Herramientas del agente. Por defecto, consultas públicas con el cliente anon. */
   herramientas?: Herramientas;
   /** Dónde se guardan las conversaciones del agente. */
@@ -59,7 +63,8 @@ export function crearApp(entorno: Entorno, dependencias?: Dependencias) {
   const clienteUsuario = dependencias?.clienteUsuario ?? ((token: string) => crearClienteUsuario(entorno, token));
   const ia = dependencias?.ia ?? crearGemini({ llave: entorno.GEMINI_API_KEY, modelo: entorno.GEMINI_MODELO });
   const conversaciones = dependencias?.conversaciones ?? crearRegistroConversaciones(clienteServicio());
-  const herramientas = dependencias?.herramientas ?? crearHerramientas(publico);
+  const embeddings = dependencias?.embeddings ?? crearEmbeddings({ llave: entorno.GEMINI_API_KEY, modelo: entorno.GEMINI_MODELO_EMBEDDINGS });
+  const herramientas = dependencias?.herramientas ?? crearHerramientas(publico, embeddings);
   const autenticar = crearAutenticar(verificador);
   const autorizar = crearAutorizar(perfiles);
 
@@ -98,6 +103,7 @@ export function crearApp(entorno: Entorno, dependencias?: Dependencias) {
   api.use("/aportes", crearRutasAportes(autenticar, autorizar, clienteUsuario, almacen));
   api.use("/admin", crearRutasModeracion(autenticar, autorizar, clienteUsuario, almacen));
   api.use("/admin", crearRutasAdministracion(autenticar, autorizar, clienteUsuario));
+  api.use("/admin", crearRutasConocimiento(autenticar, autorizar, clienteUsuario, embeddings));
   api.use(
     "/agente",
     crearRutasAgente({
