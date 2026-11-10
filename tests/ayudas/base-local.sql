@@ -39,3 +39,8 @@ as $$
     nullif(current_setting('request.jwt.claims', true), '')::jsonb ->> 'sub'
   ), '')::uuid
 $$;
+
+-- Igual que en Supabase: cada función nueva del esquema public recibe EXECUTE explícito para
+-- anon, authenticated y service_role (privilegios por defecto del proyecto). Por eso revocar
+-- solo a PUBLIC no basta: hay que revocar también a anon y authenticated (hallazgo del PR #6).
+alter default privileges in schema public grant execute on functions to anon, authenticated, service_role;

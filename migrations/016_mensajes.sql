@@ -114,11 +114,14 @@ as $$
   select jsonb_build_object('id', m.id, 'mio', m.autor_id = yo, 'texto', m.texto, 'creado_en', m.creado_en, 'leido_en', m.leido_en)
 $$;
 
--- Reglas comunes al escribir: cuenta activa y límite por hora.
+-- Reglas comunes al escribir: cuenta activa y límite por hora. El candado por persona se queda
+-- hasta el final de la transacción: dos envíos en paralelo de la misma persona esperan su turno,
+-- así no pueden contar 29 los dos y pasarse del límite (ni del de conversaciones nuevas).
+-- Es volatile para que el conteo vea lo que el envío anterior ya confirmó.
 create or replace function revisar_puede_escribir(texto text)
 returns text
 language plpgsql
-stable
+volatile
 security definer
 set search_path = public
 as $$
@@ -128,6 +131,7 @@ begin
   if auth.uid() is null or obtener_rol_actual() is null then
     raise exception 'Inicia sesión con una cuenta activa para escribir' using errcode = '42501', hint = 'publico';
   end if;
+  perform pg_advisory_xact_lock(hashtext('mensajes:' || auth.uid()::text));
   if limpio is null or char_length(limpio) > 2000 then
     raise exception 'El mensaje debe tener de 1 a 2000 caracteres' using errcode = '22023', hint = 'publico';
   end if;
@@ -365,9 +369,13 @@ begin
           from (select * from mensajes x where x.hilo_id = h.id order by x.creado_en desc limit 50) m
         ), '[]'::jsonb))
     ) order by (d.estado = 'pendiente') desc, d.creado_en desc)
+    -- Todas las pendientes, y aparte las 50 revisadas más recientes: una pendiente vieja nunca
+    -- queda fuera por el límite.
     from (select * from denuncias_hilo x
-          where x.estado = 'pendiente' or x.revisada_en > now() - interval '30 days'
-          order by x.creado_en desc limit 50) d
+          where x.estado = 'pendiente'
+             or x.id in (select y.id from denuncias_hilo y
+                         where y.estado = 'revisada' and y.revisada_en > now() - interval '30 days'
+                         order by y.revisada_en desc limit 50)) d
     join hilos h on h.id = d.hilo_id
     join puntos p on p.id = h.punto_id
   ), '[]'::jsonb);
@@ -438,7 +446,9 @@ end;
 $$;
 
 -- ---------------------------------------------------------------------------
--- Permisos de ejecución
+-- Permisos de ejecución. Supabase da EXECUTE explícito a anon y authenticated en cada función
+-- nueva (privilegios por defecto), así que revocar a PUBLIC no basta: se revoca a los tres y se
+-- concede solo lo que cada rol necesita.
 -- ---------------------------------------------------------------------------
 revoke execute on function
   auditar_denuncias_hilo(),
@@ -455,7 +465,7 @@ revoke execute on function
   listar_denuncias_hilos(),
   revisar_denuncia_hilo(uuid, text),
   destinatario_mensaje(uuid)
-from public, anon;
+from public, anon, authenticated;
 
 grant execute on function
   escribir_sobre_punto(uuid, text),

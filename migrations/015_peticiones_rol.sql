@@ -293,7 +293,9 @@ end;
 $$;
 
 -- ---------------------------------------------------------------------------
--- Permisos de ejecución
+-- Permisos de ejecución. Supabase da EXECUTE explícito a anon y authenticated en cada función
+-- nueva (privilegios por defecto), así que revocar a PUBLIC no basta: se revoca a los tres y se
+-- concede solo lo que cada rol necesita.
 -- ---------------------------------------------------------------------------
 revoke execute on function
   auditar_peticiones_rol(),
@@ -305,7 +307,7 @@ revoke execute on function
   listar_peticiones_rol(),
   resolver_peticion_rol(uuid, boolean, text),
   destinatarios_peticion_rol(uuid, text)
-from public, anon;
+from public, anon, authenticated;
 
 grant execute on function
   pedir_rol(text, text, text),

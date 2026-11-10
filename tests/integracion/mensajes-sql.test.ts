@@ -218,5 +218,52 @@ describe.skipIf(!process.env.TEST_DATABASE_URL)("mensajes en la base (migración
       for (let i = 0; i < 10; i++) await escribir(u.moderadora, await nuevoPunto(`Punto ${String(i)}`, u.autora), "hola");
       await expect(escribir(u.moderadora, await nuevoPunto("Once", u.autora), "hola")).rejects.toMatchObject({ code: "55000", message: expect.stringContaining("muchas conversaciones") as unknown });
     });
+
+    it("dos envíos en paralelo de la misma persona no se pasan del límite por hora", async () => {
+      const paralela = randomUUID();
+      await cliente().query("insert into auth.users (id, email, raw_user_meta_data) values ($1, 'paralela@prueba.local', '{}')", [paralela]);
+      const h = (await escribir(paralela, punto.publicado, "1")).hilo.id;
+      await cliente().query("insert into mensajes (hilo_id, autor_id, texto) select $1, $2, 'x' from generate_series(1, 28)", [h, paralela]);
+      const [a, b] = [new pg.Client({ connectionString: base?.url }), new pg.Client({ connectionString: base?.url })];
+      await Promise.all([a.connect(), b.connect()]);
+      try {
+        for (const x of [a, b]) {
+          await x.query("begin");
+          await x.query("select set_config('request.jwt.claim.sub', $1, true)", [paralela]);
+          await x.query("set local role authenticated");
+        }
+        await a.query("select responder_hilo($1, 'treinta')", [h]);
+        // b espera el candado de a; cuando a confirma, b ya cuenta 30 y se rechaza.
+        const segundo = b.query("select responder_hilo($1, 'treinta y uno')", [h]).then(() => "aceptado", (e: unknown) => (e as { code?: string }).code);
+        await new Promise((r) => setTimeout(r, 200));
+        await a.query("commit");
+        expect(await segundo).toBe("55000");
+        await b.query("rollback");
+      } finally {
+        await Promise.all([a.end(), b.end()]);
+      }
+      const { rows } = await cliente().query<{ n: string }>("select count(*) n from mensajes where autor_id = $1", [paralela]);
+      expect(Number(rows[0]?.n)).toBe(30);
+    });
+  });
+
+  it("moderación ve una denuncia pendiente vieja aunque haya más de 50 revisadas recientes", async () => {
+    const vieja = (await escribir(u.carla, await nuevoPunto("Vieja", u.autora), "hola")).hilo.id;
+    await como(u.autora, "denunciar_hilo($1, 'Mensaje fuera de lugar')", [vieja]);
+    await cliente().query("update denuncias_hilo set creado_en = now() - interval '2 days' where hilo_id = $1", [vieja]);
+    await cliente().query(
+      `with p as (
+         insert into puntos (titulo, tipo, gravedad, descripcion, ubicacion, estado, autor_id)
+         select 'Lote ' || g, 'residuos', 1, 'x', st_setsrid(st_makepoint(-103.35, 20.66), 4326)::geography, 'publicado', $1
+         from generate_series(1, 55) g returning id),
+       h as (insert into hilos (punto_id, iniciador_id, destinatario_id) select id, $2, $1 from p returning id)
+       insert into denuncias_hilo (hilo_id, denunciante_id, motivo, estado, revisada_en)
+       select id, $1, 'Revisada de relleno', 'revisada', now() from h`,
+      [u.autora, u.beto],
+    );
+    type Denuncia = { estado: string; hilo: { id: string } };
+    const lista = await como<Denuncia[]>(u.moderadora, "listar_denuncias_hilos()");
+    expect(lista[0]).toMatchObject({ estado: "pendiente", hilo: { id: vieja } });
+    expect(lista.filter((d) => d.estado === "revisada")).toHaveLength(50);
   });
 });

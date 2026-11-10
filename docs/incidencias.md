@@ -39,3 +39,10 @@ Sin incidencias abiertas.
 - **Causa:** la función `revisar_aporte` (migración 008) devuelve el aporte con `revisor_id` pero sin `autor_id`, y la ruta validaba la respuesta con `aporteModeracion`, que exige `autor_id`. La validación fallaba después de que la base ya había confirmado el cambio, y la API respondía 500. Las pruebas HTTP no lo vieron porque la respuesta falsa sí traía `autor_id`; las pruebas SQL no validaban con el esquema de la ruta.
 - **Solución:** la ruta valida con `aporteRevisado` (sin `autor_id`). Prueba nueva `tests/integracion/contratos-sql.test.ts`: llama en una base real a cada función que usa la API y valida su respuesta con el mismo esquema de la ruta; sin el cambio, fallan las tres decisiones de `revisar_aporte`. La respuesta falsa de la prueba HTTP ahora tiene la misma forma que la función real. El prototipo, ante un 409, recarga la cola en lugar de dejar la tarjeta.
 
+
+## I-05: funciones internas ejecutables por anon y authenticated en Supabase (cerrada)
+
+- **Fecha:** 2026-11-10, revisión automática del PR #6 (Codex).
+- **Hallazgo:** Supabase da EXECUTE explícito a `anon` y `authenticated` en cada función nueva del esquema public. Las migraciones revocaban solo a PUBLIC (y a veces a anon), así que esos permisos seguían ahí. Lo grave estaba en el PR #6: `destinatario_mensaje` y `destinatarios_peticion_rol` devuelven correos y cualquier sesión las habría podido llamar por RPC (el correo de quien reportó un punto o los de los administradores). En las migraciones anteriores, el visitante anónimo podía ejecutar funciones de administración y moderación que igual rechazaban por rol.
+- **Por qué no lo vieron las pruebas:** la base local no imitaba esos privilegios por defecto.
+- **Solución:** `tests/ayudas/base-local.sql` ahora los imita (`alter default privileges … grant execute on functions to anon, authenticated, service_role`); con eso fallaban 7 pruebas de permisos. Las migraciones 015 y 016 revocan a `public, anon, authenticated` antes de conceder, y la nueva 017 quita lo sobrante en las funciones de la 004 a la 014. Las 7 pruebas pasan.
