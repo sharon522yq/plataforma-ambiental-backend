@@ -40,7 +40,7 @@ jobs:
           fi
 
       - if: steps.secretos.outputs.hay == 'si'
-        uses: actions/checkout@v5
+        uses: actions/checkout@v7
 
       # pg_dump tiene que ser de la misma versión mayor que el servidor de Supabase (o más nueva):
       # se pregunta la versión y se instala esa del repositorio oficial de PostgreSQL, junto con un
