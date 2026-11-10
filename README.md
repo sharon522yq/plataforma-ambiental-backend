@@ -20,7 +20,8 @@ Copia `.env.example` a `.env` y escribe los valores tú mismo. El archivo `.env`
 Las migraciones están en `migrations/` y se aplican en orden. Cada una corre en su propia transacción y se registra en `esquema_migraciones.aplicadas`, así que no se vuelve a aplicar.
 
 ```
-npm run migrar      # usa DATABASE_URL del .env
+npm run migrar                # usa DATABASE_URL del .env
+npm run migrar -- --estado    # solo mira: lista aplicadas y pendientes, no cambia nada
 ```
 
 ### Pruebas de base de datos
@@ -278,6 +279,7 @@ Para comprobarlo, pide un rol con una cuenta de prueba: las cuentas de administr
 | `npm start` | Ejecuta `dist/server.js` |
 | `npm run typecheck` | Revisa tipos (src y pruebas) |
 | `npm run migrar` | Aplica las migraciones pendientes a `DATABASE_URL` |
+| `npm run migrar -- --estado` | Solo lectura: dice qué migraciones faltan en `DATABASE_URL` |
 | `npm run verificar:gemini` | Comprueba la llave de Gemini sin gastar cuota |
 | `npm run evaluar:agente` | Hace 20 preguntas de prueba al agente real (gasta cuota) |
 | `npm run lint` | Revisa estilo y errores |

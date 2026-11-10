@@ -3,7 +3,7 @@ import os from "node:os";
 import path from "node:path";
 import pg from "pg";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { aplicarMigraciones } from "../../src/config/migraciones.js";
+import { aplicarMigraciones, estadoMigraciones } from "../../src/config/migraciones.js";
 import { type BaseDePruebas, crearBaseDePruebas } from "../ayudas/base-de-pruebas.js";
 
 const TABLAS_ESPERADAS = [
@@ -140,6 +140,65 @@ describe.skipIf(!process.env.TEST_DATABASE_URL)("aplicación atómica de migraci
 
       const registro = await local.query<{ nombre: string }>("select nombre from esquema_migraciones.aplicadas order by nombre");
       expect(registro.rows.map((r) => r.nombre)).toEqual(["001_correcta.sql"]);
+    } finally {
+      await local.end();
+    }
+  });
+});
+
+describe.skipIf(!process.env.TEST_DATABASE_URL)("estado de migraciones (solo lectura)", () => {
+  let carpeta: string;
+  let base: BaseDePruebas | undefined;
+  const url = (): string => {
+    if (!base) throw new Error("Sin base de pruebas");
+    return base.url;
+  };
+  const esquemaControl = async (): Promise<boolean> => {
+    const local = new pg.Client({ connectionString: url() });
+    await local.connect();
+    try {
+      const r = await local.query("select 1 from information_schema.schemata where schema_name = 'esquema_migraciones'");
+      return r.rowCount === 1;
+    } finally {
+      await local.end();
+    }
+  };
+
+  beforeAll(async () => {
+    carpeta = await mkdtemp(path.join(os.tmpdir(), "migraciones-estado-"));
+    await writeFile(path.join(carpeta, "001_uno.sql"), "create table t_uno (id int);");
+    await writeFile(path.join(carpeta, "002_dos.sql"), "create table t_dos (id int);");
+    await writeFile(path.join(carpeta, "notas.txt"), "no es migración");
+    base = await crearBaseDePruebas({ migrar: false });
+  }, 120_000);
+
+  afterAll(async () => {
+    await base?.limpiar();
+    await rm(carpeta, { recursive: true, force: true });
+  });
+
+  it("en una base sin migrar todo está pendiente y no crea nada", async () => {
+    expect(await estadoMigraciones(url(), carpeta)).toEqual({ aplicadas: [], pendientes: ["001_uno.sql", "002_dos.sql"], desconocidas: [] });
+    expect(await esquemaControl()).toBe(false);
+  });
+
+  it("separa aplicadas, pendientes y registradas sin archivo", async () => {
+    await aplicarMigraciones(url(), carpeta);
+    await writeFile(path.join(carpeta, "003_tres.sql"), "create table t_tres (id int);");
+    await rm(path.join(carpeta, "001_uno.sql"));
+    expect(await estadoMigraciones(url(), carpeta)).toEqual({
+      aplicadas: ["002_dos.sql"],
+      pendientes: ["003_tres.sql"],
+      desconocidas: ["001_uno.sql"],
+    });
+  });
+
+  it("no aplica nada al consultar", async () => {
+    const local = new pg.Client({ connectionString: url() });
+    await local.connect();
+    try {
+      const r = await local.query("select to_regclass('public.t_tres') as t");
+      expect(r.rows[0]).toEqual({ t: null });
     } finally {
       await local.end();
     }
