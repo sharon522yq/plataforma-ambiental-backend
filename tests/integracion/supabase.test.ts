@@ -124,6 +124,28 @@ describe.skipIf(process.env.PRUEBAS_SUPABASE !== "1")("salud contra Supabase rea
     expect((await request(app).get("/api/v1/salud/ia")).status).toBe(401);
   });
 
+  it("peticiones de rol y mensajes existen, exigen sesión y no dejan ver correos a un visitante (migraciones 015 a 017)", async () => {
+    const servicio = crearClienteServicio(entorno);
+    const nulo = "00000000-0000-0000-0000-000000000000";
+    for (const [nombre, parametros] of [
+      ["pedir_rol", { rol: "editor", motivo: "prueba sin sesion contra Supabase" }],
+      ["listar_peticiones_rol", {}],
+      ["escribir_sobre_punto", { punto_id: nulo, texto: "prueba sin sesion" }],
+      ["listar_denuncias_hilos", {}],
+    ] as const) {
+      const r = await servicio.rpc(nombre, parametros);
+      expect(r.error?.code, nombre).toBe("42501");
+    }
+    // Solo el backend lee las direcciones para avisar por correo; un visitante no puede ejecutarlas (I-05).
+    expect((await servicio.rpc("destinatario_mensaje", { mensaje_id: nulo })).error).toBeNull();
+    const anon = crearClienteAnon(entorno);
+    expect((await anon.rpc("destinatario_mensaje", { mensaje_id: nulo })).error).not.toBeNull();
+    expect((await anon.rpc("destinatarios_peticion_rol", { peticion_id: nulo, evento: "nueva" })).error).not.toBeNull();
+    for (const ruta of ["/api/v1/cuenta/peticiones-rol", "/api/v1/mensajes", "/api/v1/admin/peticiones-rol", "/api/v1/admin/denuncias-mensajes"]) {
+      expect((await request(app).get(ruta)).status, ruta).toBe(401);
+    }
+  });
+
   it("GET /sesion responde 401 sin token y con la llave anon usada como token", async () => {
     expect((await request(app).get("/api/v1/sesion")).status).toBe(401);
     const r = await request(app).get("/api/v1/sesion").set("Authorization", `Bearer ${entorno.SUPABASE_ANON_KEY}`);
