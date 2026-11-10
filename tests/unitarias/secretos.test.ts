@@ -24,6 +24,7 @@ const PATRONES: [string, RegExp][] = [
   ["llave nueva de Supabase", /sb_(secret|publishable)_[A-Za-z0-9_-]{10,}/],
   ["cadena de PostgreSQL con contraseña real", /postgres(?:ql)?:\/\/[^:\s/]+:(?!\.\.\.|\[|TU_CLAVE)[^@\s]{6,}@/],
   ["llave privada", /-----BEGIN [A-Z ]*PRIVATE KEY-----/],
+  ["llave de Brevo", /xkeysib-[a-f0-9]{20,}/],
 ];
 
 describe("sin secretos en el proyecto", () => {
@@ -45,6 +46,7 @@ describe("sin secretos en el proyecto", () => {
       `sb_secret_${"y".repeat(12)}`,
       "postgresql://postgres:" + "ClaveReal123" + "@db.ejemplo.co:5432/postgres",
       "-----BEGIN " + "PRIVATE KEY-----",
+      "xkeysib-" + "0a".repeat(16),
     ];
     PATRONES.forEach(([, patron], i) => {
       expect(patron.test(falsos[i] ?? "")).toBe(true);

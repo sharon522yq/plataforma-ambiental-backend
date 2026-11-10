@@ -137,6 +137,40 @@ where id = (select id from auth.users where email = 'tu-correo@ejemplo.com');
 
 Después, ese administrador cambia los demás roles desde la API y nombra al segundo administrador (inmediato mientras sea el único). Desde ahí, cualquier cambio de administrador necesita a los dos.
 
+### Pedir un rol (migración 015, D-45)
+
+Cualquier cuenta activa puede pedir el rol de moderador o de editor desde «Mi cuenta», con un motivo (20 a 1000 caracteres) y, si quiere, su zona o colectivo. Ser administrador no se pide: lo da otro administrador con la regla de arriba.
+
+| Ruta | Quién | Qué hace |
+|---|---|---|
+| `GET /api/v1/cuenta/peticiones-rol` | Cuenta activa | Tus peticiones de los últimos 12 meses |
+| `POST /api/v1/cuenta/peticiones-rol` | Cuenta activa | `{ "rol": "moderador" \| "editor", "motivo", "zona"? }`. 409 si ya tienes una pendiente o te rechazaron hace menos de 7 días |
+| `POST /api/v1/cuenta/peticiones-rol/:id/cancelar` | Quien la pidió | Cancela tu petición pendiente |
+| `GET /api/v1/admin/peticiones-rol` | Administrador | Pendientes y las resueltas en 30 días, con el nombre público (nunca el correo) |
+| `PATCH /api/v1/admin/peticiones-rol/:id` | Administrador | `{ "aprobar": true \| false, "respuesta"? }`. Al aprobar, el rol cambia en ese momento y queda en la auditoría como `rol_cambiado`. Nadie resuelve la suya, y no se aprueba si el rol de la persona cambió desde que pidió |
+
+Al crear una petición se avisa por correo a los administradores; al resolverla, a la persona (si el correo está configurado, ver «Correo»).
+
+### Mensajes entre personas (migración 016, D-46)
+
+Desde un punto publicado, cualquier cuenta activa puede escribir a quien lo reportó («Escribir a quien lo reportó»). Se abre una conversación privada entre las dos:
+
+- Quien reportó sigue anónimo: la otra persona lo ve como «Quien reportó el punto». Quien escribe primero aparece con su nombre público. Nadie ve el correo de nadie.
+- Cualquiera de las dos puede **cerrar** la conversación (y solo quien la cerró la reabre) o **denunciarla**. Una denuncia la cierra y la deja visible para moderación, que es la única forma en que alguien más la lee.
+- Límites: 30 mensajes por hora y 10 conversaciones nuevas por día por persona; mensajes de hasta 2000 caracteres.
+- Aviso por correo solo del primer mensaje sin leer de cada conversación, sin el texto ni quién escribió.
+
+| Ruta | Quién | Qué hace |
+|---|---|---|
+| `POST /api/v1/puntos/:id/mensajes` | Cuenta activa | `{ "texto" }`: abre (o sigue) tu conversación con quien reportó el punto |
+| `GET /api/v1/mensajes` | Cuenta activa | Tus conversaciones, con `no_leidos` |
+| `GET /api/v1/mensajes/:id` | Las dos personas | Los últimos 200 mensajes; marca como leídos los que recibiste |
+| `POST /api/v1/mensajes/:id` | Las dos personas | `{ "texto" }`: responde |
+| `POST /api/v1/mensajes/:id/cerrar` · `/reabrir` | Las dos personas | Cierra o reabre |
+| `POST /api/v1/mensajes/:id/denunciar` | Las dos personas | `{ "motivo" }` (10 a 500 caracteres) |
+| `GET /api/v1/admin/denuncias-mensajes` | Moderador, administrador | Conversaciones denunciadas, con sus mensajes |
+| `PATCH /api/v1/admin/denuncias-mensajes/:id` | Moderador, administrador | `{ "nota"? }`: marca la denuncia como revisada |
+
 ## Agente
 
 `POST /api/v1/agente/consulta` con `{ "pregunta": "...", "ubicacion": { "lat": 20.67, "lng": -103.35 } }` (pregunta de 3 a 1000 caracteres; `ubicacion` es opcional). Es público; si viene un token, la conversación se asocia al usuario. Responde `{ respuesta, modelo, aviso, puntos, respaldo }`. Límite: `LIMITE_AGENTE_POR_MINUTO` consultas por minuto por persona (429 al pasarlo). Todavía no consulta documentos propios (RAG, F14).
@@ -220,6 +254,20 @@ Pasos (los haces tú, una vez):
 ### Rutas y accesibilidad (F16)
 
 El detalle de cada punto trae «Cómo llegar» con enlaces a Google Maps y OpenStreetMap que solo llevan las coordenadas del destino: la ruta la calcula el navegador de la persona y la plataforma nunca recibe su ubicación. El sitio cumple WCAG 2.1 AA según axe-core (claro, oscuro, alto contraste y teléfono) y se puede usar entero con el teclado. El botón «Alto contraste» del encabezado recuerda la elección y se activa solo si el sistema pide más contraste.
+
+### Correo (Brevo)
+
+La plataforma envía los avisos de peticiones de rol y de mensajes por la **API HTTP de Brevo**: el plan gratuito de Render bloquea el envío por SMTP. Sin `BREVO_API_KEY` y `CORREO_REMITENTE` todo funciona igual, solo que sin avisos; al arrancar, el registro dice `correo: "activo"` o `"desactivado"`. Los correos de destino los lee solo el backend con la llave de servicio; nunca salen en la API.
+
+Pasos (los haces tú, con tu cuenta; la llave nunca va en el código ni en el chat):
+
+1. Crea una cuenta gratuita en brevo.com.
+2. Agrega y verifica un remitente (la dirección que verá la gente). Lo más confiable es un correo de un dominio propio con el dominio autenticado en Brevo; con una dirección de Gmail u Outlook los avisos pueden llegar a spam o ser rechazados.
+3. En Brevo → **SMTP y API → Llaves de API**, crea una llave para la plataforma.
+4. En Render, en el servicio del backend → **Environment**, agrega `BREVO_API_KEY` (la llave), `CORREO_REMITENTE` (el remitente verificado) y `SITIO_URL` (la URL del sitio público, para los enlaces de los correos). Guarda: Render reinicia el backend.
+5. Recomendado: usa también Brevo para los correos de Supabase (confirmar cuenta), porque el servicio de correo integrado de Supabase tiene un límite muy bajo y es solo para pruebas. En Supabase → **Authentication → Emails → SMTP Settings**, activa el SMTP propio con los datos de la pestaña **SMTP** de Brevo (servidor, puerto, usuario y la llave SMTP, que es distinta de la llave de API). Esto no pasa por Render, así que el bloqueo de SMTP no aplica.
+
+Para comprobarlo, pide un rol con una cuenta de prueba: las cuentas de administrador deben recibir el aviso.
 
 ## Comandos
 

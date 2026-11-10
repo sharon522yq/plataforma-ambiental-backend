@@ -32,8 +32,10 @@ export const parametrosUsuario = z.object({ id: z.uuid() });
 
 export const cuerpoRol = z.object({ rol: z.enum(ROLES) }).strict();
 
-/** Tablas que registra la auditoría (triggers de la 008, 009, 010, 013 y 014). */
-export const TABLAS_AUDITADAS = ["aportes", "puntos", "perfiles", "acciones", "organizaciones", "documentos_conocimiento", "solicitudes_rol"] as const;
+/** Tablas que registra la auditoría (triggers de la 008, 009, 010, 013, 014, 015 y 016). */
+export const TABLAS_AUDITADAS = [
+  "aportes", "puntos", "perfiles", "acciones", "organizaciones", "documentos_conocimiento", "solicitudes_rol", "peticiones_rol", "denuncias_hilo",
+] as const;
 
 export const consultaAuditoria = esquemaPaginacion.extend({
   tabla: z.enum(TABLAS_AUDITADAS).optional(),

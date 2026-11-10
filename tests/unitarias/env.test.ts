@@ -67,4 +67,15 @@ describe("cargarEntorno", () => {
     delete sinLlave.GEMINI_API_KEY;
     expect(() => cargarEntorno(sinLlave)).toThrow(/GEMINI_API_KEY/);
   });
+
+  it("el correo es opcional, y si se configura el remitente debe ser una dirección válida", () => {
+    const e = cargarEntorno(base);
+    expect(e.BREVO_API_KEY).toBeUndefined();
+    expect(e.CORREO_REMITENTE).toBeUndefined();
+    expect(e.CORREO_REMITENTE_NOMBRE).toBe("Plataforma Ambiental");
+    const conCorreo = cargarEntorno({ ...base, BREVO_API_KEY: "x", CORREO_REMITENTE: " avisos@ejemplo.mx ", SITIO_URL: "https://ejemplo.mx" });
+    expect(conCorreo.CORREO_REMITENTE).toBe("avisos@ejemplo.mx");
+    expect(() => cargarEntorno({ ...base, CORREO_REMITENTE: "no-es-correo" })).toThrow(/CORREO_REMITENTE/);
+    expect(() => cargarEntorno({ ...base, SITIO_URL: "no es url" })).toThrow(/SITIO_URL/);
+  });
 });

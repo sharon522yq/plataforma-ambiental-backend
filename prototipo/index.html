@@ -883,6 +883,18 @@ td.num { font-variant-numeric: tabular-nums; }
 .solicitudes li { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 6px 12px; align-items: start; padding-top: 10px; border-top: 1px solid var(--line); }
 .solicitudes li:first-child { border-top: 0; padding-top: 0; }
 .solicitudes li .row { grid-column: 1 / -1; }
+.sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
+/* Mensajes (D-46) */
+.mensajes-vista { display: grid; grid-template-columns: minmax(0, 300px) minmax(0, 1fr); gap: 16px; align-items: start; }
+.hilos { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.hilos button { width: 100%; text-align: left; display: grid; gap: 2px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); color: var(--ink); font: inherit; cursor: pointer; }
+.hilos button[aria-current="true"] { border-color: var(--accent); background: var(--accent-soft); }
+.hilos .no-leidos { justify-self: start; background: var(--accent); color: var(--accent-ink, #fff); border-radius: 999px; padding: 0 8px; font-size: .75rem; font-weight: 600; }
+.burbujas { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; max-height: 55vh; overflow-y: auto; }
+.burbuja { max-width: 80%; padding: 8px 12px; border-radius: 12px; background: var(--surface-2); border: 1px solid var(--line); white-space: pre-wrap; overflow-wrap: anywhere; }
+.burbuja.mia { justify-self: end; background: var(--accent-soft); border-color: transparent; }
+.burbuja .hint { display: block; margin-top: 2px; }
+@media (max-width: 760px) { .mensajes-vista { grid-template-columns: minmax(0, 1fr); } }
 .metricas { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; }
 .metrica { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 14px; display: grid; gap: 6px; align-content: start; }
 .metrica .valor { font: 600 1.6rem/1 var(--f-mono); font-variant-numeric: tabular-nums; }
@@ -978,7 +990,7 @@ const API_POR_DEFECTO = "https://plataforma-ambiental-backend.onrender.com/api/v
 /* Sitio público (Render): siempre con datos reales y textos para el público. Con ?publico=1 se simula en pruebas. */
 const PUBLICO = /\.onrender\.com$/.test(location.hostname) || new URLSearchParams(location.search).has("publico");
 /* Versión del aviso de privacidad: se guarda en la cuenta al registrarse. Cambiarla si cambia el texto. */
-const VERSION_AVISO = "2026-11-05";
+const VERSION_AVISO = "2026-11-10";
 /* Correo para ejercer derechos ARCO. Lo define la persona responsable antes del piloto. */
 const CONTACTO_PRIVACIDAD = "";
 const AVISO_IA = "Respuesta generada por inteligencia artificial. Puede contener errores: verifica con fuentes oficiales.";
@@ -1001,6 +1013,7 @@ const VISTAS = [
   { id: "mapa", nombre: "Mapa", roles: null },
   { id: "reportar", nombre: "Reportar", roles: ["ciudadano", "moderador", "editor", "administrador"] },
   { id: "mis-aportes", nombre: "Mis aportes", roles: ["ciudadano", "moderador", "editor", "administrador"] },
+  { id: "mensajes", nombre: "Mensajes", roles: ["ciudadano", "moderador", "editor", "administrador"] },
   { id: "moderacion", nombre: "Moderación", roles: ["moderador", "administrador"] },
   { id: "administracion", nombre: "Administración", roles: ["editor", "administrador"] },
   { id: "asistente", nombre: "Asistente", roles: null },
@@ -1008,6 +1021,7 @@ const VISTAS = [
 const RUTA_API = {
   reportar: "POST /api/v1/aportes",
   "mis-aportes": "GET /api/v1/aportes/mis",
+  mensajes: "GET /api/v1/mensajes",
   moderacion: "GET /api/v1/admin/aportes",
   administracion: "POST /api/v1/admin/acciones",
 };
@@ -1116,6 +1130,7 @@ const estado = {
   sb: null, // cliente de Supabase Auth (solo en vivo, con la llave anon: D-39)
   sesion: null, // { id, rol, email } leída de GET /sesion
   errorAuth: null,
+  hiloAbierto: null, // conversación abierta en «Mensajes»
 };
 const enVivo = () => estado.fuente === "vivo";
 function rolActual() { return enVivo() ? (estado.sesion ? estado.sesion.rol : "visitante") : estado.rol; }
@@ -1286,9 +1301,16 @@ function vistaCuenta(raiz) {
   if (estado.errorAuth && !estado.sb) { caja.append(h("h2", null, "Iniciar sesión"), h("p", { class: "err" }, estado.errorAuth)); return; }
   if (estado.sesion) {
     caja.append(h("span", { class: "label" }, "Sesión iniciada"), h("h2", null, estado.sesion.email),
-      h("p", { class: "muted" }, "Rol: ", ROLES[estado.sesion.rol], ". El rol lo asigna un administrador; nadie puede cambiarse el suyo."),
+      h("p", { class: "muted" }, "Rol: ", ROLES[estado.sesion.rol], estado.sesion.rol === "administrador"
+        ? ". El rol de administrador lo da o lo quita otro administrador."
+        : ". Nadie puede cambiarse el rol; si quieres moderar o editar, pídelo abajo y un administrador lo revisará."),
       h("div", { class: "row" }, h("a", { class: "btn primary", href: "#mapa" }, "Ir al mapa"),
         h("button", { class: "btn", type: "button", onclick: async () => { await estado.sb.auth.signOut(); toast("Sesión cerrada."); } }, "Salir")));
+    if (estado.sesion.rol !== "administrador") {
+      const lugar = h("div", null, h("p", { class: "muted" }, "Cargando tus peticiones de rol…"));
+      caja.append(lugar);
+      tarjetaPedirRol().then((t) => lugar.replaceWith(t), (e) => lugar.replaceChildren(h("p", { class: "err" }, mensajeError(e))));
+    }
     return;
   }
   let modo = "entrar";
@@ -1615,8 +1637,9 @@ async function pintarDetalle(panel) {
       generales.length ? [h("span", { class: "label" }, "Acciones generales"), generales.map(conRetirar)] : null,
       puede("reportar")
         ? [formEnlacePunto(p, panel),
-           h("a", { class: "btn", href: "#reportar", onclick: () => { estado.reportePunto = p; } }, "Aportar información sobre este punto")]
-        : h("p", { class: "hint" }, "Inicia sesión para agregar enlaces o aportar información sobre este punto.")));
+           h("a", { class: "btn", href: "#reportar", onclick: () => { estado.reportePunto = p; } }, "Aportar información sobre este punto"),
+           enVivo() ? formMensajePunto(p) : null]
+        : h("p", { class: "hint" }, "Inicia sesión para agregar enlaces, aportar información o escribir a quien reportó este punto.")));
 }
 /* «Cómo llegar» (F16): abre la ruta en Google Maps u OpenStreetMap, sin llaves ni costo. La
    ruta sale de donde esté la persona: su ubicación la pide el sitio de mapas, nunca esta plataforma. */
@@ -1706,8 +1729,9 @@ function vistaBloqueo(raiz, vista) {
     h("h2", null, sinSesion ? `Inicia sesión para entrar a ${v.nombre}` : `${v.nombre} es solo para ${v.roles.filter((r) => r !== "ciudadano").map((r) => ROLES[r].toLowerCase()).join(" y ")}`),
     h("p", { class: "muted" }, sinSesion
       ? (enVivo() ? "Entra con tu cuenta de la plataforma o crea una nueva." : "En el modo de ejemplo, elige un rol en «Ver como» arriba a la derecha. Con «API en vivo» puedes iniciar sesión de verdad.")
-      : PUBLICO ? "Si necesitas otro rol, pídelo a una persona administradora." : "El backend responde igual que esta pantalla: la matriz de permisos se prueba en cada push."),
+      : PUBLICO ? "Si quieres ayudar con este rol, pídelo desde tu cuenta y un administrador lo revisará." : "El backend responde igual que esta pantalla: la matriz de permisos se prueba en cada push."),
     sinSesion && enVivo() ? h("div", null, h("a", { class: "btn primary", href: "#cuenta" }, "Iniciar sesión")) : null,
+    !sinSesion && enVivo() && rolActual() !== "administrador" ? h("div", null, h("a", { class: "btn primary", href: "#cuenta" }, "Pedir un rol")) : null,
     PUBLICO ? null : h("div", { class: "codigo" }, codigo)));
 }
 
@@ -2364,9 +2388,13 @@ async function vistaModeracionVivo(raiz) {
   const cola = h("div", { class: "cola" }, h("p", { class: "muted" }, "Cargando la cola…"));
   raiz.replaceChildren(h("div", { class: "wrap" },
     cabecera("Moderación", "Aportes reales de la base. Nadie puede revisar su propio aporte, y rechazar exige un motivo que verá quien lo envió."),
-    h("div", { class: "subtabs", role: "group", "aria-label": "Estado" }, estados.map((s) => h("button", { type: "button", "aria-pressed": String(estado.modTab === s),
+    h("div", { class: "subtabs", role: "group", "aria-label": "Estado" }, [...estados, "mensajes denunciados"].map((s) => h("button", { type: "button", "aria-pressed": String(estado.modTab === s),
       onclick: () => { estado.modTab = s; vistaModeracionVivo(raiz); } }, s))),
     cola));
+  if (estado.modTab === "mensajes denunciados") {
+    try { cola.replaceChildren(...await tarjetasDenunciasMensajes(raiz)); } catch (e) { cola.replaceChildren(h("p", { class: "err" }, mensajeError(e))); }
+    return;
+  }
   try {
     const [r, puntos] = await Promise.all([
       api(`/admin/aportes?estado=${estado.modTab}&limite=50`),
@@ -2600,7 +2628,7 @@ async function panelMetricasVivo() {
   return panelMetricas(m, `Actualizado el ${fechaHora(m.generado_en)} · Las cifras del asistente son de los últimos 7 días, porque las conversaciones se borran a los 7 días.`);
 }
 async function panelUsuariosVivo() {
-  const [r, solicitudes] = await Promise.all([api("/admin/usuarios?limite=100"), api("/admin/solicitudes-rol")]);
+  const [r, solicitudes, peticiones] = await Promise.all([api("/admin/usuarios?limite=100"), api("/admin/solicitudes-rol"), api("/admin/peticiones-rol")]);
   const recargar = async () => {
     const actual = document.getElementById("panel-usuarios");
     try { const nuevo = await panelUsuariosVivo(); if (actual) actual.replaceWith(nuevo); } catch (e) { toast(mensajeError(e)); }
@@ -2632,7 +2660,7 @@ async function panelUsuariosVivo() {
         h("td", { class: "small" }, u.email || "—"), h("td", null, sel),
         h("td", null, h("span", { class: "estado " + (u.activo ? "aprobado" : "rechazado") }, u.activo ? "activo" : "inactivo")));
     }))));
-  return h("div", { class: "pila", id: "panel-usuarios" }, tarjetaSolicitudes(solicitudes.datos, estado.sesion.id, decidir), tabla);
+  return h("div", { class: "pila", id: "panel-usuarios" }, tarjetaPeticionesRol(peticiones.datos, recargar), tarjetaSolicitudes(solicitudes.datos, estado.sesion.id, decidir), tabla);
 }
 async function panelAuditoriaVivo() {
   const r = await api("/admin/auditoria?limite=50");
@@ -2642,6 +2670,243 @@ async function panelAuditoriaVivo() {
     h("tbody", null, r.datos.map((x) => h("tr", null,
       h("td", { class: "num", style: "white-space: nowrap" }, fechaHora(x.creado_en)), h("td", { class: "mono" }, x.tabla), h("td", { class: "mono" }, x.accion),
       h("td", { class: "mono" }, x.usuario_id ? (x.usuario_id === estado.sesion.id ? "tú" : corto(x.usuario_id)) : "sistema"), h("td", { class: "mono" }, corto(x.registro_id)))))));
+}
+
+/* ---------- Peticiones de rol (migración 015, D-45) ---------- */
+const ROLES_PEDIBLES = { moderador: "Revisa los reportes antes de que aparezcan en el mapa.", editor: "Mantiene el catálogo de acciones y organizaciones y la base de conocimiento del asistente." };
+const CLASE_PETICION = { pendiente: "pendiente", aprobada: "aprobado", rechazada: "rechazado", cancelada: "duplicado" };
+async function tarjetaPedirRol() {
+  const { datos } = await api("/cuenta/peticiones-rol");
+  const card = h("div", { class: "card", id: "pedir-rol" });
+  const recargar = async () => { try { card.replaceWith(await tarjetaPedirRol()); } catch (e) { toast(mensajeError(e)); } };
+  const pendiente = datos.find((p) => p.estado === "pendiente");
+  const historial = datos.filter((p) => p !== pendiente).slice(0, 5);
+  const lista = historial.length ? h("ul", { class: "solicitudes" }, historial.map((p) => h("li", null,
+    h("div", null, h("strong", null, ROLES[p.rol_pedido]), h("div", { class: "hint" }, `Pedido el ${fechaHora(p.creado_en)}`),
+      p.respuesta ? h("div", { class: "hint" }, "Respuesta: ", p.respuesta) : null),
+    h("span", { class: "estado " + CLASE_PETICION[p.estado] }, p.estado)))) : null;
+
+  if (pendiente) {
+    card.append(h("h3", null, "Tu petición de rol"),
+      h("p", null, `Pediste el rol de ${ROLES[pendiente.rol_pedido].toLowerCase()} el ${fechaHora(pendiente.creado_en)} `,
+        h("span", { class: "estado pendiente" }, "pendiente")),
+      h("p", { class: "hint" }, "Un administrador la revisará. Te avisaremos por correo cuando la resuelva."),
+      h("div", { class: "row" }, h("button", { class: "btn", type: "button", onclick: async (e) => {
+        e.target.disabled = true;
+        try { await api(`/cuenta/peticiones-rol/${pendiente.id}/cancelar`, { metodo: "POST" }); toast("Petición cancelada."); } catch (err) { toast(mensajeError(err)); }
+        await recargar();
+      } }, "Cancelar petición")), ...(lista ? [lista] : []));
+    return card;
+  }
+
+  const opciones = Object.keys(ROLES_PEDIBLES).filter((r) => r !== estado.sesion.rol);
+  const rol = h("select", { id: "p-rol", class: "inp", "aria-describedby": "p-rol-ayuda" }, opciones.map((r) => h("option", { value: r }, ROLES[r])));
+  const ayudaRol = h("span", { class: "hint", id: "p-rol-ayuda" }, ROLES_PEDIBLES[opciones[0]]);
+  rol.addEventListener("change", () => { ayudaRol.textContent = ROLES_PEDIBLES[rol.value]; });
+  const motivo = h("textarea", { id: "p-motivo", class: "inp", rows: "4", maxlength: "1000",
+    placeholder: "Por qué quieres este rol y qué trabajo haces en tu comunidad. No escribas teléfonos ni correos." });
+  const cuenta = h("span", { class: "hint mono" }, "0 / 1000 (mínimo 20)");
+  motivo.addEventListener("input", () => { cuenta.textContent = `${motivo.value.trim().length} / 1000 (mínimo 20)`; });
+  const zona = h("input", { type: "text", id: "p-zona", class: "inp", maxlength: "200", placeholder: "Ej. Colectivo Río Limpio, Atlixco" });
+  const err = h("div", { class: "err", role: "alert" });
+  const boton = h("button", { class: "btn primary", type: "submit" }, "Enviar petición");
+  const form = h("form", { novalidate: true, class: "pila" },
+    h("div", { class: "field" }, h("label", { class: "label", for: "p-rol" }, "Rol que pides"), rol, ayudaRol),
+    h("div", { class: "field" }, h("label", { class: "label", for: "p-motivo" }, "Motivo"), motivo, cuenta),
+    h("div", { class: "field" }, h("label", { class: "label", for: "p-zona" }, "Zona o colectivo (opcional)"), zona),
+    h("p", { class: "hint" }, "Los administradores verán tu nombre público, el rol que pides y lo que escribas aquí; no ven tu correo en la petición. Te avisaremos por correo cuando la resuelvan."),
+    err, h("div", { class: "row" }, boton));
+  form.addEventListener("submit", async (e) => {
+    e.preventDefault(); err.textContent = "";
+    const texto = motivo.value.trim();
+    if (texto.length < 20) { err.textContent = "Explica el motivo con al menos 20 caracteres."; motivo.focus(); return; }
+    const z = zona.value.trim();
+    if (z && z.length < 2) { err.textContent = "La zona o colectivo necesita al menos 2 caracteres."; zona.focus(); return; }
+    boton.disabled = true;
+    try {
+      await api("/cuenta/peticiones-rol", { metodo: "POST", json: z ? { rol: rol.value, motivo: texto, zona: z } : { rol: rol.value, motivo: texto } });
+      toast("Petición enviada. Te avisaremos por correo.");
+      await recargar();
+    } catch (x) { err.textContent = mensajeError(x); boton.disabled = false; }
+  });
+  card.append(h("h3", null, "Pedir un rol"),
+    h("p", { class: "hint" }, "Si moderas reportes o mantienes el catálogo en tu comunidad, pide el rol. Un administrador lo revisa; tras un rechazo puedes volver a pedirlo en 7 días."),
+    form, ...(lista ? [h("h4", null, "Peticiones anteriores"), lista] : []));
+  return card;
+}
+function tarjetaPeticionesRol(peticiones, recargar) {
+  const pendientes = peticiones.filter((p) => p.estado === "pendiente");
+  const resueltas = peticiones.filter((p) => p.estado !== "pendiente").slice(0, 10);
+  const decidir = async (p, aprobar, respuesta, botones) => {
+    botones.forEach((b) => { b.disabled = true; });
+    try {
+      const x = await api(`/admin/peticiones-rol/${p.id}`, { metodo: "PATCH", json: respuesta ? { aprobar, respuesta } : { aprobar } });
+      toast(x.estado === "aprobada" ? `${p.usuario.nombre || "La persona"} ahora es ${ROLES[p.rol_pedido].toLowerCase()}.` : "Petición rechazada.");
+    } catch (e) { toast("No se pudo resolver la petición: " + mensajeError(e)); }
+    await recargar();
+  };
+  return h("div", { class: "card", id: "peticiones-rol" }, h("h3", null, "Peticiones de rol"),
+    h("p", { class: "hint" }, "Personas que pidieron moderar o editar. Al aprobar, el rol cambia en ese momento y queda en la auditoría. La persona recibe un correo con tu respuesta, si escribes una."),
+    pendientes.length ? h("ul", { class: "solicitudes" }, pendientes.map((p) => {
+      const respuesta = h("input", { type: "text", class: "inp", maxlength: "500", "aria-label": "Respuesta para " + (p.usuario.nombre || "la persona"), placeholder: "Respuesta (opcional)" });
+      const si = h("button", { class: "btn primary", type: "button" }, "Aprobar");
+      const no = h("button", { class: "btn", type: "button" }, "Rechazar");
+      si.addEventListener("click", () => decidir(p, true, respuesta.value.trim(), [si, no]));
+      no.addEventListener("click", () => decidir(p, false, respuesta.value.trim(), [si, no]));
+      return h("li", null,
+        h("div", null, h("strong", null, p.usuario.nombre || "Sin nombre"), `: de ${ROLES[p.rol_actual].toLowerCase()} a ${ROLES[p.rol_pedido].toLowerCase()}`,
+          h("div", { class: "hint" }, `Pedido el ${fechaHora(p.creado_en)}`, p.zona ? ` · ${p.zona}` : ""),
+          h("p", { class: "small", style: "white-space: pre-wrap; margin: 6px 0" }, p.motivo), respuesta),
+        h("span", { class: "estado pendiente" }, "pendiente"),
+        h("div", { class: "row" }, si, no));
+    })) : h("p", { class: "muted" }, "No hay peticiones pendientes."),
+    resueltas.length ? h("details", null, h("summary", null, "Resueltas en los últimos 30 días"),
+      h("ul", { class: "solicitudes" }, resueltas.map((p) => h("li", null,
+        h("div", null, h("strong", null, p.usuario.nombre || "Sin nombre"), `: ${ROLES[p.rol_pedido].toLowerCase()}`,
+          h("div", { class: "hint" }, p.resuelto_en ? `Resuelta el ${fechaHora(p.resuelto_en)}` : "", p.resuelto_por ? ` por ${p.resuelto_por.id === estado.sesion.id ? "ti" : p.resuelto_por.nombre}` : "")),
+        h("span", { class: "estado " + CLASE_PETICION[p.estado] }, p.estado))))) : null);
+}
+
+/* ---------- Mensajes entre personas (migración 016, D-46) ---------- */
+/* Plegable en el detalle del punto: escribe a quien lo reportó, que sigue anónimo. */
+function formMensajePunto(p) {
+  const texto = h("textarea", { id: "mp-texto", class: "inp", rows: "3", maxlength: "2000", placeholder: "Ej.: Vivo cerca y quiero ayudar. ¿Organizamos una limpieza?" });
+  const err = h("div", { class: "err", role: "alert" });
+  const enviar = h("button", { class: "btn primary", type: "submit" }, "Enviar mensaje");
+  const form = h("form", { class: "form-enlace", novalidate: true },
+    h("div", { class: "field" }, h("label", { class: "label", for: "mp-texto" }, "Mensaje"), texto),
+    h("p", { class: "hint" }, "Quien reportó verá tu nombre público y tu mensaje, nunca tu correo; tú tampoco verás el suyo. Por tu seguridad, no compartas teléfono ni dirección."),
+    err, h("div", { class: "row" }, enviar));
+  form.addEventListener("submit", async (e) => {
+    e.preventDefault(); err.textContent = "";
+    if (!texto.value.trim()) { err.textContent = "Escribe un mensaje."; texto.focus(); return; }
+    enviar.disabled = true;
+    try {
+      const r = await api(`/puntos/${encodeURIComponent(p.id)}/mensajes`, { metodo: "POST", json: { texto: texto.value.trim() } });
+      estado.hiloAbierto = r.hilo.id;
+      toast("Mensaje enviado. Sigue la conversación en «Mensajes».");
+      form.replaceChildren(h("p", null, "Mensaje enviado. ", h("a", { href: "#mensajes" }, "Ver la conversación")));
+    } catch (x) { err.textContent = mensajeError(x); enviar.disabled = false; }
+  });
+  return h("details", { class: "agregar-enlace" }, h("summary", { class: "btn" }, "Escribir a quien lo reportó"), form);
+}
+function vistaMensajesDemo(raiz) {
+  raiz.className = "view gutter";
+  raiz.replaceChildren(h("div", { class: "wrap" }, cabecera("Mensajes", "Conversaciones privadas con quien reportó un punto."),
+    h("div", { class: "card" }, h("p", { class: "muted" }, "Los mensajes funcionan con «Datos: API en vivo». En el modo de ejemplo no se guardan conversaciones."))));
+}
+async function vistaMensajesVivo(raiz) {
+  raiz.className = "view gutter";
+  const lista = h("div", null, h("p", { class: "muted" }, "Cargando…"));
+  const detalle = h("div", { class: "card", "aria-live": "polite" }, h("p", { class: "muted" }, "Elige una conversación."));
+  raiz.replaceChildren(h("div", { class: "wrap" },
+    cabecera("Mensajes", "Conversaciones privadas sobre puntos del mapa. Nadie ve el correo de nadie, y quien reportó un punto sigue anónimo.",
+      h("button", { class: "btn", type: "button", onclick: () => vistaMensajesVivo(raiz) }, "Actualizar")),
+    h("div", { class: "mensajes-vista" }, lista, detalle)));
+  let hilos;
+  try { hilos = (await api("/mensajes")).datos; }
+  catch (e) { lista.replaceChildren(h("p", { class: "err" }, mensajeError(e))); return; }
+  if (!hilos.length) {
+    lista.replaceChildren(h("div", { class: "card" }, h("p", { class: "muted" }, "Todavía no tienes conversaciones."),
+      h("p", { class: "hint" }, "Para empezar una, abre un punto en el mapa y usa «Escribir a quien lo reportó».")));
+    detalle.hidden = true;
+    return;
+  }
+  const pintarLista = () => lista.replaceChildren(h("ul", { class: "hilos", "aria-label": "Conversaciones" }, hilos.map((x) => h("li", null,
+    h("button", { type: "button", "aria-current": String(x.id === estado.hiloAbierto), onclick: () => abrir(x.id) },
+      h("strong", null, x.punto.titulo),
+      h("span", { class: "small" }, x.con, x.estado === "cerrado" ? " · cerrada" : ""),
+      h("span", { class: "hint" }, fechaHora(x.ultimo_mensaje_en)),
+      x.no_leidos ? h("span", { class: "no-leidos" }, x.no_leidos === 1 ? "1 sin leer" : `${x.no_leidos} sin leer`) : null)))));
+  const abrir = async (id) => {
+    estado.hiloAbierto = id;
+    pintarLista();
+    detalle.replaceChildren(h("p", { class: "muted" }, "Cargando…"));
+    try {
+      const c = await api(`/mensajes/${id}`);
+      const i = hilos.findIndex((x) => x.id === id);
+      if (i >= 0) hilos[i] = c.hilo;
+      pintarLista();
+      pintarConversacion(c);
+    } catch (e) { detalle.replaceChildren(h("p", { class: "err" }, mensajeError(e))); }
+  };
+  const pintarConversacion = ({ hilo, mensajes }) => {
+    const verPunto = h("a", { href: "#mapa", onclick: () => { estado.seleccionado = hilo.punto.id; } }, hilo.punto.titulo);
+    const burbujas = h("ol", { class: "burbujas", "aria-label": "Mensajes" }, mensajes.map((m) => h("li", { class: "burbuja" + (m.mio ? " mia" : "") },
+      h("span", { class: "sr-only" }, m.mio ? "Tú: " : hilo.con + ": "), m.texto,
+      h("span", { class: "hint" }, fechaHora(m.creado_en), m.mio && m.leido_en ? " · leído" : ""))));
+    const partes = [
+      h("h3", null, hilo.con),
+      h("p", { class: "hint" }, "Sobre el punto ", verPunto, hilo.soy_quien_reporto ? ". Tú lo reportaste: la otra persona no ve tu nombre." : "."),
+      burbujas,
+    ];
+    if (hilo.estado === "abierto") {
+      const texto = h("textarea", { id: "m-texto", class: "inp", rows: "3", maxlength: "2000", "aria-label": "Tu mensaje" });
+      const err = h("div", { class: "err", role: "alert" });
+      const enviar = h("button", { class: "btn primary", type: "submit" }, "Enviar");
+      const form = h("form", { class: "pila", novalidate: true }, texto, err, h("div", { class: "row" }, enviar,
+        h("span", { class: "hint" }, "No compartas teléfono, dirección ni datos de otras personas.")));
+      form.addEventListener("submit", async (e) => {
+        e.preventDefault(); err.textContent = "";
+        if (!texto.value.trim()) { err.textContent = "Escribe un mensaje."; return; }
+        enviar.disabled = true;
+        try { await api(`/mensajes/${hilo.id}`, { metodo: "POST", json: { texto: texto.value.trim() } }); await abrir(hilo.id); }
+        catch (x) { err.textContent = mensajeError(x); enviar.disabled = false; }
+      });
+      partes.push(form);
+    } else {
+      partes.push(h("p", { class: "muted" }, hilo.cerrado_por_mi ? "Cerraste esta conversación: nadie puede escribir." : "La otra persona cerró esta conversación."));
+    }
+    const accion = async (ruta, cuerpo, aviso) => {
+      try { await api(`/mensajes/${hilo.id}/${ruta}`, { metodo: "POST", json: cuerpo }); toast(aviso); await abrir(hilo.id); }
+      catch (x) { toast(mensajeError(x)); }
+    };
+    const motivo = h("textarea", { id: "m-motivo", class: "inp", rows: "2", maxlength: "500", placeholder: "Qué pasó (al menos 10 caracteres)" });
+    const errD = h("div", { class: "err", role: "alert" });
+    const formD = h("form", { class: "pila", novalidate: true },
+      h("label", { class: "label", for: "m-motivo" }, "Motivo de la denuncia"), motivo,
+      h("p", { class: "hint" }, "Moderación podrá leer esta conversación para revisarla. La conversación se cierra al denunciar."),
+      errD, h("div", { class: "row" }, h("button", { class: "btn", type: "submit" }, "Enviar denuncia")));
+    formD.addEventListener("submit", (e) => {
+      e.preventDefault();
+      if (motivo.value.trim().length < 10) { errD.textContent = "Explica el motivo con al menos 10 caracteres."; return; }
+      accion("denunciar", { motivo: motivo.value.trim() }, "Denuncia enviada a moderación.");
+    });
+    partes.push(h("div", { class: "row" },
+      hilo.estado === "abierto"
+        ? h("button", { class: "btn ghost", type: "button", onclick: () => accion("cerrar", undefined, "Conversación cerrada.") }, "Cerrar conversación")
+        : hilo.cerrado_por_mi ? h("button", { class: "btn ghost", type: "button", onclick: () => accion("reabrir", undefined, "Conversación reabierta.") }, "Reabrir") : null),
+      h("details", null, h("summary", { class: "small" }, "Denunciar esta conversación"), formD));
+    detalle.hidden = false;
+    detalle.replaceChildren(...partes);
+    burbujas.scrollTop = burbujas.scrollHeight;
+  };
+  pintarLista();
+  const inicial = hilos.find((x) => x.id === estado.hiloAbierto) ? estado.hiloAbierto : (matchMedia("(min-width: 761px)").matches ? hilos[0].id : null);
+  if (inicial) await abrir(inicial);
+}
+async function tarjetasDenunciasMensajes(raiz) {
+  const { datos } = await api("/admin/denuncias-mensajes");
+  if (!datos.length) return [h("div", { class: "card" }, h("p", { class: "muted" }, "No hay conversaciones denunciadas."))];
+  return datos.map((d) => {
+    const nota = h("input", { type: "text", class: "inp", maxlength: "500", "aria-label": "Nota de revisión", placeholder: "Nota (opcional)" });
+    const revisar = h("button", { class: "btn primary", type: "button" }, "Marcar como revisada");
+    revisar.addEventListener("click", async () => {
+      revisar.disabled = true;
+      try { await api(`/admin/denuncias-mensajes/${d.id}`, { metodo: "PATCH", json: nota.value.trim() ? { nota: nota.value.trim() } : {} }); toast("Denuncia revisada."); }
+      catch (e) { toast(mensajeError(e)); }
+      vistaModeracionVivo(raiz);
+    });
+    return h("article", { class: "card" },
+      h("div", { class: "row", style: "justify-content: space-between" }, h("strong", null, "Sobre «", d.hilo.punto.titulo, "»"),
+        h("span", { class: "estado " + (d.estado === "pendiente" ? "pendiente" : "aprobado") }, d.estado)),
+      h("p", null, h("span", { class: "label" }, "Motivo"), " ", d.motivo),
+      h("p", { class: "hint" }, `Denunció ${d.denunciante.nombre || "una persona"} el ${fechaHora(d.creado_en)}`, d.nota ? ` · Nota: ${d.nota}` : ""),
+      h("ol", { class: "burbujas", "aria-label": "Mensajes de la conversación" }, d.hilo.mensajes.map((m) => h("li", { class: "burbuja" + (m.autor.id === d.denunciante.id ? " mia" : "") },
+        h("strong", { class: "small" }, m.autor.nombre || "Sin nombre"), h("br"), m.texto, h("span", { class: "hint" }, fechaHora(m.creado_en))))),
+      d.estado === "pendiente" ? h("div", { class: "row" }, nota, revisar) : null,
+      h("p", { class: "hint" }, "Si hay abuso, una persona administradora puede desactivar la cuenta en Administración > Usuarios y roles."));
+  });
 }
 
 /* ---------- Aviso de privacidad (borrador para revisión; LFPDPPP) ---------- */
@@ -2660,6 +2925,8 @@ function vistaPrivacidad(raiz) {
     h("ul", null,
       li("Para tu cuenta: correo electrónico, contraseña (la guarda Supabase cifrada; nosotros nunca la vemos) y, si lo das, un nombre público."),
       li("En cada reporte: tipo de problema, descripción, ubicación del problema (no la tuya), gravedad sugerida, foto opcional y enlaces para ayudar."),
+      li("Si pides un rol: el rol que pides, tu motivo y, si la das, tu zona o colectivo."),
+      li("Si usas «Mensajes»: el texto de tus mensajes, la fecha y con quién conversas."),
       li("En el asistente: tu pregunta, sin correos ni teléfonos (el servidor los quita antes de procesarla). Si marcas «Usar mi ubicación», tu ubicación aproximada (unos 100 m) se usa solo para buscar puntos cercanos: no se envía a Google ni se guarda."),
       li("Datos técnicos mínimos para seguridad: dirección IP para limitar abusos y un registro de solicitudes sin datos personales.")),
     p("No pedimos datos sensibles. Te pedimos no escribir datos personales de nadie en descripciones ni preguntas."),
@@ -2668,15 +2935,18 @@ function vistaPrivacidad(raiz) {
       li("Crear y proteger tu cuenta, y mostrarte el estado de tus reportes."),
       li("Revisar los reportes antes de publicarlos y mostrarlos en el mapa público sin tu nombre ni tu correo."),
       li("Responder tus preguntas con el asistente."),
+      li("Revisar tu petición de rol: la persona administradora ve tu nombre público, el rol que pides y tu motivo, no tu correo."),
+      li("Entregar tus mensajes a la otra persona. Nadie ve el correo de nadie, y quien reportó un punto aparece como «Quien reportó el punto», sin su nombre. Nadie más lee la conversación, salvo el equipo de moderación si una de las dos personas la denuncia."),
+      li("Avisarte por correo cuando se resuelve tu petición de rol o cuando tienes un mensaje nuevo. El aviso no lleva el texto del mensaje."),
       li("Mantener un registro de auditoría de lo que hacen moderadores y administradores.")),
     p("No usamos tus datos para publicidad ni los vendemos."),
     h("h3", null, "Con quién se comparten"),
-    p("Con proveedores que alojan el servicio y solo actúan por encargo del proyecto: Supabase (base de datos, cuentas y fotos), Render (servidor) y Google (Gemini, que recibe las preguntas al asistente sin datos de contacto). No hay otras transferencias."),
+    p("Con proveedores que alojan el servicio y solo actúan por encargo del proyecto: Supabase (base de datos, cuentas y fotos), Render (servidor), Google (Gemini, que recibe las preguntas al asistente sin datos de contacto) y Brevo (envío de los avisos por correo: recibe tu correo, tu nombre público y el texto del aviso). No hay otras transferencias."),
     h("h3", null, "Cuánto tiempo"),
     h("ul", null,
       li("Las conversaciones con el asistente se borran a los 7 días."),
       li("Las fotos se guardan sin ubicación GPS ni datos de la cámara."),
-      li("Tu cuenta y tus reportes se conservan mientras la cuenta exista o hasta que pidas su cancelación.")),
+      li("Tu cuenta, tus reportes, tus peticiones de rol y tus mensajes se conservan mientras la cuenta exista o hasta que pidas su cancelación.")),
     h("h3", null, "Tus derechos (ARCO)"),
     p("Puedes pedir acceso, rectificación, cancelación u oposición sobre tus datos, o revocar tu consentimiento, escribiendo al contacto de arriba con tu correo de registro. Respondemos en un máximo de 20 días hábiles."),
     h("h3", null, "Cambios a este aviso"),
@@ -2690,7 +2960,7 @@ function pintarPie() {
 }
 
 /* ---------- Enrutador ---------- */
-const VISTAS_VIVO = { "mis-aportes": vistaMisAportesVivo, moderacion: vistaModeracionVivo, administracion: vistaAdministracionVivo };
+const VISTAS_VIVO = { "mis-aportes": vistaMisAportesVivo, mensajes: vistaMensajesVivo, moderacion: vistaModeracionVivo, administracion: vistaAdministracionVivo };
 function mostrar() {
   const id = (location.hash || "#mapa").slice(1);
   estado.vista = id === "cuenta" || id === "privacidad" || VISTAS.some((v) => v.id === id) ? id : "mapa";
@@ -2703,7 +2973,7 @@ function mostrar() {
   else if (estado.vista === "privacidad") vistaPrivacidad(raiz);
   else if (!puede(estado.vista)) vistaBloqueo(raiz, estado.vista);
   else if (enVivo() && VISTAS_VIVO[estado.vista]) VISTAS_VIVO[estado.vista](raiz);
-  else ({ mapa: vistaMapa, reportar: vistaReportar, "mis-aportes": vistaMisAportes, moderacion: vistaModeracion, administracion: vistaAdministracion, asistente: vistaAsistente })[estado.vista](raiz);
+  else ({ mapa: vistaMapa, reportar: vistaReportar, "mis-aportes": vistaMisAportes, mensajes: vistaMensajesDemo, moderacion: vistaModeracion, administracion: vistaAdministracion, asistente: vistaAsistente })[estado.vista](raiz);
   const hdr = document.getElementById("topbar").offsetHeight;
   document.documentElement.style.setProperty("--hdr", hdr + "px");
 }

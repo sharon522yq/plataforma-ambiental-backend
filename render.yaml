@@ -32,6 +32,13 @@ services:
         sync: false
       - key: CORS_ORIGENES
         sync: false
+      # Correo (opcional, D-41). Sin estas dos, no se envían avisos.
+      - key: BREVO_API_KEY
+        sync: false
+      - key: CORREO_REMITENTE
+        sync: false
+      - key: SITIO_URL
+        sync: false
 
   # Sitio público (F12): el mismo prototipo, servido como archivo estático. No tiene
   # secretos: la llave anon de Supabase llega desde GET /configuracion-publica (D-39).

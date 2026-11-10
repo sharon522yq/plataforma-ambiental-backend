@@ -14,6 +14,8 @@ import {
 import { accion } from "../../src/modulos/acciones/rutas.js";
 import { fragmentoEncontrado } from "../../src/modulos/agente/herramientas.js";
 import { documento } from "../../src/modulos/conocimiento/rutas.js";
+import { peticionAdmin, peticionPropia } from "../../src/modulos/cuenta/esquemas.js";
+import { conversacion, denunciaHilo, denunciaRevisada, escrito, hilo } from "../../src/modulos/mensajes/esquemas.js";
 import { aporteModeracion, aportePropio, aporteRevisado } from "../../src/modulos/aportes/esquemas.js";
 import { puntoModeracion } from "../../src/modulos/moderacion/esquemas.js";
 import { organizacion } from "../../src/modulos/organizaciones/rutas.js";
@@ -177,6 +179,40 @@ describe.skipIf(!process.env.TEST_DATABASE_URL)("contrato entre funciones SQL y 
       validar(solicitudRol, await como(u.moderadora, "resolver_solicitud_rol($1, false)", [pendiente.solicitud?.id]));
       validar(metricas, await como(u.admin, "metricas_plataforma()"));
       await cliente().query("update perfiles set rol = 'moderador' where id = $1", [u.moderadora]);
+    });
+  });
+
+  describe("peticiones de rol (migración 015)", () => {
+    it("pedir, ver, cancelar, listar y resolver cumplen sus esquemas", async () => {
+      const motivo = "Coordino las brigadas de limpieza del río en mi colonia";
+      const primera = validar(peticionPropia, await como(u.ciudadana, "pedir_rol('editor', $1, 'Atlixco')", [motivo]));
+      expect(validar(peticionPropia.array(), await como(u.ciudadana, "mis_peticiones_rol()"))).toHaveLength(1);
+      expect(validar(peticionPropia, await como(u.ciudadana, "cancelar_peticion_rol($1)", [primera.id])).estado).toBe("cancelada");
+      const segunda = validar(peticionPropia, await como(u.ciudadana, "pedir_rol('moderador', $1)", [motivo]));
+      const lista = validar(peticionAdmin.array(), await como(u.admin, "listar_peticiones_rol()"));
+      expect(lista[0]).toMatchObject({ id: segunda.id, usuario: { id: u.ciudadana } });
+      const resuelta = validar(peticionAdmin, await como(u.admin, "resolver_peticion_rol($1, true, 'Bienvenida')", [segunda.id]));
+      expect(resuelta.resuelto_por?.id).toBe(u.admin);
+      await cliente().query("update perfiles set rol = 'ciudadano' where id = $1", [u.ciudadana]);
+    });
+  });
+
+  describe("mensajes (migración 016)", () => {
+    it("escribir, leer, responder, cerrar, denunciar y revisar cumplen sus esquemas", async () => {
+      const { rows } = await cliente().query<{ id: string }>(
+        `insert into puntos (titulo, tipo, gravedad, descripcion, ubicacion, estado, autor_id)
+         values ('Con autora', 'residuos', 2, 'x', st_setsrid(st_makepoint($1, $2), 4326)::geography, 'publicado', $3) returning id`,
+        [CENTRO.lng, CENTRO.lat, u.ciudadana],
+      );
+      const e = validar(escrito, await como(u.admin, "escribir_sobre_punto($1, 'Hola')", [rows[0]?.id]));
+      validar(hilo.array(), await como(u.ciudadana, "mis_hilos()"));
+      validar(conversacion, await como(u.ciudadana, "leer_hilo($1)", [e.hilo.id]));
+      validar(escrito, await como(u.ciudadana, "responder_hilo($1, 'Hola, gracias')", [e.hilo.id]));
+      validar(hilo, await como(u.ciudadana, "cerrar_hilo($1)", [e.hilo.id]));
+      validar(hilo, await como(u.ciudadana, "reabrir_hilo($1)", [e.hilo.id]));
+      validar(hilo, await como(u.ciudadana, "denunciar_hilo($1, 'Mensajes que no quiero recibir')", [e.hilo.id]));
+      const [d] = validar(denunciaHilo.array(), await como(u.moderadora, "listar_denuncias_hilos()"));
+      validar(denunciaRevisada, await como(u.moderadora, "revisar_denuncia_hilo($1)", [d?.id]));
     });
   });
 });

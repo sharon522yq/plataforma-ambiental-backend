@@ -20,6 +20,16 @@ const esquema = z.object({
   LIMITE_AGENTE_POR_MINUTO: z.coerce.number().int().positive().default(10),
   /** Cuántos proxies hay delante del servidor (Render: 1). En la PC, 0. */
   PROXIES_DE_CONFIANZA: z.coerce.number().int().min(0).max(3).default(0),
+  /**
+   * Correo por la API HTTP de Brevo (D-45). Render gratis bloquea SMTP, por eso no se usa SMTP.
+   * Sin BREVO_API_KEY o sin CORREO_REMITENTE no se envían correos y todo lo demás funciona igual.
+   */
+  BREVO_API_KEY: z.string().min(1).optional(),
+  /** Remitente verificado en Brevo (ej. avisos@tu-dominio.mx). */
+  CORREO_REMITENTE: z.email().optional(),
+  CORREO_REMITENTE_NOMBRE: z.string().min(1).max(70).default("Plataforma Ambiental"),
+  /** Dirección del sitio público, para el enlace de los correos. */
+  SITIO_URL: z.url().optional(),
 });
 
 export type Entorno = z.infer<typeof esquema>;

@@ -5,6 +5,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Entorno } from "./config/env.js";
 import { crearVerificadorSupabase, type VerificadorJwt } from "./config/jwt.js";
 import { crearClienteAnon, crearClienteServicio, crearClienteUsuario } from "./config/supabase.js";
+import { crearCorreo, type EnviadorCorreo } from "./compartido/correo.js";
 import { crearAlmacenSupabase, type AlmacenEvidencias } from "./compartido/evidencias.js";
 import { crearLectorPerfiles, type LectorPerfiles } from "./compartido/perfiles.js";
 import { crearAutenticar } from "./middleware/autenticar.js";
@@ -23,7 +24,11 @@ import { crearRutasAgente } from "./modulos/agente/rutas.js";
 import { crearRutasComunidad } from "./modulos/comunidad/rutas.js";
 import { crearRutasConfiguracion } from "./modulos/configuracion/rutas.js";
 import { crearRutasConocimiento } from "./modulos/conocimiento/rutas.js";
+import { crearAvisosPeticionRol, type AvisosPeticionRol } from "./modulos/cuenta/avisos.js";
+import { crearRutasCuenta } from "./modulos/cuenta/rutas.js";
 import { crearRutasAportes, type ClientePorUsuario } from "./modulos/aportes/rutas.js";
+import { crearAvisosMensajes, type AvisosMensajes } from "./modulos/mensajes/avisos.js";
+import { crearRutasMensajes } from "./modulos/mensajes/rutas.js";
 import { crearRutasModeracion } from "./modulos/moderacion/rutas.js";
 import { crearRutasOrganizaciones } from "./modulos/organizaciones/rutas.js";
 import { crearRutasPuntos } from "./modulos/puntos/rutas.js";
@@ -49,6 +54,12 @@ export interface Dependencias {
   herramientas?: Herramientas;
   /** Dónde se guardan las conversaciones del agente. */
   conversaciones?: RegistroConversaciones;
+  /** Envío de correo. Por defecto, Brevo si hay llave y remitente; si no, desactivado. */
+  correo?: EnviadorCorreo;
+  /** Avisos de peticiones de rol. Las pruebas usan unos que solo registran las llamadas. */
+  avisos?: AvisosPeticionRol;
+  /** Avisos de mensajes nuevos entre personas. */
+  avisosMensajes?: AvisosMensajes;
 }
 
 export function crearApp(entorno: Entorno, dependencias?: Dependencias) {
@@ -65,6 +76,9 @@ export function crearApp(entorno: Entorno, dependencias?: Dependencias) {
   const conversaciones = dependencias?.conversaciones ?? crearRegistroConversaciones(clienteServicio());
   const embeddings = dependencias?.embeddings ?? crearEmbeddings({ llave: entorno.GEMINI_API_KEY, modelo: entorno.GEMINI_MODELO_EMBEDDINGS });
   const herramientas = dependencias?.herramientas ?? crearHerramientas(publico, embeddings);
+  const correo = dependencias?.correo ?? crearCorreo(entorno);
+  const avisos = dependencias?.avisos ?? crearAvisosPeticionRol({ correo, servicio: clienteServicio, sitioUrl: entorno.SITIO_URL });
+  const avisosMensajes = dependencias?.avisosMensajes ?? crearAvisosMensajes({ correo, servicio: clienteServicio, sitioUrl: entorno.SITIO_URL });
   const autenticar = crearAutenticar(verificador);
   const autorizar = crearAutorizar(perfiles);
 
@@ -97,6 +111,9 @@ export function crearApp(entorno: Entorno, dependencias?: Dependencias) {
   api.use("/sesion", crearRutasSesion(autenticar, autorizar));
   // Antes de /puntos: sus rutas (POST /puntos/:id/acciones) no deben llevar la caché pública.
   api.use(crearRutasComunidad(autenticar, autorizar, clienteUsuario));
+  api.use(crearRutasCuenta(autenticar, autorizar, clienteUsuario, avisos));
+  // También antes de /puntos: POST /puntos/:id/mensajes es privado y no lleva caché pública.
+  api.use(crearRutasMensajes(autenticar, autorizar, clienteUsuario, avisosMensajes));
   api.use("/puntos", crearRutasPuntos(publico));
   api.use("/acciones", crearRutasAcciones(publico));
   api.use("/organizaciones", crearRutasOrganizaciones(publico));

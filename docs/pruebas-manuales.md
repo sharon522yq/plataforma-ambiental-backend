@@ -95,3 +95,22 @@ Necesita la migración 014 aplicada y dos cuentas de administrador reales (A y B
 4. Pulsa «Alto contraste»: los textos se vuelven negros sobre blanco (o blancos sobre negro en modo oscuro), los enlaces subrayados y el foco más grueso. Recarga: se queda puesto. Púlsalo otra vez para quitarlo.
 5. Con el lector de pantalla del teléfono (TalkBack en Android, VoiceOver en iPhone), abre el sitio y recorre la lista: debe leer el título, el tipo y el estado de cada punto, y «actual» en el que elegiste.
 6. En Administración, en una tabla ancha, pulsa Tab hasta la tabla y usa las flechas: se desplaza de lado.
+
+## Pedir un rol (migración 015)
+Necesita la migración 015 aplicada, una cuenta ciudadana (C) y una administradora (A). Para los correos, Brevo configurado (README → «Correo»).
+1. C entra a «Mi cuenta»: aparece «Pedir un rol». Envía con un motivo de menos de 20 caracteres: esperado «al menos 20 caracteres».
+2. C pide «Moderador» con un motivo completo: queda «pendiente» con el botón «Cancelar petición». Si el correo está activo, A recibe «Nueva petición de rol» sin el motivo ni el correo de C.
+3. C intenta pedir otra vez (desde la API): esperado 409 «Ya tienes una petición pendiente».
+4. A abre Administración → Usuarios y roles → «Peticiones de rol»: ve el nombre público, el motivo y la zona de C, nunca su correo.
+5. A rechaza con la respuesta «Cuéntanos más»: C ve «rechazada» con la respuesta y recibe el correo. Si C pide de nuevo antes de 7 días: esperado 409.
+6. (Otra petición) A aprueba: C recarga y ya ve «Moderación». En Auditoría aparecen `rol_pedido`, `peticion_aprobada` y `rol_cambiado`.
+
+## Mensajes (migración 016)
+Necesita la migración 016, un punto publicado reportado por la cuenta R y otra cuenta E.
+1. E abre el punto en el mapa → «Escribir a quien lo reportó» → envía un mensaje: esperado «Mensaje enviado» y un enlace a la conversación.
+2. R entra a «Mensajes»: ve la conversación con el nombre público de E y «1 sin leer». Si el correo está activo, R recibió «Mensaje nuevo sobre «…»» sin el texto.
+3. E ve a R como «Quien reportó el punto», nunca su nombre ni su correo.
+4. E envía tres mensajes seguidos sin que R los lea: R recibe un solo correo.
+5. R pulsa «Cerrar conversación»: ninguna de las dos puede escribir. Solo R ve «Reabrir».
+6. R denuncia la conversación con un motivo: queda cerrada y no se puede reabrir. Una cuenta moderadora la ve en Moderación → «mensajes denunciados» con los mensajes, y la marca como revisada. En Auditoría aparecen `conversacion_denunciada` y `denuncia_revisada`, sin el texto.
+7. Una tercera cuenta prueba `GET /api/v1/mensajes/<id de la conversación>`: esperado 404.
