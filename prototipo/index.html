@@ -1691,7 +1691,18 @@ function formEnlacePunto(p, panel) {
     toast("Enlace publicado en «Cómo ayudar».");
     pintarDetalle(panel);
   });
-  return h("details", { class: "agregar-enlace" }, h("summary", { class: "btn" }, "+ Agregar un enlace para ayudar"), form);
+  return plegable("+ Agregar un enlace para ayudar", form);
+}
+/* Al abrir un formulario plegable, lo muestra entero y pone el cursor en su primer campo:
+   si el botón quedaba al fondo del panel, el formulario se abría fuera de la vista. */
+function plegable(texto, form) {
+  const d = h("details", { class: "agregar-enlace" }, h("summary", { class: "btn" }, texto), form);
+  d.addEventListener("toggle", () => {
+    if (!d.open) return;
+    form.scrollIntoView({ block: "nearest" });
+    form.querySelector("input, select, textarea")?.focus({ preventScroll: true });
+  });
+  return d;
 }
 async function retirarEnlace(a, panel) {
   if (!confirm(`¿Retirar el enlace «${a.nombre}»? Dejará de verse en el mapa. Queda registrado en la auditoría.`)) return;
@@ -2788,7 +2799,7 @@ function formMensajePunto(p) {
       form.replaceChildren(h("p", null, "Mensaje enviado. ", h("a", { href: "#mensajes" }, "Ver la conversación")));
     } catch (x) { err.textContent = mensajeError(x); enviar.disabled = false; }
   });
-  return h("details", { class: "agregar-enlace" }, h("summary", { class: "btn" }, "Escribir a quien lo reportó"), form);
+  return plegable("Escribir a quien lo reportó", form);
 }
 function vistaMensajesDemo(raiz) {
   raiz.className = "view gutter";
