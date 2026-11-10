@@ -1,4 +1,4 @@
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { runInNewContext } from "node:vm";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -84,6 +84,21 @@ describe("sitio público en Render", () => {
   it("la página declara su codificación y se adapta al teléfono", () => {
     expect(pagina).toMatch(/<meta charset="utf-8">/);
     expect(pagina).toMatch(/<meta name="viewport" content="width=device-width, initial-scale=1">/);
+  });
+
+  it("se puede encontrar y compartir: modo estándar, español, título, descripción e ícono", () => {
+    // Sin doctype el navegador usa el modo de compatibilidad; sin lang, Google y los lectores de pantalla no saben el idioma.
+    expect(pagina.startsWith("<!doctype html>\n<html lang=\"es-MX\">")).toBe(true);
+    expect(/<title>([^<]+)<\/title>/.exec(pagina)?.[1]).toMatch(/^Plataforma Ambiental: .{20,}/);
+    expect(/<meta name="description" content="([^"]+)">/.exec(pagina)?.[1]?.length).toBeGreaterThanOrEqual(50);
+    for (const propiedad of ["og:type", "og:locale", "og:title", "og:description"]) {
+      expect(pagina, propiedad).toMatch(new RegExp(`<meta property="${propiedad}" content="[^"]+">`));
+    }
+    // Los íconos se sirven desde el mismo sitio, así que la política de contenido ('self') los deja pasar.
+    for (const archivo of [...pagina.matchAll(/<link rel="(?:icon|apple-touch-icon)" href="([^"]+)"/g)].map((m) => m[1] ?? "")) {
+      expect(existsSync(path.join(RAIZ, "prototipo", archivo)), archivo).toBe(true);
+    }
+    expect(pagina).toMatch(/<noscript>[\s\S]*Plataforma Ambiental[\s\S]*<\/noscript>/);
   });
 });
 

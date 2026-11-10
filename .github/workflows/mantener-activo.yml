@@ -1,0 +1,26 @@
+# Plan gratis: Supabase pausa el proyecto tras unos 7 días sin actividad. Cada 3 días se consulta
+# /api/v1/salud, que lee la base, para que no se pause. No usa secretos ni cambia datos.
+# GitHub apaga las tareas programadas de un repositorio sin actividad en 60 días: si pasa,
+# se reactiva en la pestaña Actions.
+name: Mantener activo
+
+on:
+  schedule:
+    - cron: "17 14 */3 * *"
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  salud:
+    name: Consultar la salud de la API
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      # El servicio gratis de Render duerme: la primera respuesta puede tardar hasta un minuto.
+      - name: GET /api/v1/salud
+        run: |
+          respuesta=$(curl -fsS --retry 3 --retry-delay 20 --retry-all-errors --max-time 90 \
+            https://plataforma-ambiental-backend.onrender.com/api/v1/salud)
+          echo "$respuesta"
+          echo "$respuesta" | grep -q '"base":"ok"'
