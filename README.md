@@ -252,6 +252,21 @@ Pasos (los haces tú, una vez):
 3. En Supabase → **Authentication → URL Configuration**: pon la URL del sitio en **Site URL** y agrega `https://<tu-sitio>.onrender.com/**` en **Redirect URLs** (deja también `http://localhost:5173/**`). Así el correo de confirmación regresa al sitio público.
 4. Abre el sitio desde tu teléfono, crea una cuenta y envía un reporte de prueba.
 
+### Que Google encuentre el sitio
+
+La página declara el idioma (`lang="es-MX"`), título, descripción, ícono y vista previa para redes (Open Graph), y tiene un texto para quien no ejecuta JavaScript. Publicarla no basta para salir en Google: hay que darla de alta en **Google Search Console** (gratis):
+
+1. Entra a <https://search.google.com/search-console> con tu cuenta de Google y elige **Agregar propiedad → Prefijo de la URL**, con la URL del sitio.
+2. Elige el método **Archivo HTML**, descarga el archivo `google….html` y súbelo a `prototipo/` (o pásaselo al agente). Tras el despliegue, pulsa **Verificar**.
+3. En **Sitemaps**, envía `sitemap.xml`. En **Inspección de URLs**, pide la indexación de la página principal.
+
+Al principio solo aparece si alguien busca el nombre exacto; ayuda que el enlace esté en redes, en el cartel (código QR) y en la página de la universidad.
+
+### Plan gratis: que nada se apague
+
+- **Render** duerme el backend gratis tras unos 15 minutos sin uso; la primera visita después tarda alrededor de un minuto. El sitio estático no duerme.
+- **Supabase** pausa el proyecto gratis tras unos 7 días sin actividad. La acción `Mantener activo` (`.github/workflows/mantener-activo.yml`) consulta `/api/v1/salud` cada 3 días, que lee la base, para evitarlo. No usa secretos ni cambia datos. GitHub apaga las tareas programadas si el repositorio pasa 60 días sin actividad; se reactiva en la pestaña **Actions**.
+
 ### Rutas y accesibilidad (F16)
 
 El detalle de cada punto trae «Cómo llegar» con enlaces a Google Maps y OpenStreetMap que solo llevan las coordenadas del destino: la ruta la calcula el navegador de la persona y la plataforma nunca recibe su ubicación. El sitio cumple WCAG 2.1 AA según axe-core (claro, oscuro, alto contraste y teléfono) y se puede usar entero con el teclado. El botón «Alto contraste» del encabezado recuerda la elección y se activa solo si el sistema pide más contraste.
