@@ -26,7 +26,7 @@ jobs:
       TEST_DATABASE_URL: postgresql://postgres@127.0.0.1:5432/postgres
       PGPASSWORD: postgres
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
 
       - uses: actions/setup-node@v5
         with:
@@ -84,7 +84,7 @@ jobs:
           fi
 
       - if: steps.secretos.outputs.hay == 'si'
-        uses: actions/checkout@v5
+        uses: actions/checkout@v7
 
       - if: steps.secretos.outputs.hay == 'si'
         uses: actions/setup-node@v5
