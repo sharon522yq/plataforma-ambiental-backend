@@ -257,7 +257,7 @@ Pasos (los haces tú, una vez):
 La página declara el idioma (`lang="es-MX"`), título, descripción, ícono y vista previa para redes (Open Graph), y tiene un texto para quien no ejecuta JavaScript. Publicarla no basta para salir en Google: hay que darla de alta en **Google Search Console** (gratis):
 
 1. Entra a <https://search.google.com/search-console> con tu cuenta de Google y elige **Agregar propiedad → Prefijo de la URL**, con la URL del sitio.
-2. Elige el método **Archivo HTML**, descarga el archivo `google….html` y súbelo a `prototipo/` (o pásaselo al agente). Tras el despliegue, pulsa **Verificar**.
+2. Elige el método **Archivo HTML**, descarga el archivo `google….html` y súbelo a `prototipo/` (o pásaselo al agente). Tras el despliegue, pulsa **Verificar**. El archivo de este sitio es `prototipo/google9c9da80ad3f440f8.html`: no lo borres, porque Google revisa de vez en cuando que siga ahí y, si falta, la propiedad deja de estar verificada.
 3. En **Sitemaps**, envía `sitemap.xml`. En **Inspección de URLs**, pide la indexación de la página principal.
 
 Al principio solo aparece si alguien busca el nombre exacto; ayuda que el enlace esté en redes, en el cartel (código QR) y en la página de la universidad.
