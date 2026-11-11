@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://plataforma-ambiental.onrender.com/sitemap.xml
