@@ -100,6 +100,20 @@ describe("sitio público en Render", () => {
     }
     expect(pagina).toMatch(/<noscript>[\s\S]*Plataforma Ambiental[\s\S]*<\/noscript>/);
   });
+
+  it("robots.txt, el mapa del sitio, la dirección canónica y la vista previa apuntan al mismo sitio", () => {
+    const canonica = /<link rel="canonical" href="([^"]+)">/.exec(pagina)?.[1] ?? "";
+    expect(canonica).toMatch(/^https:\/\/[a-z0-9-]+\.onrender\.com\/$/);
+    expect(pagina).toContain(`<meta property="og:url" content="${canonica}">`);
+    const imagen = /<meta property="og:image" content="([^"]+)">/.exec(pagina)?.[1] ?? "";
+    expect(imagen.startsWith(canonica)).toBe(true);
+    expect(existsSync(path.join(RAIZ, "prototipo", imagen.slice(canonica.length)))).toBe(true);
+    const robots = readFileSync(path.join(RAIZ, "prototipo/robots.txt"), "utf8");
+    expect(robots).toMatch(/^User-agent: \*\nAllow: \/\n/);
+    expect(robots).toContain(`Sitemap: ${canonica}sitemap.xml`);
+    const mapa = readFileSync(path.join(RAIZ, "prototipo/sitemap.xml"), "utf8");
+    expect(mapa).toContain(`<loc>${canonica}</loc>`);
+  });
 });
 
 describe("aviso de privacidad (F12)", () => {
