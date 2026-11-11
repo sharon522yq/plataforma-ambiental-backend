@@ -114,6 +114,12 @@ describe("sitio público en Render", () => {
     const mapa = readFileSync(path.join(RAIZ, "prototipo/sitemap.xml"), "utf8");
     expect(mapa).toContain(`<loc>${canonica}</loc>`);
   });
+
+  it("conserva el archivo de verificación de Google Search Console con su contenido exacto", () => {
+    // Google lo vuelve a revisar de vez en cuando; si se borra o cambia, la propiedad deja de estar verificada.
+    const nombre = "google9c9da80ad3f440f8.html";
+    expect(readFileSync(path.join(RAIZ, "prototipo", nombre), "utf8").trim()).toBe(`google-site-verification: ${nombre}`);
+  });
 });
 
 describe("aviso de privacidad (F12)", () => {
