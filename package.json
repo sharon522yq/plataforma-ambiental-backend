@@ -20,13 +20,13 @@
     "evaluar:agente": "tsx src/evaluar-agente.ts"
   },
   "dependencies": {
-    "@supabase/supabase-js": "^2.45.0",
+    "@supabase/supabase-js": "^2.118.0",
     "cors": "^2.8.5",
     "dotenv": "^16.4.5",
     "express": "^4.21.0",
     "express-rate-limit": "^7.4.0",
     "helmet": "^7.1.0",
-    "jose": "6.2.12",
+    "jose": "6.2.13",
     "multer": "2.5.0",
     "pg": "^8.23.1",
     "sharp": "0.35.5",
@@ -40,13 +40,13 @@
     "@types/node": "^22.20.5",
     "@types/pg": "^8.23.1",
     "@types/supertest": "^6.0.2",
-    "@vitest/coverage-v8": "^5.0.4",
-    "eslint": "^10.12.0",
+    "@vitest/coverage-v8": "^5.0.5",
+    "eslint": "^10.13.0",
     "globals": "^17.13.0",
     "supertest": "^7.0.0",
     "tsx": "^4.19.0",
     "typescript": "^5.6.2",
-    "typescript-eslint": "^8.6.0",
+    "typescript-eslint": "^8.72.1",
     "vitest": "^5.0.4"
   }
 }
