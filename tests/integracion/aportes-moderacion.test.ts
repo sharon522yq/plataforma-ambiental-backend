@@ -110,11 +110,22 @@ describe("POST /api/v1/aportes", () => {
     ["sin ubicación", { tipo: "residuos", descripcion: "Basura acumulada en la esquina" }],
     ["con latitud fuera de rango", { ...nuevo, ubicacion: { lat: 95, lng: 0 } }],
     ["con tipo inexistente", { ...nuevo, tipo: "ruido" }],
+    ["con título muy corto", { ...nuevo, titulo: " a " }],
+    ["con título de más de 120 caracteres", { ...nuevo, titulo: "x".repeat(121) }],
   ])("400 %s", async (_caso, cuerpo) => {
     const { app: a, llamadas } = app({});
     const r = await request(a).post("/api/v1/aportes").set("Authorization", await bearer(CIUDADANO)).send(cuerpo);
     expect(r.status).toBe(400);
     expect(llamadas).toHaveLength(0);
+  });
+
+  it("envía el título sin espacios de más y sin datos personales, y lo devuelve", async () => {
+    const { app: a, llamadas } = app({ crear_aporte: ok({ ...aporte, titulo: "Basura, avisar a [correo eliminado]" }) });
+    const r = await request(a).post("/api/v1/aportes").set("Authorization", await bearer(CIUDADANO))
+      .send({ ...nuevo, titulo: "  Basura, avisar a vecino@ejemplo.com " });
+    expect(r.status).toBe(201);
+    expect(llamadas[0]?.parametros).toMatchObject({ titulo: "Basura, avisar a [correo eliminado]" });
+    expect(r.body).toMatchObject({ titulo: "Basura, avisar a [correo eliminado]" });
   });
 
   it("400 con el mensaje de la base si el punto indicado no existe", async () => {

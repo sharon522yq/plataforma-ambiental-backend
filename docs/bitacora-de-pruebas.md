@@ -49,6 +49,7 @@ Las 12 pruebas omitidas en las corridas locales son las de Supabase real, que so
 | 2026-11-10 | Revisión general de la plataforma | 888 | 91,46 % | — | PR #2 a #6 sin conflictos y en orden; CI de main en verde. `npm audit` de producción: 0 vulnerabilidades. Playwright: 5 roles × 9 vistas, escritorio y teléfono, con Leaflet: sin errores de JavaScript, sin desborde horizontal y sin «null» en pantalla. Nuevo `npm run migrar -- --estado` (solo lectura) con 3 pruebas. La API y el sitio en Render no se pudieron abrir desde el entorno de pruebas (red bloqueada). |
 
 La cobertura bajó de 98,3 % a 91,05 % en la fase 11 porque desde entonces se mide sobre todos los archivos de `src/` (`include: ["src/**/*.ts"]`), también los que ninguna prueba importa. Antes solo contaba los archivos cargados por las pruebas.
+| 2026-11-17 | Título propio en los reportes (migración 018, rama `titulo-en-reportes`) | 895 | — | — | Pedido de sharon: el título se veía como la descripción. Reportar pide un título (3 a 120 caracteres) para un punto nuevo; la API lo filtra de datos personales; la moderación lo ve y lo usa si no escribe otro. Pruebas SQL (guardar, validar, aprobar con el título del reporte o el de la moderación) y HTTP (filtro, límites). Playwright: el campo aparece, valida y la moderación muestra el título. |
 
 ## Integración continua (GitHub Actions)
 

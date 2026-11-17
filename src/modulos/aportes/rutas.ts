@@ -68,6 +68,8 @@ export function crearRutasAportes(
       punto_id: cuerpo.punto_id ?? null,
       // Solo si hay: así un reporte sin enlaces funciona aunque la base aún no tenga la 012.
       ...(cuerpo.enlaces?.length ? { enlaces: cuerpo.enlaces } : {}),
+      // Igual que los enlaces: solo si hay, para no exigir la 018 a un reporte sin título.
+      ...(cuerpo.titulo ? { titulo: quitarDatosPersonales(cuerpo.titulo) } : {}),
     })
       .then((r) => conEnlace(almacen, aportePropio.parse(r)))
       .then((r) => res.status(201).json(r))

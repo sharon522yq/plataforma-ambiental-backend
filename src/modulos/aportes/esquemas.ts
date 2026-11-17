@@ -12,6 +12,8 @@ export const esquemaUbicacion = z.object({
 
 /** `strict`: un campo de más (p. ej. estado o autor_id) es un 400, no se ignora en silencio. */
 export const cuerpoNuevoAporte = z.object({
+  /** Título corto que propone quien reporta. La moderación puede cambiarlo al aprobar. */
+  titulo: z.string().trim().min(3).max(120).optional(),
   tipo: z.enum(TIPOS_PUNTO),
   descripcion: z.string().trim().min(10).max(2000),
   ubicacion: esquemaUbicacion,
@@ -33,6 +35,8 @@ const agruparUbicacion = <T extends { lat: number; lng: number }>({ lat, lng, ..
 const camposAporte = {
   id: z.uuid(),
   punto_id: z.uuid().nullable(),
+  /** Nulo en reportes anteriores a la migración 018 o sin título. */
+  titulo: z.string().nullable().default(null),
   tipo: z.enum(TIPOS_PUNTO),
   gravedad_sugerida: z.number().int().nullable(),
   descripcion: z.string(),

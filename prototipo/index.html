@@ -1099,13 +1099,13 @@ const demo = {
       punto_id: null, organizacion: { id: "o-002", nombre: "[PRUEBA] Red de voluntarios verdes" } },
   ],
   aportes: [
-    { id: "a-001", autor_id: "u-ana", punto_id: null, tipo: "residuos", gravedad_sugerida: 2, descripcion: "Bolsas de basura acumuladas en la esquina desde hace una semana.",
+    { id: "a-001", autor_id: "u-ana", punto_id: null, titulo: "Basura acumulada en una esquina", tipo: "residuos", gravedad_sugerida: 2, descripcion: "Bolsas de basura acumuladas en la esquina desde hace una semana.",
       ubicacion: { lat: 20.6655, lng: -103.359 }, estado: "pendiente", motivo_revision: null, foto: true, creado_en: "2026-10-28T16:12:00Z" },
     { id: "a-002", autor_id: "u-ana", punto_id: "p-001", tipo: "contaminacion_agua", gravedad_sugerida: 3, descripcion: "El arroyo huele mal y tiene espuma en la orilla.",
       ubicacion: { lat: 20.6411, lng: -103.2969 }, estado: "aprobado", motivo_revision: null, foto: false, creado_en: "2026-10-23T14:02:00Z" },
     { id: "a-003", autor_id: "u-ana", punto_id: null, tipo: "otro", gravedad_sugerida: null, descripcion: "Hay mucho ruido de una obra por las noches.",
       ubicacion: { lat: 20.6802, lng: -103.371 }, estado: "rechazado", motivo_revision: "El ruido no entra en las categorías de la plataforma.", foto: false, creado_en: "2026-10-24T03:30:00Z" },
-    { id: "a-004", autor_id: "u-luis", punto_id: null, tipo: "contaminacion_agua", gravedad_sugerida: 4, descripcion: "Olor fuerte a químicos y agua de color verde en el canal junto a la avenida.",
+    { id: "a-004", autor_id: "u-luis", punto_id: null, titulo: "Agua verde con olor a químicos en canal", tipo: "contaminacion_agua", gravedad_sugerida: 4, descripcion: "Olor fuerte a químicos y agua de color verde en el canal junto a la avenida.",
       ubicacion: { lat: 20.6305, lng: -103.331 }, estado: "pendiente", motivo_revision: null, foto: true,
       enlaces: [{ tipo: "evento", nombre: "[EJEMPLO] Limpieza del canal este sábado", enlace: "https://ejemplo.org/limpieza-canal" }], creado_en: "2026-10-29T09:45:00Z" },
   ],
@@ -1811,6 +1811,7 @@ function vistaReportar(raiz) {
   const form = h("form", { class: "card", novalidate: true });
   const tipo = h("select", { id: "r-tipo", required: true }, h("option", { value: "" }, "Elige un tipo"),
     Object.entries(TIPOS).map(([k, v]) => h("option", { value: k, selected: ref && ref.tipo === k }, v)));
+  const tituloR = h("input", { type: "text", class: "inp", id: "r-titulo", maxlength: "120", placeholder: "Ej. Descarga de aguas negras en el río de los Negros" });
   const desc = h("textarea", { id: "r-desc", maxlength: "2000", placeholder: "Qué viste, desde cuándo y cualquier detalle útil. No escribas teléfonos ni correos." });
   const cuenta = h("span", { class: "hint mono" }, "0 / 2000");
   desc.addEventListener("input", () => { cuenta.textContent = `${desc.value.trim().length} / 2000`; });
@@ -1908,6 +1909,8 @@ function vistaReportar(raiz) {
   form.append(...[
     h("h3", null, "Datos del reporte"),
     ref ? h("p", { class: "hint" }, "Aporte sobre el punto: ", h("strong", null, ref.titulo)) : null,
+    ref ? null : h("div", { class: "field" }, h("label", { class: "label", for: "r-titulo" }, "Título"), tituloR,
+      h("span", { class: "hint" }, "Una frase corta que diga qué pasa y dónde (3 a 120 caracteres). Es el nombre del punto en el mapa; quien modera puede ajustarlo.")),
     h("div", { class: "field" }, h("label", { class: "label", for: "r-tipo" }, "Tipo de problema"), tipo),
     h("div", { class: "field" }, h("div", { class: "row", style: "justify-content: space-between" }, h("label", { class: "label", for: "r-desc" }, "Descripción"), cuenta), desc,
       h("span", { class: "hint" }, "Entre 10 y 2000 caracteres. El texto público pasa por un filtro que quita datos personales.")),
@@ -1918,13 +1921,16 @@ function vistaReportar(raiz) {
       h("span", { class: "hint" }, "JPG, PNG o WebP de hasta 8 MB. El servidor quita la ubicación GPS y los datos de la cámara, y la reduce a 1600 px.")),
     enlaces.el,
     h("label", { class: "casilla", for: "r-aviso" }, aceptoAviso,
-      h("span", null, "Leí el ", h("a", { href: "#privacidad", target: "_blank" }, "aviso de privacidad"), ". Entiendo que la descripción, la ubicación y la foto se publican si el reporte se aprueba, sin mi nombre ni mi correo.")),
+      h("span", null, "Leí el ", h("a", { href: "#privacidad", target: "_blank" }, "aviso de privacidad"), ". Entiendo que el título, la descripción, la ubicación y la foto se publican si el reporte se aprueba, sin mi nombre ni mi correo.")),
     errores,
     h("div", { class: "row" }, h("button", { class: "btn primary", type: "submit" }, "Enviar reporte"), h("span", { class: "hint" }, "Queda pendiente hasta que un moderador lo revise."))].filter(Boolean));
 
   form.addEventListener("submit", (e) => {
     e.preventDefault();
     const fallos = [];
+    const t = ref ? "" : tituloR.value.trim();
+    if (!ref && t.length < 3) fallos.push("Escribe un título de al menos 3 caracteres.");
+    if (t.length > 120) fallos.push("El título no puede pasar de 120 caracteres.");
     if (!tipo.value) fallos.push("Elige el tipo de problema.");
     const d = desc.value.trim();
     if (d.length < 10) fallos.push("La descripción debe tener al menos 10 caracteres.");
@@ -1940,6 +1946,7 @@ function vistaReportar(raiz) {
       const boton = form.querySelector("button[type=submit]");
       boton.disabled = true;
       const cuerpo = { tipo: tipo.value, descripcion: d, ubicacion: ubic };
+      if (t) cuerpo.titulo = t;
       if (grav) cuerpo.gravedad_sugerida = grav;
       if (ref) cuerpo.punto_id = ref.id;
       if (listaEnlaces.length) cuerpo.enlaces = listaEnlaces;
@@ -1961,7 +1968,7 @@ function vistaReportar(raiz) {
       })();
       return;
     }
-    const nuevo = { id: "a-" + uid().slice(0, 8), autor_id: usuarioActual().id, punto_id: ref ? ref.id : null, tipo: tipo.value, gravedad_sugerida: grav,
+    const nuevo = { id: "a-" + uid().slice(0, 8), autor_id: usuarioActual().id, punto_id: ref ? ref.id : null, titulo: t || null, tipo: tipo.value, gravedad_sugerida: grav,
       descripcion: d, ubicacion: ubic, estado: "pendiente", motivo_revision: null, foto: !!foto.files[0], enlaces: listaEnlaces, creado_en: new Date().toISOString() };
     demo.aportes.unshift(nuevo);
     auditar("aportes", "insertar", nuevo.id);
@@ -2003,7 +2010,7 @@ function vistaMisAportes(raiz) {
         h("tbody", null, mios.map((a) => h("tr", null,
           h("td", { class: "num", style: "white-space: nowrap" }, fecha(a.creado_en)),
           h("td", null, TIPOS[a.tipo]),
-          h("td", { style: "min-width: 220px" }, a.descripcion, a.motivo_revision ? h("div", { class: "hint", style: "margin-top: 4px" }, "Motivo: " + a.motivo_revision) : null),
+          h("td", { style: "min-width: 220px" }, a.titulo ? h("strong", { style: "display: block" }, a.titulo) : null, a.descripcion, a.motivo_revision ? h("div", { class: "hint", style: "margin-top: 4px" }, "Motivo: " + a.motivo_revision) : null),
           h("td", null, h("span", { class: "estado " + a.estado }, a.estado)),
           h("td", { class: "small muted" }, a.foto ? "Sí (enlace de 10 min)" : "No"))))))
     : h("div", { class: "card" }, h("p", null, "Todavía no has enviado reportes."), h("a", { class: "btn primary", href: "#reportar" }, "Reportar un problema"));
@@ -2037,6 +2044,7 @@ function tarjetaModeracion(a, yo) {
     h("div", { class: "row", style: "justify-content: space-between" },
       h("div", { class: "row" }, h("span", { class: "chip" }, TIPOS[a.tipo]), a.gravedad_sugerida ? sevBadge(a.gravedad_sugerida) : h("span", { class: "hint" }, "sin gravedad sugerida")),
       h("span", { class: "estado " + a.estado }, a.estado)),
+    a.titulo ? h("h3", null, a.titulo) : null,
     h("p", null, a.descripcion),
     h("dl", { class: "kv" },
       h("dt", null, "Autor"), h("dd", null, autor ? autor.nombre : "—"),
@@ -2098,6 +2106,7 @@ function listaEnlacesAporte(a) {
     a.estado === "pendiente" ? h("li", { class: "hint" }, "Se publican en «Cómo ayudar» al aprobar o marcar duplicado. Revisa que sean reales antes de aprobar.") : null);
 }
 function tituloSugerido(a) {
+  if (a.titulo) return a.titulo;
   const base = TIPOS[a.tipo];
   return a.descripcion.length > 50 ? `${base}: ${a.descripcion.slice(0, 50).trim()}…` : `${base}: ${a.descripcion}`;
 }
@@ -2407,7 +2416,7 @@ async function vistaMisAportesVivo(raiz) {
       h("tbody", null, r.datos.map((a) => h("tr", null,
         h("td", { class: "num", style: "white-space: nowrap" }, fecha(a.creado_en)),
         h("td", null, TIPOS[a.tipo] || a.tipo),
-        h("td", { style: "min-width: 220px" }, a.descripcion, a.motivo_revision ? h("div", { class: "hint", style: "margin-top: 4px" }, "Motivo: " + a.motivo_revision) : null),
+        h("td", { style: "min-width: 220px" }, a.titulo ? h("strong", { style: "display: block" }, a.titulo) : null, a.descripcion, a.motivo_revision ? h("div", { class: "hint", style: "margin-top: 4px" }, "Motivo: " + a.motivo_revision) : null),
         h("td", null, h("span", { class: "estado " + a.estado }, a.estado)),
         h("td", { class: "small" }, enlaceFoto(a))))))));
   } catch (e) { cont.replaceChildren(h("p", { class: "err" }, mensajeError(e))); }
@@ -2443,6 +2452,7 @@ function tarjetaModeracionVivo(a, puntos, raiz) {
     h("div", { class: "row", style: "justify-content: space-between" },
       h("div", { class: "row" }, h("span", { class: "chip" }, TIPOS[a.tipo] || a.tipo), a.gravedad_sugerida ? sevBadge(a.gravedad_sugerida) : h("span", { class: "hint" }, "sin gravedad sugerida")),
       h("span", { class: "estado " + a.estado }, a.estado)),
+    a.titulo ? h("h3", null, a.titulo) : null,
     h("p", null, a.descripcion),
     h("dl", { class: "kv" },
       h("dt", null, "Autor"), h("dd", null, propio ? "Tú" : h("span", { class: "mono" }, "cuenta " + corto(a.autor_id))),

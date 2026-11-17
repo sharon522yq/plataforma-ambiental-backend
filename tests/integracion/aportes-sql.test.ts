@@ -157,6 +157,30 @@ describe.skipIf(!process.env.TEST_DATABASE_URL)("aportes y moderación en la bas
       expect(JSON.stringify(await auditoria(a.id as string))).not.toContain("jabonosa");
     });
 
+    it("el título del reporte (018) se guarda, se valida y es el del punto si la moderación no escribe otro", async () => {
+      const a = await como(u.ciudadanaA, "crear_aporte('residuos', 'Bolsas de basura junto al canal', $1, $2, null, null, '[]'::jsonb, $3)",
+        [CENTRO.lat, CENTRO.lng, "  Basura junto al canal  "]);
+      expect(a).toMatchObject({ titulo: "Basura junto al canal" });
+      const mios = await como<{ datos: Json[] }>(u.ciudadanaA, "mis_aportes(100, 0)");
+      expect(mios.datos.find((x) => x.id === a.id)).toMatchObject({ titulo: "Basura junto al canal" });
+      const cola = await como<{ datos: Json[] }>(u.moderadora, "cola_aportes('pendiente', 100, 0)");
+      expect(cola.datos.find((x) => x.id === a.id)).toMatchObject({ titulo: "Basura junto al canal" });
+
+      await expect(como(u.ciudadanaA, "crear_aporte('residuos', 'Bolsas de basura junto al canal', $1, $2, null, null, '[]'::jsonb, 'ab')",
+        [CENTRO.lat, CENTRO.lng])).rejects.toMatchObject({ code: "22023" });
+      await expect(sentenciaComo(u.ciudadanaA,
+        "insert into aportes (titulo, tipo, descripcion, ubicacion, autor_id) values ('ab', 'otro', 'Texto de prueba', st_setsrid(st_makepoint(0, 0), 4326)::geography, $1)",
+        [u.ciudadanaA])).rejects.toMatchObject({ code: "23514" });
+
+      const r = await como(u.moderadora, "revisar_aporte($1, 'aprobado')", [a.id]);
+      expect(await como(null, "obtener_punto_publico($1)", [r.punto_id])).toMatchObject({ titulo: "Basura junto al canal" });
+
+      const b = await como(u.ciudadanaA, "crear_aporte('residuos', 'Bolsas de basura junto al canal', $1, $2, null, null, '[]'::jsonb, 'Título del reporte')",
+        [CENTRO.lat, CENTRO.lng]);
+      const rb = await como(u.moderadora, "revisar_aporte($1, 'aprobado', null, 'Título de la moderación')", [b.id]);
+      expect(await como(null, "obtener_punto_publico($1)", [rb.punto_id])).toMatchObject({ titulo: "Título de la moderación" });
+    });
+
     it("aprobar con publicar = false deja el punto en revisión, fuera del mapa", async () => {
       const a = await nuevoAporte(u.ciudadanaA);
       const r = await como(u.moderadora, "revisar_aporte($1, 'aprobado', null, 'Pendiente de verificar', null, false)", [a.id]);
@@ -270,7 +294,7 @@ describe.skipIf(!process.env.TEST_DATABASE_URL)("aportes y moderación en la bas
   describe("permisos de ejecución", () => {
     it("solo authenticated y service_role ejecutan las funciones; nadie llama los triggers", async () => {
       const funciones = [
-        "crear_aporte(text,text,double precision,double precision,integer,uuid,jsonb)",
+        "crear_aporte(text,text,double precision,double precision,integer,uuid,jsonb,text)",
         "mis_aportes(integer,integer)",
         "cola_aportes(text,integer,integer)",
         "revisar_aporte(uuid,text,text,text,integer,boolean,uuid)",
