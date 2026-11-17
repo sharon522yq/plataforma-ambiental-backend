@@ -20,6 +20,16 @@ import { aportePropio, consultaMisAportes, cuerpoNuevoAporte, parametrosAporte }
 export type ClientePorUsuario = (token: string) => SupabaseClient;
 
 const CAMPO_FOTO = "foto";
+const MAXIMO_TITULO = 120;
+
+/**
+ * Quita datos personales del título. El reemplazo («[correo eliminado]») puede ser más largo que
+ * lo que quita, así que se recorta a 120 caracteres (como cuenta la base, por punto de código)
+ * para que un título válido no lo rechace la base.
+ */
+export function tituloLimpio(titulo: string): string {
+  return Array.from(quitarDatosPersonales(titulo)).slice(0, MAXIMO_TITULO).join("").trimEnd();
+}
 
 /** Recibe una sola foto en memoria (multipart, campo `foto`) y traduce los errores de multer. */
 function recibirFoto(): RequestHandler {
@@ -69,7 +79,7 @@ export function crearRutasAportes(
       // Solo si hay: así un reporte sin enlaces funciona aunque la base aún no tenga la 012.
       ...(cuerpo.enlaces?.length ? { enlaces: cuerpo.enlaces } : {}),
       // Igual que los enlaces: solo si hay, para no exigir la 018 a un reporte sin título.
-      ...(cuerpo.titulo ? { titulo: quitarDatosPersonales(cuerpo.titulo) } : {}),
+      ...(cuerpo.titulo ? { titulo: tituloLimpio(cuerpo.titulo) } : {}),
     })
       .then((r) => conEnlace(almacen, aportePropio.parse(r)))
       .then((r) => res.status(201).json(r))

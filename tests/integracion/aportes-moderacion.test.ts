@@ -128,6 +128,17 @@ describe("POST /api/v1/aportes", () => {
     expect(r.body).toMatchObject({ titulo: "Basura, avisar a [correo eliminado]" });
   });
 
+  it("un título de 120 caracteres con un correo corto sigue dentro del límite tras quitar el correo", async () => {
+    const { app: a, llamadas } = app({ crear_aporte: ok(aporte) });
+    const titulo = "x".repeat(113) + " a@b.co";
+    expect(titulo).toHaveLength(120);
+    const r = await request(a).post("/api/v1/aportes").set("Authorization", await bearer(CIUDADANO)).send({ ...nuevo, titulo });
+    expect(r.status).toBe(201);
+    const enviado = llamadas[0]?.parametros.titulo as string;
+    expect(Array.from(enviado).length).toBeLessThanOrEqual(120);
+    expect(enviado).not.toContain("a@b.co");
+  });
+
   it("400 con el mensaje de la base si el punto indicado no existe", async () => {
     const { app: a } = app({ crear_aporte: { data: null, error: { code: "22023", message: "El punto indicado no existe", hint: "publico" } } });
     const r = await request(a).post("/api/v1/aportes").set("Authorization", await bearer(CIUDADANO)).send({ ...nuevo, punto_id: PUNTO });
