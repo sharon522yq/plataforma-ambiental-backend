@@ -235,7 +235,7 @@ describe.skipIf(!process.env.TEST_DATABASE_URL)("enlaces de la comunidad en la b
       const funciones = [
         "validar_enlace(text,text,text,text)",
         "enlaces_validos(jsonb)",
-        "crear_aporte(text,text,double precision,double precision,integer,uuid,jsonb)",
+        "crear_aporte(text,text,double precision,double precision,integer,uuid,jsonb,text)",
         "publicar_enlaces_aporte(uuid)",
         "proponer_accion(uuid,text,text,text,text)",
         "retirar_accion(uuid)",
