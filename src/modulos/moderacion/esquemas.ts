@@ -42,6 +42,13 @@ export const cuerpoNuevoPunto = z.object({
 
 export const cuerpoEstadoPunto = z.object({ estado: z.enum(ESTADOS_PUNTO) }).strict();
 
+/** Casos por estado para moderación (019). Por defecto, los que volvieron a revisión. */
+export const consultaColaPuntos = esquemaPaginacion.extend({
+  estado: z.enum(ESTADOS_PUNTO).default("en_revision"),
+});
+
+export const cuerpoTituloPunto = z.object({ titulo: z.string().trim().min(3).max(120) }).strict();
+
 export const puntoModeracion = z
   .object({
     id: z.uuid(),

@@ -850,6 +850,9 @@ main { min-height: 0; }
 .estado.aprobado { background: color-mix(in srgb, var(--ok) 18%, transparent); color: color-mix(in srgb, var(--ok) 75%, var(--ink)); }
 .estado.rechazado { background: color-mix(in srgb, var(--bad) 16%, transparent); color: color-mix(in srgb, var(--bad) 70%, var(--ink)); }
 .estado.duplicado { background: var(--surface-2); color: var(--muted); border: 1px solid var(--line); }
+.estado.publicado { background: color-mix(in srgb, var(--ok) 18%, transparent); color: color-mix(in srgb, var(--ok) 75%, var(--ink)); }
+.estado.en_revision { background: color-mix(in srgb, var(--warn) 18%, transparent); color: color-mix(in srgb, var(--warn) 70%, var(--ink)); }
+.estado.archivado { background: var(--surface-2); color: var(--muted); border: 1px solid var(--line); }
 .vacio { padding: 24px 16px; color: var(--muted); font-size: .9rem; }
 .mapa-wrap { position: relative; min-width: 0; }
 .mapa { position: absolute; inset: 0; background: var(--map-bg); }
@@ -1027,6 +1030,7 @@ const TIPOS = {
 };
 const TIPOS_ACCION = { firma: "Firma", evento: "Evento", donacion: "Donación", voluntariado: "Voluntariado", denuncia: "Denuncia" };
 const ROLES_RETIRAR_ENLACE = ["moderador", "editor", "administrador"];
+const ROLES_EDITAR_TITULO = ["moderador", "administrador"];
 const ROLES = { visitante: "Visitante", ciudadano: "Ciudadano", moderador: "Moderador", editor: "Editor", administrador: "Administrador" };
 const GRAVEDAD = { 1: "Muy baja", 2: "Baja", 3: "Media", 4: "Alta", 5: "Muy alta" };
 
@@ -1070,7 +1074,7 @@ const demo = {
     { id: "p-003", titulo: "[PRUEBA] Tala en zona de Bosque Los Colomos", tipo: "tala_ilegal", gravedad: 4,
       descripcion: "Dato de prueba. Árboles derribados en el perímetro norte.", ubicacion: { lat: 20.7115, lng: -103.393 },
       creado_en: "2026-10-22T17:05:00Z", actualizado_en: "2026-10-22T17:05:00Z" },
-    { id: "p-004", titulo: "[EJEMPLO] Residuos acumulados en lote baldío", tipo: "residuos", gravedad: 2,
+    { id: "p-004", autor_id: "u-ana", titulo: "[EJEMPLO] Residuos acumulados en lote baldío", tipo: "residuos", gravedad: 2,
       descripcion: "Ejemplo para la demo. Bolsas y escombro acumulados desde hace semanas.", ubicacion: { lat: 20.672, lng: -103.348 },
       creado_en: "2026-10-25T15:20:00Z", actualizado_en: "2026-10-25T15:20:00Z" },
     { id: "p-005", titulo: "[EJEMPLO] Quema de basura a cielo abierto", tipo: "contaminacion_aire", gravedad: 3,
@@ -1470,7 +1474,7 @@ function cuadricula(m) {
 function puntosVisibles() {
   if (estado.delAsistente) return estado.delAsistente.puntos;
   if (estado.fuente === "vivo") return estado.puntosVivo;
-  let lista = demo.puntos.filter((p) => (!estado.filtros.tipo || p.tipo === estado.filtros.tipo) && p.gravedad >= estado.filtros.gravedad);
+  let lista = demo.puntos.filter((p) => publicado(p) && (!estado.filtros.tipo || p.tipo === estado.filtros.tipo) && p.gravedad >= estado.filtros.gravedad);
   if (estado.cerca) {
     lista = lista.map((p) => Object.assign({}, p, { distancia_metros: distancia(estado.cerca, p.ubicacion) }))
       .filter((p) => p.distancia_metros <= estado.cerca.radio).sort((a, b) => a.distancia_metros - b.distancia_metros);
@@ -1506,6 +1510,126 @@ async function detallePunto(id) {
   const p = demo.puntos.find((x) => x.id === id);
   return Object.assign({}, p, { acciones: demo.acciones.filter((a) => a.punto_id === id && a.activa !== false)
     .map(({ id, tipo, nombre, descripcion, enlace, de_la_comunidad }) => ({ id, tipo, nombre, descripcion, enlace, de_la_comunidad: !!de_la_comunidad })) });
+}
+
+/* ---------- Editar casos (migración 019) ----------
+   Mismas funciones en los dos modos: en vivo llaman a la API; en el modo de ejemplo cambian demo. */
+const publicado = (p) => (p.estado || "publicado") === "publicado";
+const CASOS_EN_REVISION = "casos en revisión";
+async function editarAporte(a, cuerpo) {
+  if (enVivo()) return api(`/aportes/${encodeURIComponent(a.id)}`, { metodo: "PATCH", json: cuerpo });
+  Object.assign(a, cuerpo, { actualizado_en: new Date().toISOString() });
+  auditar("aportes", "editar", a.id);
+  return a;
+}
+async function misCasos() {
+  if (enVivo()) return (await api("/aportes/mis-casos?limite=50")).datos;
+  const yo = usuarioActual();
+  return demo.puntos.filter((p) => yo && p.autor_id === yo.id);
+}
+async function editarMiCaso(p, cuerpo) {
+  if (enVivo()) return api(`/aportes/mis-casos/${encodeURIComponent(p.id)}`, { metodo: "PATCH", json: cuerpo });
+  const x = demo.puntos.find((y) => y.id === p.id);
+  const cambia = Object.keys(cuerpo).some((k) => cuerpo[k] !== x[k]);
+  if (cambia) { Object.assign(x, cuerpo, { estado: "en_revision", actualizado_en: new Date().toISOString() }); auditar("puntos", "editar", x.id); }
+  return x;
+}
+async function casosEnRevision() {
+  if (enVivo()) return (await api("/admin/puntos?estado=en_revision&limite=50")).datos;
+  return demo.puntos.filter((p) => p.estado === "en_revision");
+}
+async function publicarCaso(p) {
+  if (enVivo()) return api(`/admin/puntos/${encodeURIComponent(p.id)}/estado`, { metodo: "PATCH", json: { estado: "publicado" } });
+  const x = demo.puntos.find((y) => y.id === p.id);
+  Object.assign(x, { estado: "publicado", actualizado_en: new Date().toISOString() });
+  auditar("puntos", "publicar", x.id);
+  return x;
+}
+async function editarTituloCaso(p, titulo) {
+  if (enVivo()) return api(`/admin/puntos/${encodeURIComponent(p.id)}/titulo`, { metodo: "PATCH", json: { titulo } });
+  const x = demo.puntos.find((y) => y.id === p.id);
+  Object.assign(x, { titulo, actualizado_en: new Date().toISOString() });
+  auditar("puntos", "editar", x.id);
+  return x;
+}
+/* Formulario plegable para corregir título y/o descripción. `titulo` o `descripcion` en
+   undefined ocultan ese campo. Solo envía lo que cambió; `guardar` recibe ese cuerpo. */
+let contadorEdicion = 0;
+function formEditar({ texto, titulo, descripcion, aviso, guardar }) {
+  const n = ++contadorEdicion;
+  const tit = titulo === undefined ? null : h("input", { type: "text", class: "inp", id: `ed-t-${n}`, maxlength: "120", value: titulo || "" });
+  const desc = descripcion === undefined ? null : h("textarea", { id: `ed-d-${n}`, maxlength: "2000", rows: "4" }, descripcion || "");
+  const err = h("div", { class: "err", role: "alert" });
+  const boton = h("button", { class: "btn primary", type: "submit" }, "Guardar cambios");
+  const form = h("form", { class: "form-enlace", novalidate: true },
+    tit ? h("div", { class: "field" }, h("label", { class: "label", for: tit.id }, "Título"), tit) : null,
+    desc ? h("div", { class: "field" }, h("label", { class: "label", for: desc.id }, "Descripción"), desc) : null,
+    aviso ? h("p", { class: "hint" }, aviso) : null,
+    err, h("div", { class: "row" }, boton));
+  form.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const cuerpo = {};
+    if (tit) {
+      const t = tit.value.trim();
+      if (t.length < 3 || t.length > 120) { err.textContent = "El título debe tener entre 3 y 120 caracteres."; tit.focus(); return; }
+      if (t !== (titulo || "")) cuerpo.titulo = t;
+    }
+    if (desc) {
+      const d = desc.value.trim();
+      if (d.length < 10 || d.length > 2000) { err.textContent = "La descripción debe tener entre 10 y 2000 caracteres."; desc.focus(); return; }
+      if (d !== (descripcion || "")) cuerpo.descripcion = d;
+    }
+    if (!Object.keys(cuerpo).length) { err.textContent = "No cambiaste nada."; return; }
+    boton.disabled = true; err.textContent = "";
+    try { await guardar(cuerpo); }
+    catch (x) { err.textContent = "No se pudo guardar: " + mensajeError(x); boton.disabled = false; }
+  });
+  return plegable(texto, form);
+}
+/* «Mis casos en el mapa»: los puntos que nacieron de reportes propios. Editar uno publicado
+   lo devuelve a revisión, así que el aviso lo dice antes de guardar. */
+async function seccionMisCasos(recargar) {
+  const casos = await misCasos();
+  if (!casos.length) return null;
+  return h("section", { class: "card", style: "margin-top: 16px" },
+    h("h3", null, "Mis casos en el mapa"),
+    h("p", { class: "hint" }, "Puedes corregir el título o la descripción. Si el caso está publicado, sale del mapa hasta que moderación lo revise de nuevo."),
+    h("div", { class: "cola" }, casos.map((p) => h("article", { class: "card" },
+      h("div", { class: "row", style: "justify-content: space-between" },
+        h("div", { class: "row" }, h("span", { class: "chip" }, TIPOS[p.tipo] || p.tipo), sevBadge(p.gravedad)),
+        h("span", { class: "estado " + (p.estado || "publicado") }, (p.estado || "publicado").replace("_", " "))),
+      h("h3", null, p.titulo),
+      h("p", null, p.descripcion),
+      p.estado === "archivado" ? h("p", { class: "hint" }, "Este caso está archivado y ya no se puede editar.")
+        : formEditar({ texto: "Editar caso", titulo: p.titulo, descripcion: p.descripcion,
+            aviso: publicado(p) ? "Al guardar, el caso sale del mapa y vuelve a revisión." : null,
+            guardar: async (cuerpo) => {
+              const eraPublicado = publicado(p); // en el modo de ejemplo, editarMiCaso cambia p
+              const r = await editarMiCaso(p, cuerpo);
+              toast(r.estado === "en_revision" && eraPublicado ? "Caso guardado. Volvió a revisión y no se ve en el mapa hasta que lo publiquen." : "Caso guardado.");
+              recargar();
+            } })))));
+}
+/* Moderación: casos que su autor editó y volvieron a revisión. Se corrige el título si hace
+   falta y se publican de nuevo. */
+async function tarjetasCasosEnRevision(recargar) {
+  const casos = await casosEnRevision();
+  if (!casos.length) return [h("div", { class: "card" }, h("p", { class: "muted" }, "No hay casos en revisión."))];
+  return casos.map((p) => h("article", { class: "card" },
+    h("div", { class: "row", style: "justify-content: space-between" },
+      h("div", { class: "row" }, h("span", { class: "chip" }, TIPOS[p.tipo] || p.tipo), sevBadge(p.gravedad)),
+      h("span", { class: "estado en_revision" }, "en revisión")),
+    h("h3", null, p.titulo),
+    h("p", null, p.descripcion),
+    h("dl", { class: "kv" },
+      h("dt", null, "Ubicación"), h("dd", { class: "mono" }, coord(p.ubicacion)),
+      h("dt", null, "Editado"), h("dd", null, fechaHora(p.actualizado_en))),
+    formEditar({ texto: "Editar título", titulo: p.titulo, guardar: async ({ titulo }) => { await editarTituloCaso(p, titulo); toast("Título actualizado."); recargar(); } }),
+    h("div", { class: "row", style: "margin-top: 8px" }, h("button", { class: "btn primary", type: "button", onclick: async (e) => {
+      e.currentTarget.disabled = true;
+      try { await publicarCaso(p); toast("Caso publicado de nuevo en el mapa."); recargar(); }
+      catch (x) { toast("No se pudo publicar: " + mensajeError(x)); e.target.disabled = false; }
+    } }, "Publicar de nuevo"))));
 }
 
 function vistaMapa(raiz) {
@@ -1651,7 +1775,15 @@ async function pintarDetalle(panel) {
       h("dt", null, "Ubicación"), h("dd", { class: "mono" }, coord(p.ubicacion)),
       h("dt", null, "Publicado"), h("dd", null, fecha(p.creado_en)),
       h("dt", null, "Actualizado"), h("dd", null, fecha(p.actualizado_en))),
-    comoLlegar(p)),
+    comoLlegar(p),
+    ROLES_EDITAR_TITULO.includes(rolActual())
+      ? formEditar({ texto: "Editar título", titulo: p.titulo, guardar: async ({ titulo }) => {
+          await editarTituloCaso(p, titulo);
+          toast("Título actualizado.");
+          await refrescarPuntos(panel);
+          pintarDetalle(panel);
+        } })
+      : null),
     h("div", { class: "panel-sec" },
       h("h3", null, "Cómo ayudar"),
       p.acciones.length ? p.acciones.map(conRetirar) : h("p", { class: "hint" }, "Este punto todavía no tiene enlaces para ayudar."),
@@ -2000,9 +2132,16 @@ function vistaReportar(raiz) {
 }
 
 /* ---------- Mis aportes ---------- */
+function editarReportePendiente(a, recargar) {
+  if (a.estado !== "pendiente") return null;
+  return formEditar({ texto: "Editar", titulo: a.punto_id ? undefined : a.titulo || "", descripcion: a.descripcion,
+    guardar: async (cuerpo) => { await editarAporte(a, cuerpo); toast("Reporte actualizado."); recargar(); } });
+}
 function vistaMisAportes(raiz) {
   raiz.className = "view gutter";
   const yo = usuarioActual();
+  const recargar = () => vistaMisAportes(raiz);
+  const casos = h("div");
   const mios = demo.aportes.filter((a) => a.autor_id === yo.id);
   const cuerpo = mios.length
     ? h("div", TABLA_DESPLAZABLE, h("table", null,
@@ -2010,7 +2149,8 @@ function vistaMisAportes(raiz) {
         h("tbody", null, mios.map((a) => h("tr", null,
           h("td", { class: "num", style: "white-space: nowrap" }, fecha(a.creado_en)),
           h("td", null, TIPOS[a.tipo]),
-          h("td", { style: "min-width: 220px" }, a.titulo ? h("strong", { style: "display: block" }, a.titulo) : null, a.descripcion, a.motivo_revision ? h("div", { class: "hint", style: "margin-top: 4px" }, "Motivo: " + a.motivo_revision) : null),
+          h("td", { style: "min-width: 220px" }, a.titulo ? h("strong", { style: "display: block" }, a.titulo) : null, a.descripcion, a.motivo_revision ? h("div", { class: "hint", style: "margin-top: 4px" }, "Motivo: " + a.motivo_revision) : null,
+            editarReportePendiente(a, recargar)),
           h("td", null, h("span", { class: "estado " + a.estado }, a.estado)),
           h("td", { class: "small muted" }, a.foto ? "Sí (enlace de 10 min)" : "No"))))))
     : h("div", { class: "card" }, h("p", null, "Todavía no has enviado reportes."), h("a", { class: "btn primary", href: "#reportar" }, "Reportar un problema"));
@@ -2018,7 +2158,8 @@ function vistaMisAportes(raiz) {
     h("div", { class: "view-head" }, h("div", null, h("h2", null, "Mis aportes"),
       h("p", null, `Sesión simulada: ${yo.nombre}. Solo ves tus propios aportes; la base lo garantiza con RLS.`)),
       h("a", { class: "btn primary", href: "#reportar" }, "Nuevo reporte")),
-    cuerpo));
+    cuerpo, casos));
+  seccionMisCasos(recargar).then((x) => { if (x) casos.replaceChildren(x); });
 }
 
 /* ---------- Moderación ---------- */
@@ -2028,13 +2169,16 @@ function vistaModeracion(raiz) {
   const estados = ["pendiente", "aprobado", "rechazado", "duplicado"];
   const lista = demo.aportes.filter((a) => a.estado === estado.modTab);
   const cola = h("div", { class: "cola" });
-  if (!lista.length) cola.append(h("div", { class: "card" }, h("p", { class: "muted" }, estado.modTab === "pendiente" ? "No hay aportes pendientes. Buen trabajo." : `No hay aportes en estado ${estado.modTab}.`)));
+  if (estado.modTab === CASOS_EN_REVISION) tarjetasCasosEnRevision(() => vistaModeracion(raiz)).then((x) => cola.replaceChildren(...x));
+  else if (!lista.length) cola.append(h("div", { class: "card" }, h("p", { class: "muted" }, estado.modTab === "pendiente" ? "No hay aportes pendientes. Buen trabajo." : `No hay aportes en estado ${estado.modTab}.`)));
   for (const a of lista) cola.append(tarjetaModeracion(a, yo));
   raiz.replaceChildren(h("div", { class: "wrap" },
     h("div", { class: "view-head" }, h("div", null, h("h2", null, "Moderación"),
       h("p", null, "Revisa cada aporte antes de publicarlo. Nadie puede revisar su propio aporte, y rechazar exige un motivo que verá quien lo envió."))),
     h("div", { class: "subtabs", role: "group", "aria-label": "Estado" }, estados.map((s) => h("button", { type: "button", "aria-pressed": String(estado.modTab === s),
-      onclick: () => { estado.modTab = s; vistaModeracion(raiz); } }, `${s} (${demo.aportes.filter((a) => a.estado === s).length})`))),
+      onclick: () => { estado.modTab = s; vistaModeracion(raiz); } }, `${s} (${demo.aportes.filter((a) => a.estado === s).length})`)),
+      h("button", { type: "button", "aria-pressed": String(estado.modTab === CASOS_EN_REVISION), onclick: () => { estado.modTab = CASOS_EN_REVISION; vistaModeracion(raiz); } },
+        `${CASOS_EN_REVISION} (${demo.puntos.filter((p) => p.estado === "en_revision").length})`)),
     cola));
 }
 function tarjetaModeracion(a, yo) {
@@ -2076,7 +2220,7 @@ function tarjetaModeracion(a, yo) {
     if (decision === "duplicado") a.punto_id = dup.value;
     if (decision === "aprobado") {
       const p = { id: "p-" + uid().slice(0, 8), titulo: titulo.value.trim(), tipo: a.tipo, gravedad: grav, descripcion: a.descripcion, ubicacion: a.ubicacion,
-        creado_en: new Date().toISOString(), actualizado_en: new Date().toISOString() };
+        estado: "publicado", autor_id: a.autor_id, creado_en: new Date().toISOString(), actualizado_en: new Date().toISOString() };
       demo.puntos.push(p); a.punto_id = p.id;
       auditar("puntos", "insertar", p.id);
     }
@@ -2402,9 +2546,12 @@ function cabecera(titulo, texto, extra) {
 async function vistaMisAportesVivo(raiz) {
   raiz.className = "view gutter";
   const cont = h("div", null, h("p", { class: "muted" }, "Cargando tus aportes…"));
+  const casos = h("div");
+  const recargar = () => vistaMisAportesVivo(raiz);
   raiz.replaceChildren(h("div", { class: "wrap" },
     cabecera("Mis aportes", `Sesión: ${estado.sesion.email}. Solo ves tus propios aportes; la base lo garantiza con RLS.`, h("a", { class: "btn primary", href: "#reportar" }, "Nuevo reporte")),
-    cont));
+    cont, casos));
+  seccionMisCasos(recargar).then((x) => { if (x) casos.replaceChildren(x); }).catch((e) => casos.replaceChildren(h("p", { class: "err" }, "No se pudieron cargar tus casos: " + mensajeError(e))));
   try {
     const r = await api("/aportes/mis?limite=50");
     if (!r.datos.length) {
@@ -2416,7 +2563,8 @@ async function vistaMisAportesVivo(raiz) {
       h("tbody", null, r.datos.map((a) => h("tr", null,
         h("td", { class: "num", style: "white-space: nowrap" }, fecha(a.creado_en)),
         h("td", null, TIPOS[a.tipo] || a.tipo),
-        h("td", { style: "min-width: 220px" }, a.titulo ? h("strong", { style: "display: block" }, a.titulo) : null, a.descripcion, a.motivo_revision ? h("div", { class: "hint", style: "margin-top: 4px" }, "Motivo: " + a.motivo_revision) : null),
+        h("td", { style: "min-width: 220px" }, a.titulo ? h("strong", { style: "display: block" }, a.titulo) : null, a.descripcion, a.motivo_revision ? h("div", { class: "hint", style: "margin-top: 4px" }, "Motivo: " + a.motivo_revision) : null,
+            editarReportePendiente(a, recargar)),
         h("td", null, h("span", { class: "estado " + a.estado }, a.estado)),
         h("td", { class: "small" }, enlaceFoto(a))))))));
   } catch (e) { cont.replaceChildren(h("p", { class: "err" }, mensajeError(e))); }
@@ -2429,9 +2577,13 @@ async function vistaModeracionVivo(raiz) {
   const cola = h("div", { class: "cola" }, h("p", { class: "muted" }, "Cargando la cola…"));
   raiz.replaceChildren(h("div", { class: "wrap" },
     cabecera("Moderación", "Aportes reales de la base. Nadie puede revisar su propio aporte, y rechazar exige un motivo que verá quien lo envió."),
-    h("div", { class: "subtabs", role: "group", "aria-label": "Estado" }, [...estados, "mensajes denunciados"].map((s) => h("button", { type: "button", "aria-pressed": String(estado.modTab === s),
+    h("div", { class: "subtabs", role: "group", "aria-label": "Estado" }, [...estados, CASOS_EN_REVISION, "mensajes denunciados"].map((s) => h("button", { type: "button", "aria-pressed": String(estado.modTab === s),
       onclick: () => { estado.modTab = s; vistaModeracionVivo(raiz); } }, s))),
     cola));
+  if (estado.modTab === CASOS_EN_REVISION) {
+    try { cola.replaceChildren(...await tarjetasCasosEnRevision(() => vistaModeracionVivo(raiz))); } catch (e) { cola.replaceChildren(h("p", { class: "err" }, mensajeError(e))); }
+    return;
+  }
   if (estado.modTab === "mensajes denunciados") {
     try { cola.replaceChildren(...await tarjetasDenunciasMensajes(raiz)); } catch (e) { cola.replaceChildren(h("p", { class: "err" }, mensajeError(e))); }
     return;

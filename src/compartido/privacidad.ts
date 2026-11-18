@@ -19,3 +19,12 @@ export function quitarDatosPersonales(texto: string): string {
       return "[teléfono eliminado]";
     });
 }
+
+/**
+ * Quita datos personales y recorta a `maximo` caracteres (puntos de código, como cuenta
+ * char_length en la base). El reemplazo «[correo eliminado]» puede ser más largo que lo que
+ * quita, y sin el recorte la base rechazaría un texto que pasó la validación.
+ */
+export function limpiarConLimite(texto: string, maximo: number): string {
+  return Array.from(quitarDatosPersonales(texto)).slice(0, maximo).join("").trimEnd();
+}

@@ -12,23 +12,34 @@ import {
   TAMANO_MAXIMO_SUBIDA,
   type AlmacenEvidencias,
 } from "../../compartido/evidencias.js";
-import { quitarDatosPersonales } from "../../compartido/privacidad.js";
+import { limpiarConLimite, quitarDatosPersonales } from "../../compartido/privacidad.js";
 import type { Autorizar } from "../../middleware/autorizar.js";
 import { validar } from "../../middleware/validar.js";
-import { aportePropio, consultaMisAportes, cuerpoNuevoAporte, parametrosAporte } from "./esquemas.js";
+import { puntoModeracion } from "../moderacion/esquemas.js";
+import { aportePropio, consultaMisAportes, cuerpoEditarCaso, cuerpoNuevoAporte, parametrosAporte } from "./esquemas.js";
 
 export type ClientePorUsuario = (token: string) => SupabaseClient;
 
 const CAMPO_FOTO = "foto";
 const MAXIMO_TITULO = 120;
+const MAXIMO_DESCRIPCION = 2000;
 
-/**
- * Quita datos personales del título. El reemplazo («[correo eliminado]») puede ser más largo que
- * lo que quita, así que se recorta a 120 caracteres (como cuenta la base, por punto de código)
- * para que un título válido no lo rechace la base.
- */
+/** Título sin datos personales y dentro de los 120 caracteres que acepta la base. */
 export function tituloLimpio(titulo: string): string {
-  return Array.from(quitarDatosPersonales(titulo)).slice(0, MAXIMO_TITULO).join("").trimEnd();
+  return limpiarConLimite(titulo, MAXIMO_TITULO);
+}
+
+/** Descripción sin datos personales y dentro de los 2000 caracteres de las ediciones (019). */
+export function descripcionLimpia(descripcion: string): string {
+  return limpiarConLimite(descripcion, MAXIMO_DESCRIPCION);
+}
+
+/** Solo los campos que vienen: en la base, null significa «no cambiar». */
+function camposEditados(cuerpo: { titulo?: string | undefined; descripcion?: string | undefined }) {
+  return {
+    titulo: cuerpo.titulo ? tituloLimpio(cuerpo.titulo) : null,
+    descripcion: cuerpo.descripcion ? descripcionLimpia(cuerpo.descripcion) : null,
+  };
 }
 
 /** Recibe una sola foto en memoria (multipart, campo `foto`) y traduce los errores de multer. */
@@ -91,6 +102,33 @@ export function crearRutasAportes(
     llamarFuncion(clienteUsuario(req.usuario?.token ?? ""), "mis_aportes", { limite: q.limite, desplazamiento: desplazamiento(q) })
       .then((r) => paginaConEnlaces(almacen, armarPagina(r, aportePropio, q)))
       .then((r) => res.json(r))
+      .catch(siguiente);
+  });
+
+  /** Corrige título o descripción de un reporte propio mientras sigue pendiente (019). */
+  rutas.patch("/:id", validar({ params: parametrosAporte, body: cuerpoEditarCaso }), (req, res, siguiente) => {
+    const { id } = req.params as z.infer<typeof parametrosAporte>;
+    const cuerpo = req.body as z.infer<typeof cuerpoEditarCaso>;
+    llamarFuncion(clienteUsuario(req.usuario?.token ?? ""), "editar_aporte", { aporte_id: id, ...camposEditados(cuerpo) })
+      .then((r) => conEnlace(almacen, aportePropio.parse(r)))
+      .then((r) => res.json(r))
+      .catch(siguiente);
+  });
+
+  /** Los casos en el mapa que nacieron de reportes propios, en cualquier estado (019). */
+  rutas.get("/mis-casos", validar({ query: consultaMisAportes }), (req, res, siguiente) => {
+    const q = req.query as unknown as z.infer<typeof consultaMisAportes>;
+    llamarFuncion(clienteUsuario(req.usuario?.token ?? ""), "mis_puntos", { limite: q.limite, desplazamiento: desplazamiento(q) })
+      .then((r) => res.json(armarPagina(r, puntoModeracion, q)))
+      .catch(siguiente);
+  });
+
+  /** Corrige un caso propio. Si estaba publicado, vuelve a revisión y sale del mapa (019). */
+  rutas.patch("/mis-casos/:id", validar({ params: parametrosAporte, body: cuerpoEditarCaso }), (req, res, siguiente) => {
+    const { id } = req.params as z.infer<typeof parametrosAporte>;
+    const cuerpo = req.body as z.infer<typeof cuerpoEditarCaso>;
+    llamarFuncion(clienteUsuario(req.usuario?.token ?? ""), "editar_mi_punto", { punto_id: id, ...camposEditados(cuerpo) })
+      .then((r) => res.json(puntoModeracion.parse(r)))
       .catch(siguiente);
   });
 

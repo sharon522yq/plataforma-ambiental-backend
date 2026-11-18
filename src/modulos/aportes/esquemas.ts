@@ -23,6 +23,14 @@ export const cuerpoNuevoAporte = z.object({
   enlaces: z.array(cuerpoEnlace).max(3).optional(),
 }).strict();
 
+/** Edición de un reporte o de un caso propio (019): al menos uno de los dos campos. */
+export const cuerpoEditarCaso = z.object({
+  titulo: z.string().trim().min(3).max(120).optional(),
+  descripcion: z.string().trim().min(10).max(2000).optional(),
+}).strict().refine((c) => c.titulo !== undefined || c.descripcion !== undefined, {
+  message: "Indica el título o la descripción",
+});
+
 export const consultaMisAportes = esquemaPaginacion;
 
 export const parametrosAporte = z.object({ id: z.uuid() });
