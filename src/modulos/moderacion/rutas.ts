@@ -3,12 +3,21 @@ import type { z } from "zod";
 import { sinCache } from "../../compartido/cache.js";
 import { armarPagina, desplazamiento, llamarFuncion } from "../../compartido/consultas.js";
 import { conEnlace, paginaConEnlaces, type AlmacenEvidencias } from "../../compartido/evidencias.js";
-import { quitarDatosPersonales } from "../../compartido/privacidad.js";
+
 import type { Autorizar } from "../../middleware/autorizar.js";
 import { validar } from "../../middleware/validar.js";
 import { aporteModeracion, aporteRevisado } from "../aportes/esquemas.js";
-import type { ClientePorUsuario } from "../aportes/rutas.js";
-import { consultaCola, cuerpoEstadoPunto, cuerpoNuevoPunto, cuerpoRevision, parametrosId, puntoModeracion } from "./esquemas.js";
+import { descripcionLimpia, tituloLimpio, type ClientePorUsuario } from "../aportes/rutas.js";
+import {
+  consultaCola,
+  consultaColaPuntos,
+  cuerpoEstadoPunto,
+  cuerpoNuevoPunto,
+  cuerpoRevision,
+  cuerpoTituloPunto,
+  parametrosId,
+  puntoModeracion,
+} from "./esquemas.js";
 
 /**
  * Moderación: cola de aportes, revisión y gestión de puntos. Solo moderador y administrador.
@@ -62,12 +71,29 @@ export function crearRutasModeracion(
       titulo: cuerpo.titulo,
       tipo: cuerpo.tipo,
       gravedad: cuerpo.gravedad,
-      descripcion: quitarDatosPersonales(cuerpo.descripcion),
+      descripcion: descripcionLimpia(cuerpo.descripcion),
       lat: cuerpo.ubicacion.lat,
       lng: cuerpo.ubicacion.lng,
       estado: cuerpo.estado,
     })
       .then((r) => res.status(201).json(puntoModeracion.parse(r)))
+      .catch(siguiente);
+  });
+
+  /** Casos por estado; sobre todo los que su autor editó y volvieron a revisión (019). */
+  rutas.get("/puntos", validar({ query: consultaColaPuntos }), (req, res, siguiente) => {
+    const q = req.query as unknown as z.infer<typeof consultaColaPuntos>;
+    llamarFuncion(cliente(req.usuario?.token), "cola_puntos", { estado_filtro: q.estado, limite: q.limite, desplazamiento: desplazamiento(q) })
+      .then((r) => res.json(armarPagina(r, puntoModeracion, { pagina: q.pagina, limite: q.limite })))
+      .catch(siguiente);
+  });
+
+  /** Corrige el título de un caso sin cambiar su estado (019). */
+  rutas.patch("/puntos/:id/titulo", validar({ params: parametrosId, body: cuerpoTituloPunto }), (req, res, siguiente) => {
+    const { id } = req.params as z.infer<typeof parametrosId>;
+    const { titulo } = req.body as z.infer<typeof cuerpoTituloPunto>;
+    llamarFuncion(cliente(req.usuario?.token), "editar_titulo_punto", { punto_id: id, titulo: tituloLimpio(titulo) })
+      .then((r) => res.json(puntoModeracion.parse(r)))
       .catch(siguiente);
   });
 
