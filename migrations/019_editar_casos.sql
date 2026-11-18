@@ -284,6 +284,115 @@ end;
 $$;
 
 -- ---------------------------------------------------------------------------
+-- revisar_aporte (018) con el aporte bloqueado antes de usar su texto, para que una edición
+-- simultánea de su autor no se pierda (hallazgo de la revisión del PR #21).
+-- ---------------------------------------------------------------------------
+create or replace function revisar_aporte(
+  aporte_id uuid,
+  decision text,
+  motivo text default null,
+  titulo text default null,
+  gravedad integer default null,
+  publicar boolean default true,
+  duplicado_de uuid default null
+)
+returns jsonb
+language plpgsql
+volatile
+set search_path = public, extensions
+as $$
+declare
+  a aportes;
+  p puntos;
+  rol text := obtener_rol_actual();
+  punto_destino uuid;
+  filas integer;
+  titulo_final text;
+begin
+  if rol is null or rol not in ('moderador', 'administrador') then
+    raise exception 'Solo moderadores' using errcode = '42501', hint = 'publico';
+  end if;
+  if decision not in ('aprobado', 'rechazado', 'duplicado') then
+    raise exception 'Decisión no válida' using errcode = '22023', hint = 'publico';
+  end if;
+
+  select * into a from aportes x where x.id = aporte_id;
+  if not found then
+    raise exception 'El aporte no existe' using errcode = 'P0002', hint = 'publico';
+  end if;
+  if a.estado <> 'pendiente' then
+    raise exception 'El aporte ya fue revisado' using errcode = '55000', hint = 'publico';
+  end if;
+  if a.autor_id = auth.uid() then
+    raise exception 'No puedes revisar tu propio aporte' using errcode = '42501', hint = 'publico';
+  end if;
+  -- Bloquea el aporte y lo vuelve a leer: si su autor lo está editando (editar_aporte), espera
+  -- a que termine y usa el texto guardado, no el que había antes de la edición.
+  select * into a from aportes x where x.id = aporte_id for update;
+  if not found or a.estado <> 'pendiente' then
+    raise exception 'El aporte ya fue revisado' using errcode = '55000', hint = 'publico';
+  end if;
+
+  punto_destino := a.punto_id;
+
+  if decision = 'rechazado' and nullif(btrim(motivo), '') is null then
+    raise exception 'Rechazar exige un motivo' using errcode = '22023', hint = 'publico';
+  end if;
+
+  if decision = 'duplicado' then
+    if duplicado_de is null or not exists (select 1 from puntos x where x.id = duplicado_de) then
+      raise exception 'Indica el punto existente del que es duplicado' using errcode = '22023', hint = 'publico';
+    end if;
+    punto_destino := duplicado_de;
+  end if;
+
+  if decision = 'aprobado' then
+    if gravedad is not null and (gravedad < 1 or gravedad > 5) then
+      raise exception 'La gravedad debe estar entre 1 y 5' using errcode = '22023', hint = 'publico';
+    end if;
+    if a.punto_id is null then
+      -- El título del moderador manda; si no escribe uno, se usa el que propuso quien reportó.
+      titulo_final := coalesce(nullif(btrim(titulo), ''), nullif(btrim(a.titulo), ''));
+      if titulo_final is null then
+        raise exception 'Aprobar un punto nuevo exige un título' using errcode = '22023', hint = 'publico';
+      end if;
+      insert into puntos (titulo, tipo, gravedad, descripcion, ubicacion, estado, autor_id)
+      values (titulo_final, a.tipo, coalesce(gravedad, a.gravedad_sugerida, 3), a.descripcion, a.ubicacion,
+              'en_revision', a.autor_id)
+      returning * into p;
+      if publicar then
+        update puntos x set estado = 'publicado', aprobado_por = auth.uid(), actualizado_en = now()
+        where x.id = p.id;
+      end if;
+      punto_destino := p.id;
+    elsif gravedad is not null then
+      update puntos x set gravedad = revisar_aporte.gravedad, actualizado_en = now() where x.id = a.punto_id;
+      get diagnostics filas = row_count;
+      if filas = 0 then
+        raise exception 'No tienes permiso sobre el punto de este aporte' using errcode = '42501', hint = 'publico';
+      end if;
+    end if;
+  end if;
+
+  update aportes x
+  set estado = decision, revisor_id = auth.uid(), motivo_revision = nullif(btrim(motivo), ''),
+      punto_id = punto_destino, actualizado_en = now()
+  where x.id = aporte_id;
+  get diagnostics filas = row_count;
+  if filas = 0 then
+    raise exception 'No tienes permiso para revisar este aporte' using errcode = '42501', hint = 'publico';
+  end if;
+
+  if decision in ('aprobado', 'duplicado') and jsonb_array_length(a.enlaces) > 0 then
+    perform publicar_enlaces_aporte(aporte_id);
+  end if;
+
+  select * into a from aportes x where x.id = aporte_id;
+  return aporte_json(a) || jsonb_build_object('revisor_id', a.revisor_id);
+end;
+$$;
+
+-- ---------------------------------------------------------------------------
 -- Permisos de ejecución (Supabase concede EXECUTE a anon en cada función nueva; ver 017).
 -- ---------------------------------------------------------------------------
 revoke execute on function

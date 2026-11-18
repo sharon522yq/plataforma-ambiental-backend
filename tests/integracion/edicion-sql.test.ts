@@ -102,6 +102,27 @@ describe.skipIf(!process.env.TEST_DATABASE_URL)("editar casos (migración 019)",
       await expect(como(u.ciudadana, "editar_aporte($1, 'Ya revisado')", [a.id])).rejects.toMatchObject({ code: "55000" });
     });
 
+    it("si el autor edita mientras moderación aprueba, el caso sale con el texto editado", async () => {
+      const a = await nuevoAporte(u.ciudadana);
+      if (!base) throw new Error("Sin base");
+      const editor = new pg.Client({ connectionString: base.url });
+      await editor.connect();
+      try {
+        await editor.query("begin");
+        await editor.query("select set_config('request.jwt.claim.sub', $1, true)", [u.ciudadana]);
+        await editor.query("set local role authenticated");
+        await editor.query("select editar_aporte($1, 'Título corregido a tiempo')", [a.id]);
+        // La edición sigue abierta: la aprobación tiene que esperarla.
+        const aprobacion = como(u.moderadora, "revisar_aporte($1, 'aprobado')", [a.id]);
+        await new Promise((listo) => setTimeout(listo, 300));
+        await editor.query("commit");
+        const r = await aprobacion;
+        expect(await como(null, "obtener_punto_publico($1)", [r.punto_id])).toMatchObject({ titulo: "Título corregido a tiempo" });
+      } finally {
+        await editor.end();
+      }
+    });
+
     it("un aporte sobre un punto existente no acepta título, pero sí descripción", async () => {
       const punto = await casoPublicado();
       const a = await nuevoAporte(u.otro, null, punto);
