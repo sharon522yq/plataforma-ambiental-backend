@@ -34,11 +34,19 @@ export function descripcionLimpia(descripcion: string): string {
   return limpiarConLimite(descripcion, MAXIMO_DESCRIPCION);
 }
 
+type Fuente = { enlace: string; nombre?: string | undefined };
+
+/** Fuentes con el nombre sin datos personales. El enlace ya lo validó el esquema. */
+export function fuentesLimpias(fuentes: Fuente[]): Fuente[] {
+  return fuentes.map(({ enlace, nombre }) => (nombre ? { enlace, nombre: limpiarConLimite(nombre, 150) } : { enlace }));
+}
+
 /** Solo los campos que vienen: en la base, null significa «no cambiar». */
-function camposEditados(cuerpo: { titulo?: string | undefined; descripcion?: string | undefined }) {
+function camposEditados(cuerpo: { titulo?: string | undefined; descripcion?: string | undefined; fuentes?: Fuente[] | undefined }) {
   return {
     titulo: cuerpo.titulo ? tituloLimpio(cuerpo.titulo) : null,
     descripcion: cuerpo.descripcion ? descripcionLimpia(cuerpo.descripcion) : null,
+    fuentes: cuerpo.fuentes ? fuentesLimpias(cuerpo.fuentes) : null,
   };
 }
 
@@ -91,6 +99,7 @@ export function crearRutasAportes(
       ...(cuerpo.enlaces?.length ? { enlaces: cuerpo.enlaces } : {}),
       // Igual que los enlaces: solo si hay, para no exigir la 018 a un reporte sin título.
       ...(cuerpo.titulo ? { titulo: tituloLimpio(cuerpo.titulo) } : {}),
+      ...(cuerpo.fuentes?.length ? { fuentes: fuentesLimpias(cuerpo.fuentes) } : {}),
     })
       .then((r) => conEnlace(almacen, aportePropio.parse(r)))
       .then((r) => res.status(201).json(r))

@@ -68,6 +68,7 @@ const protegidos: [Metodo, string, Rol[]][] = [
   ["patch", `/api/v1/aportes/mis-casos/${ID}`, TODOS],
   ["get", "/api/v1/admin/puntos", MODERACION],
   ["patch", `/api/v1/admin/puntos/${ID}/titulo`, MODERACION],
+  ["patch", `/api/v1/admin/puntos/${ID}/fuentes`, MODERACION],
   ["post", "/api/v1/admin/acciones", CATALOGO],
   ["delete", `/api/v1/admin/acciones/${ID}`, ["moderador", "editor", "administrador"]],
   ["post", `/api/v1/puntos/${ID}/acciones`, TODOS],
@@ -114,7 +115,7 @@ describe("matriz de permisos", () => {
   });
 
   it("cubre todos los endpoints protegidos de la API", () => {
-    expect(protegidos).toHaveLength(21);
+    expect(protegidos).toHaveLength(22);
   });
 
   it.each(protegidos)("%s %s sin token responde 401", async (metodo, ruta) => {

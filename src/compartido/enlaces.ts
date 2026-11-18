@@ -15,3 +15,12 @@ export const cuerpoEnlace = z.object({
   nombre: z.string().trim().min(3).max(120),
   enlace: enlaceSeguro,
 }).strict();
+
+/** Una fuente de un caso (020): el enlace es obligatorio y el nombre del medio, opcional. */
+export const cuerpoFuente = z.object({
+  enlace: enlaceSeguro,
+  nombre: z.string().trim().min(2).max(150).optional(),
+}).strict();
+
+/** Así sale una fuente de la base. */
+export const fuenteGuardada = z.object({ enlace: z.string(), nombre: z.string().optional() });

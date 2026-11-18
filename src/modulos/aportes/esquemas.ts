@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { esquemaPaginacion } from "../../compartido/consultas.js";
-import { cuerpoEnlace } from "../../compartido/enlaces.js";
+import { cuerpoEnlace, cuerpoFuente, fuenteGuardada } from "../../compartido/enlaces.js";
 import { TIPOS_PUNTO } from "../puntos/esquemas.js";
 
 export const ESTADOS_APORTE = ["pendiente", "aprobado", "rechazado", "duplicado"] as const;
@@ -21,14 +21,20 @@ export const cuerpoNuevoAporte = z.object({
   punto_id: z.uuid().optional(),
   /** Enlaces para ayudar (D-40). Se publican en el punto cuando se aprueba el aporte. */
   enlaces: z.array(cuerpoEnlace).max(3).optional(),
+  /** Noticias u otras páginas que respaldan el reporte (020). Pasan al caso al aprobarlo. */
+  fuentes: z.array(cuerpoFuente).max(5).optional(),
 }).strict();
 
-/** Edición de un reporte o de un caso propio (019): al menos uno de los dos campos. */
+/**
+ * Edición de un reporte o de un caso propio (019, 020): al menos un campo. `fuentes` reemplaza
+ * la lista completa; una lista vacía las quita. La base limita a 5 en un reporte y 10 en un caso.
+ */
 export const cuerpoEditarCaso = z.object({
   titulo: z.string().trim().min(3).max(120).optional(),
   descripcion: z.string().trim().min(10).max(2000).optional(),
-}).strict().refine((c) => c.titulo !== undefined || c.descripcion !== undefined, {
-  message: "Indica el título o la descripción",
+  fuentes: z.array(cuerpoFuente).max(10).optional(),
+}).strict().refine((c) => c.titulo !== undefined || c.descripcion !== undefined || c.fuentes !== undefined, {
+  message: "Indica el título, la descripción o las fuentes",
 });
 
 export const consultaMisAportes = esquemaPaginacion;
@@ -55,6 +61,7 @@ const camposAporte = {
   /** Ruta interna en Storage. Nunca sale tal cual: `conEnlaces` la cambia por un enlace temporal. */
   evidencia_ruta: z.string().nullable().default(null),
   enlaces: z.array(z.object({ tipo: z.string(), nombre: z.string(), enlace: z.string() })).default([]),
+  fuentes: z.array(fuenteGuardada).default([]),
   creado_en: z.string(),
   actualizado_en: z.string(),
 };

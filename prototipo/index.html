@@ -817,6 +817,8 @@ main { min-height: 0; }
 .enlace-fila { display: grid; grid-template-columns: 130px 1fr; gap: 6px; padding: 8px; border: 1px solid var(--line); border-radius: 8px; }
 .enlace-fila input[type="url"] { grid-column: 1 / -1; }
 .enlace-fila .btn { grid-column: 1 / -1; justify-self: end; }
+.fuente-fila { grid-template-columns: 1fr; }
+.fuentes-caso { display: grid; gap: 4px; }
 .agregar-enlace summary { list-style: none; justify-content: flex-start; }
 .agregar-enlace summary::-webkit-details-marker { display: none; }
 .agregar-enlace[open] summary { margin-bottom: 10px; }
@@ -1066,6 +1068,7 @@ const USUARIO_POR_ROL = { ciudadano: "u-ana", moderador: "u-mod", editor: "u-edi
 const demo = {
   puntos: [
     { id: "p-001", titulo: "[PRUEBA] Descarga de aguas residuales en arroyo de Tlaquepaque", tipo: "contaminacion_agua", gravedad: 3,
+      fuentes: [{ enlace: "https://ejemplo.org/comunicado-arroyo", nombre: "[PRUEBA] Comunicado de ejemplo" }],
       descripcion: "Dato de prueba. Se observa espuma y mal olor en la orilla del arroyo.", ubicacion: { lat: 20.6408, lng: -103.2972 },
       creado_en: "2026-10-22T17:05:00Z", actualizado_en: "2026-10-22T17:05:00Z" },
     { id: "p-002", titulo: "[PRUEBA] Humo industrial sobre Periférico Sur", tipo: "contaminacion_aire", gravedad: 4,
@@ -1111,7 +1114,8 @@ const demo = {
       ubicacion: { lat: 20.6802, lng: -103.371 }, estado: "rechazado", motivo_revision: "El ruido no entra en las categorías de la plataforma.", foto: false, creado_en: "2026-10-24T03:30:00Z" },
     { id: "a-004", autor_id: "u-luis", punto_id: null, titulo: "Agua verde con olor a químicos en canal", tipo: "contaminacion_agua", gravedad_sugerida: 4, descripcion: "Olor fuerte a químicos y agua de color verde en el canal junto a la avenida.",
       ubicacion: { lat: 20.6305, lng: -103.331 }, estado: "pendiente", motivo_revision: null, foto: true,
-      enlaces: [{ tipo: "evento", nombre: "[EJEMPLO] Limpieza del canal este sábado", enlace: "https://ejemplo.org/limpieza-canal" }], creado_en: "2026-10-29T09:45:00Z" },
+      enlaces: [{ tipo: "evento", nombre: "[EJEMPLO] Limpieza del canal este sábado", enlace: "https://ejemplo.org/limpieza-canal" }],
+      fuentes: [{ enlace: "https://ejemplo.org/nota-canal", nombre: "[EJEMPLO] Diario local" }], creado_en: "2026-10-29T09:45:00Z" },
   ],
   auditoria: [
     { id: uid(), tabla: "puntos", accion: "insertar", usuario: "Moderador de ejemplo", registro: "p-008", creado_en: "2026-10-28T20:30:00Z" },
@@ -1552,18 +1556,27 @@ async function editarTituloCaso(p, titulo) {
   auditar("puntos", "editar", x.id);
   return x;
 }
-/* Formulario plegable para corregir título y/o descripción. `titulo` o `descripcion` en
-   undefined ocultan ese campo. Solo envía lo que cambió; `guardar` recibe ese cuerpo. */
+async function editarFuentesCaso(p, fuentes) {
+  if (enVivo()) return api(`/admin/puntos/${encodeURIComponent(p.id)}/fuentes`, { metodo: "PATCH", json: { fuentes } });
+  const x = demo.puntos.find((y) => y.id === p.id);
+  Object.assign(x, { fuentes, actualizado_en: new Date().toISOString() });
+  auditar("puntos", "editar", x.id);
+  return x;
+}
+/* Formulario plegable para corregir título, descripción y/o fuentes. Un campo en undefined no
+   se muestra. Solo envía lo que cambió; `guardar` recibe ese cuerpo. */
 let contadorEdicion = 0;
-function formEditar({ texto, titulo, descripcion, aviso, guardar }) {
+function formEditar({ texto, titulo, descripcion, fuentes, maximoFuentes = MAXIMO_FUENTES_CASO, aviso, guardar }) {
   const n = ++contadorEdicion;
   const tit = titulo === undefined ? null : h("input", { type: "text", class: "inp", id: `ed-t-${n}`, maxlength: "120", value: titulo || "" });
   const desc = descripcion === undefined ? null : h("textarea", { id: `ed-d-${n}`, maxlength: "2000", rows: "4" }, descripcion || "");
+  const ef = fuentes === undefined ? null : editorFuentes(fuentes, maximoFuentes);
   const err = h("div", { class: "err", role: "alert" });
   const boton = h("button", { class: "btn primary", type: "submit" }, "Guardar cambios");
   const form = h("form", { class: "form-enlace", novalidate: true },
     tit ? h("div", { class: "field" }, h("label", { class: "label", for: tit.id }, "Título"), tit) : null,
     desc ? h("div", { class: "field" }, h("label", { class: "label", for: desc.id }, "Descripción"), desc) : null,
+    ef ? ef.el : null,
     aviso ? h("p", { class: "hint" }, aviso) : null,
     err, h("div", { class: "row" }, boton));
   form.addEventListener("submit", async (e) => {
@@ -1579,6 +1592,13 @@ function formEditar({ texto, titulo, descripcion, aviso, guardar }) {
       if (d.length < 10 || d.length > 2000) { err.textContent = "La descripción debe tener entre 10 y 2000 caracteres."; desc.focus(); return; }
       if (d !== (descripcion || "")) cuerpo.descripcion = d;
     }
+    if (ef) {
+      const lista = ef.leer();
+      const fallo = fallosFuentes(lista)[0];
+      if (fallo) { err.textContent = fallo; return; }
+      const limpias = unirFuentes([], lista, maximoFuentes);
+      if (claveFuentes(limpias) !== claveFuentes(fuentes)) cuerpo.fuentes = limpias;
+    }
     if (!Object.keys(cuerpo).length) { err.textContent = "No cambiaste nada."; return; }
     boton.disabled = true; err.textContent = "";
     try { await guardar(cuerpo); }
@@ -1593,15 +1613,16 @@ async function seccionMisCasos(recargar) {
   if (!casos.length) return null;
   return h("section", { class: "card", style: "margin-top: 16px" },
     h("h3", null, "Mis casos en el mapa"),
-    h("p", { class: "hint" }, "Puedes corregir el título o la descripción. Si el caso está publicado, sale del mapa hasta que moderación lo revise de nuevo."),
+    h("p", { class: "hint" }, "Puedes corregir el título, la descripción o las fuentes. Si el caso está publicado y cambias algo, sale del mapa hasta que moderación lo revise de nuevo."),
     h("div", { class: "cola" }, casos.map((p) => h("article", { class: "card" },
       h("div", { class: "row", style: "justify-content: space-between" },
         h("div", { class: "row" }, h("span", { class: "chip" }, TIPOS[p.tipo] || p.tipo), sevBadge(p.gravedad)),
         h("span", { class: "estado " + (p.estado || "publicado") }, (p.estado || "publicado").replace("_", " "))),
       h("h3", null, p.titulo),
       h("p", null, p.descripcion),
+      bloqueFuentes(p.fuentes),
       p.estado === "archivado" ? h("p", { class: "hint" }, "Este caso está archivado y ya no se puede editar.")
-        : formEditar({ texto: "Editar caso", titulo: p.titulo, descripcion: p.descripcion,
+        : formEditar({ texto: "Editar caso", titulo: p.titulo, descripcion: p.descripcion, fuentes: p.fuentes || [],
             aviso: publicado(p) ? "Al guardar, el caso sale del mapa y vuelve a revisión." : null,
             guardar: async (cuerpo) => {
               const eraPublicado = publicado(p); // en el modo de ejemplo, editarMiCaso cambia p
@@ -1623,8 +1644,10 @@ async function tarjetasCasosEnRevision(recargar) {
     h("p", null, p.descripcion),
     h("dl", { class: "kv" },
       h("dt", null, "Ubicación"), h("dd", { class: "mono" }, coord(p.ubicacion)),
-      h("dt", null, "Editado"), h("dd", null, fechaHora(p.actualizado_en))),
+      h("dt", null, "Editado"), h("dd", null, fechaHora(p.actualizado_en)),
+      p.fuentes && p.fuentes.length ? [h("dt", null, "Fuentes"), h("dd", null, listaDeFuentes(p.fuentes))] : null),
     formEditar({ texto: "Editar título", titulo: p.titulo, guardar: async ({ titulo }) => { await editarTituloCaso(p, titulo); toast("Título actualizado."); recargar(); } }),
+    formEditar({ texto: "Editar fuentes", fuentes: p.fuentes || [], guardar: async ({ fuentes }) => { await editarFuentesCaso(p, fuentes); toast("Fuentes actualizadas."); recargar(); } }),
     h("div", { class: "row", style: "margin-top: 8px" }, h("button", { class: "btn primary", type: "button", onclick: async (e) => {
       e.currentTarget.disabled = true;
       try { await publicarCaso(p); toast("Caso publicado de nuevo en el mapa."); recargar(); }
@@ -1775,14 +1798,20 @@ async function pintarDetalle(panel) {
       h("dt", null, "Ubicación"), h("dd", { class: "mono" }, coord(p.ubicacion)),
       h("dt", null, "Publicado"), h("dd", null, fecha(p.creado_en)),
       h("dt", null, "Actualizado"), h("dd", null, fecha(p.actualizado_en))),
+    bloqueFuentes(p.fuentes),
     comoLlegar(p),
     ROLES_EDITAR_TITULO.includes(rolActual())
-      ? formEditar({ texto: "Editar título", titulo: p.titulo, guardar: async ({ titulo }) => {
+      ? [formEditar({ texto: "Editar título", titulo: p.titulo, guardar: async ({ titulo }) => {
           await editarTituloCaso(p, titulo);
           toast("Título actualizado.");
           await refrescarPuntos(panel);
           pintarDetalle(panel);
-        } })
+        } }),
+        formEditar({ texto: "Editar fuentes", fuentes: p.fuentes || [], guardar: async ({ fuentes }) => {
+          await editarFuentesCaso(p, fuentes);
+          toast("Fuentes actualizadas.");
+          pintarDetalle(panel);
+        } })]
       : null),
     h("div", { class: "panel-sec" },
       h("h3", null, "Cómo ayudar"),
@@ -1912,6 +1941,67 @@ function errorEnlace(e) {
 function selectTipoEnlace(id) {
   return h("select", { class: "inp", id, "aria-label": "Tipo de enlace" }, Object.entries(TIPOS_ACCION).map(([k, v]) => h("option", { value: k }, v)));
 }
+/* ---------- Fuentes (migración 020) ----------
+   Notas, comunicados o documentos que respaldan un caso. Solo el enlace es obligatorio; el
+   nombre del medio es opcional. Mismos límites que la base: 5 en un reporte y 10 en un caso. */
+const MAXIMO_FUENTES_REPORTE = 5, MAXIMO_FUENTES_CASO = 10;
+function errorFuente(f) {
+  if (!/^https:\/\/\S+$/.test(f.enlace) || f.enlace.length > 500) return "El enlace debe empezar con https:// y no tener espacios.";
+  if (f.nombre !== undefined && (f.nombre.length < 2 || f.nombre.length > 150)) return "El nombre del medio debe tener entre 2 y 150 caracteres, o déjalo vacío.";
+  return null;
+}
+function fallosFuentes(lista) {
+  return lista.map((f, i) => { const m = errorFuente(f); return m ? `Fuente ${i + 1}: ${m}` : null; }).filter(Boolean);
+}
+/* Como en la base: sin repetir enlaces y hasta `maximo`. */
+function unirFuentes(actuales, nuevas, maximo) {
+  const vistos = new Set(), r = [];
+  for (const f of [...actuales, ...nuevas]) if (!vistos.has(f.enlace)) { vistos.add(f.enlace); r.push(f.nombre ? { enlace: f.enlace, nombre: f.nombre } : { enlace: f.enlace }); }
+  return r.slice(0, maximo);
+}
+const claveFuentes = (lista) => JSON.stringify((lista || []).map((f) => [f.enlace, f.nombre || ""]));
+function dominio(enlace) {
+  try { return new URL(enlace).hostname.replace(/^www\./, ""); } catch { return enlace; }
+}
+function listaDeFuentes(fuentes) {
+  return h("ul", { class: "enlaces-aporte" }, fuentes.map((f) => h("li", null,
+    h("a", { href: f.enlace, target: "_blank", rel: "noopener noreferrer" }, f.nombre || dominio(f.enlace)),
+    f.nombre ? h("span", { class: "hint" }, " · " + dominio(f.enlace)) : null)));
+}
+/* Sección «Fuentes» del detalle de un caso; nada si no tiene. */
+function bloqueFuentes(fuentes) {
+  if (!fuentes || !fuentes.length) return null;
+  return h("div", { class: "fuentes-caso" }, h("span", { class: "label" }, "Fuentes"), listaDeFuentes(fuentes),
+    h("span", { class: "hint" }, "Notas y documentos externos; se abren en otra pestaña."));
+}
+/* Lista editable de fuentes: cada fila tiene el enlace (obligatorio) y el nombre del medio (opcional).
+   leer() devuelve las filas con algo escrito; las vacías se ignoran. */
+function editorFuentes(iniciales, maximo, ayuda) {
+  const filas = [];
+  const lista = h("div", { class: "enlaces-editor" });
+  const agregar = h("button", { class: "btn", type: "button" }, "+ Agregar fuente");
+  const pintar = () => { lista.replaceChildren(...filas.map((f) => f.el)); agregar.hidden = filas.length >= maximo; };
+  const nueva = (f, enfocar) => {
+    const url = h("input", { type: "url", class: "inp", maxlength: "500", placeholder: "https://… enlace a la nota o documento", "aria-label": "Enlace de la fuente", value: f.enlace || "" });
+    const nombre = h("input", { type: "text", class: "inp", maxlength: "150", placeholder: "Medio o institución (opcional)", "aria-label": "Nombre del medio (opcional)", value: f.nombre || "" });
+    const fila = { url, nombre };
+    fila.el = h("div", { class: "enlace-fila fuente-fila" }, url, nombre,
+      h("button", { class: "btn ghost", type: "button", "aria-label": "Quitar fuente", onclick: () => { filas.splice(filas.indexOf(fila), 1); pintar(); } }, "Quitar"));
+    filas.push(fila); pintar();
+    if (enfocar) url.focus();
+  };
+  (iniciales || []).forEach((f) => nueva(f, false));
+  agregar.addEventListener("click", () => nueva({}, true));
+  pintar();
+  return {
+    el: h("div", { class: "field" }, h("span", { class: "label" }, "Fuentes (opcional)"), lista, agregar,
+      h("span", { class: "hint" }, ayuda || `Hasta ${maximo}. Solo el enlace es obligatorio. Deja la lista vacía para quitarlas.`)),
+    leer: () => filas
+      .map((f) => ({ enlace: f.url.value.trim(), nombre: f.nombre.value.trim() }))
+      .filter((f) => f.enlace || f.nombre)
+      .map((f) => (f.nombre ? f : { enlace: f.enlace })),
+  };
+}
 /* Lista editable de hasta 3 enlaces para el formulario de Reportar. leer() devuelve los enlaces o lanza el primer error. */
 function editorEnlaces() {
   const filas = [];
@@ -2036,6 +2126,8 @@ function vistaReportar(raiz) {
   });
   const errores = h("div", { class: "err", role: "alert" });
   const enlaces = editorEnlaces();
+  const fuentes = editorFuentes([], MAXIMO_FUENTES_REPORTE,
+    "Hasta 5 notas, comunicados o documentos que respalden lo que reportas. Solo el enlace es obligatorio. Se muestran en el caso cuando se aprueba.");
   const aceptoAviso = h("input", { type: "checkbox", id: "r-aviso" });
 
   form.append(...[
@@ -2051,9 +2143,10 @@ function vistaReportar(raiz) {
       h("span", { class: "hint" }, "Ubicación elegida: ", ubicTxt)),
     h("div", { class: "field" }, h("label", { class: "label", for: "r-foto" }, "Foto de evidencia (opcional)"), foto, prev,
       h("span", { class: "hint" }, "JPG, PNG o WebP de hasta 8 MB. El servidor quita la ubicación GPS y los datos de la cámara, y la reduce a 1600 px.")),
+    fuentes.el,
     enlaces.el,
     h("label", { class: "casilla", for: "r-aviso" }, aceptoAviso,
-      h("span", null, "Leí el ", h("a", { href: "#privacidad", target: "_blank" }, "aviso de privacidad"), ". Entiendo que el título, la descripción, la ubicación y la foto se publican si el reporte se aprueba, sin mi nombre ni mi correo.")),
+      h("span", null, "Leí el ", h("a", { href: "#privacidad", target: "_blank" }, "aviso de privacidad"), ". Entiendo que el título, la descripción, la ubicación, la foto y las fuentes se publican si el reporte se aprueba, sin mi nombre ni mi correo.")),
     errores,
     h("div", { class: "row" }, h("button", { class: "btn primary", type: "submit" }, "Enviar reporte"), h("span", { class: "hint" }, "Queda pendiente hasta que un moderador lo revise."))].filter(Boolean));
 
@@ -2071,6 +2164,8 @@ function vistaReportar(raiz) {
     if (!ubic) fallos.push("Indica la ubicación: busca la dirección o escribe las coordenadas.");
     const listaEnlaces = enlaces.leer();
     listaEnlaces.forEach((x, i) => { const m = errorEnlace(x); if (m) fallos.push(`Enlace ${i + 1}: ${m}`); });
+    const listaFuentes = fuentes.leer();
+    fallos.push(...fallosFuentes(listaFuentes));
     if (!aceptoAviso.checked) fallos.push("Marca la casilla del aviso de privacidad.");
     errores.replaceChildren(...fallos.map((f) => h("div", null, f)));
     if (fallos.length) return;
@@ -2082,6 +2177,7 @@ function vistaReportar(raiz) {
       if (grav) cuerpo.gravedad_sugerida = grav;
       if (ref) cuerpo.punto_id = ref.id;
       if (listaEnlaces.length) cuerpo.enlaces = listaEnlaces;
+      if (listaFuentes.length) cuerpo.fuentes = listaFuentes;
       (async () => {
         try {
           const creado = await api("/aportes", { metodo: "POST", json: cuerpo });
@@ -2101,7 +2197,8 @@ function vistaReportar(raiz) {
       return;
     }
     const nuevo = { id: "a-" + uid().slice(0, 8), autor_id: usuarioActual().id, punto_id: ref ? ref.id : null, titulo: t || null, tipo: tipo.value, gravedad_sugerida: grav,
-      descripcion: d, ubicacion: ubic, estado: "pendiente", motivo_revision: null, foto: !!foto.files[0], enlaces: listaEnlaces, creado_en: new Date().toISOString() };
+      descripcion: d, ubicacion: ubic, estado: "pendiente", motivo_revision: null, foto: !!foto.files[0], enlaces: listaEnlaces,
+      fuentes: unirFuentes([], listaFuentes, MAXIMO_FUENTES_REPORTE), creado_en: new Date().toISOString() };
     demo.aportes.unshift(nuevo);
     auditar("aportes", "insertar", nuevo.id);
     toast("Reporte enviado. Queda pendiente de revisión.");
@@ -2135,6 +2232,7 @@ function vistaReportar(raiz) {
 function editarReportePendiente(a, recargar) {
   if (a.estado !== "pendiente") return null;
   return formEditar({ texto: "Editar", titulo: a.punto_id ? undefined : a.titulo || "", descripcion: a.descripcion,
+    fuentes: a.fuentes || [], maximoFuentes: MAXIMO_FUENTES_REPORTE,
     guardar: async (cuerpo) => { await editarAporte(a, cuerpo); toast("Reporte actualizado."); recargar(); } });
 }
 function vistaMisAportes(raiz) {
@@ -2196,6 +2294,7 @@ function tarjetaModeracion(a, yo) {
       h("dt", null, "Ubicación"), h("dd", { class: "mono" }, coord(a.ubicacion)),
       h("dt", null, "Foto"), h("dd", null, a.foto ? "Sí, se ve con un enlace temporal de 10 minutos" : "No"),
       a.enlaces && a.enlaces.length ? [h("dt", null, "Enlaces"), h("dd", null, listaEnlacesAporte(a))] : null,
+      a.fuentes && a.fuentes.length ? [h("dt", null, "Fuentes"), h("dd", null, listaDeFuentes(a.fuentes))] : null,
       a.motivo_revision ? [h("dt", null, "Motivo"), h("dd", null, a.motivo_revision)] : null));
   if (a.estado !== "pendiente") return card;
   if (propio) { card.append(h("p", { class: "hint" }, "Este aporte es tuyo: otra persona debe revisarlo.")); return card; }
@@ -2217,10 +2316,15 @@ function tarjetaModeracion(a, yo) {
     if (decision === "duplicado" && !dup.value) { err.textContent = "Elige de qué punto es duplicado."; return; }
     a.estado = decision;
     a.motivo_revision = motivo.value.trim() || null;
-    if (decision === "duplicado") a.punto_id = dup.value;
+    if (decision === "duplicado") {
+      a.punto_id = dup.value;
+      const destino = demo.puntos.find((p) => p.id === dup.value);
+      if (destino && a.fuentes && a.fuentes.length) destino.fuentes = unirFuentes(destino.fuentes || [], a.fuentes, MAXIMO_FUENTES_CASO);
+    }
     if (decision === "aprobado") {
       const p = { id: "p-" + uid().slice(0, 8), titulo: titulo.value.trim(), tipo: a.tipo, gravedad: grav, descripcion: a.descripcion, ubicacion: a.ubicacion,
-        estado: "publicado", autor_id: a.autor_id, creado_en: new Date().toISOString(), actualizado_en: new Date().toISOString() };
+        estado: "publicado", autor_id: a.autor_id, fuentes: unirFuentes([], a.fuentes || [], MAXIMO_FUENTES_CASO),
+        creado_en: new Date().toISOString(), actualizado_en: new Date().toISOString() };
       demo.puntos.push(p); a.punto_id = p.id;
       auditar("puntos", "insertar", p.id);
     }
@@ -2612,6 +2716,7 @@ function tarjetaModeracionVivo(a, puntos, raiz) {
       h("dt", null, "Ubicación"), h("dd", { class: "mono" }, coord(a.ubicacion)),
       h("dt", null, "Foto"), h("dd", null, enlaceFoto(a)),
       a.enlaces && a.enlaces.length ? [h("dt", null, "Enlaces"), h("dd", null, listaEnlacesAporte(a))] : null,
+      a.fuentes && a.fuentes.length ? [h("dt", null, "Fuentes"), h("dd", null, listaDeFuentes(a.fuentes))] : null,
       a.motivo_revision ? [h("dt", null, "Motivo"), h("dd", null, a.motivo_revision)] : null));
   if (a.estado !== "pendiente") return card;
   if (propio) { card.append(h("p", { class: "hint" }, "Este aporte es tuyo: otra persona debe revisarlo.")); return card; }
@@ -3118,7 +3223,7 @@ function vistaPrivacidad(raiz) {
     h("h3", null, "Qué datos tratamos"),
     h("ul", null,
       li("Para tu cuenta: correo electrónico, contraseña (la guarda Supabase cifrada; nosotros nunca la vemos) y, si lo das, un nombre público."),
-      li("En cada reporte: tipo de problema, descripción, ubicación del problema (no la tuya), gravedad sugerida, foto opcional y enlaces para ayudar."),
+      li("En cada reporte: título, tipo de problema, descripción, ubicación del problema (no la tuya), gravedad sugerida, foto opcional, fuentes opcionales (enlaces a notas o documentos) y enlaces para ayudar."),
       li("Si pides un rol: el rol que pides, tu motivo y, si la das, tu zona o colectivo."),
       li("Si usas «Mensajes»: el texto de tus mensajes, la fecha y con quién conversas."),
       li("En el asistente: tu pregunta, sin correos ni teléfonos (el servidor los quita antes de procesarla). Si marcas «Usar mi ubicación», tu ubicación aproximada (unos 100 m) se usa solo para buscar puntos cercanos: no se envía a Google ni se guarda."),
