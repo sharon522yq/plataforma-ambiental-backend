@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { esquemaPaginacion } from "../../compartido/consultas.js";
 import { ESTADOS_APORTE, esquemaUbicacion } from "../aportes/esquemas.js";
+import { cuerpoFuente, fuenteGuardada } from "../../compartido/enlaces.js";
 import { TIPOS_PUNTO } from "../puntos/esquemas.js";
 
 export const ESTADOS_PUNTO = ["en_revision", "publicado", "archivado"] as const;
@@ -49,6 +50,9 @@ export const consultaColaPuntos = esquemaPaginacion.extend({
 
 export const cuerpoTituloPunto = z.object({ titulo: z.string().trim().min(3).max(120) }).strict();
 
+/** Reemplaza las fuentes de un caso (020). Una lista vacía las quita. */
+export const cuerpoFuentesPunto = z.object({ fuentes: z.array(cuerpoFuente).max(10) }).strict();
+
 export const puntoModeracion = z
   .object({
     id: z.uuid(),
@@ -59,6 +63,7 @@ export const puntoModeracion = z
     lat: z.number(),
     lng: z.number(),
     estado: z.enum(ESTADOS_PUNTO),
+    fuentes: z.array(fuenteGuardada).default([]),
     creado_en: z.string(),
     actualizado_en: z.string(),
   })

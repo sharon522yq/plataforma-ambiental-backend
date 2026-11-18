@@ -57,7 +57,7 @@ describe("PATCH /api/v1/aportes/:id (reporte pendiente)", () => {
     expect(r.body).toMatchObject({ id: APORTE, titulo: "Basura en el canal", ubicacion: { lat: 20.66, lng: -103.35 } });
     expect(llamadas[0]).toEqual({
       nombre: "editar_aporte",
-      parametros: { aporte_id: APORTE, titulo: null, descripcion: "Basura acumulada, llamar al [teléfono eliminado]" },
+      parametros: { aporte_id: APORTE, titulo: null, descripcion: "Basura acumulada, llamar al [teléfono eliminado]", fuentes: null },
     });
   });
 

@@ -7,11 +7,12 @@ import { conEnlace, paginaConEnlaces, type AlmacenEvidencias } from "../../compa
 import type { Autorizar } from "../../middleware/autorizar.js";
 import { validar } from "../../middleware/validar.js";
 import { aporteModeracion, aporteRevisado } from "../aportes/esquemas.js";
-import { descripcionLimpia, tituloLimpio, type ClientePorUsuario } from "../aportes/rutas.js";
+import { descripcionLimpia, fuentesLimpias, tituloLimpio, type ClientePorUsuario } from "../aportes/rutas.js";
 import {
   consultaCola,
   consultaColaPuntos,
   cuerpoEstadoPunto,
+  cuerpoFuentesPunto,
   cuerpoNuevoPunto,
   cuerpoRevision,
   cuerpoTituloPunto,
@@ -93,6 +94,15 @@ export function crearRutasModeracion(
     const { id } = req.params as z.infer<typeof parametrosId>;
     const { titulo } = req.body as z.infer<typeof cuerpoTituloPunto>;
     llamarFuncion(cliente(req.usuario?.token), "editar_titulo_punto", { punto_id: id, titulo: tituloLimpio(titulo) })
+      .then((r) => res.json(puntoModeracion.parse(r)))
+      .catch(siguiente);
+  });
+
+  /** Reemplaza las fuentes de un caso sin cambiar su estado (020). */
+  rutas.patch("/puntos/:id/fuentes", validar({ params: parametrosId, body: cuerpoFuentesPunto }), (req, res, siguiente) => {
+    const { id } = req.params as z.infer<typeof parametrosId>;
+    const { fuentes } = req.body as z.infer<typeof cuerpoFuentesPunto>;
+    llamarFuncion(cliente(req.usuario?.token), "editar_fuentes_punto", { punto_id: id, fuentes: fuentesLimpias(fuentes) })
       .then((r) => res.json(puntoModeracion.parse(r)))
       .catch(siguiente);
   });

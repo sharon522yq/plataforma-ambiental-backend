@@ -207,9 +207,9 @@ describe.skipIf(!process.env.TEST_DATABASE_URL)("editar casos (migración 019)",
 
   it("permisos: anon no ejecuta nada nuevo y nadie llama el trigger", async () => {
     const funciones = [
-      "editar_aporte(uuid,text,text)",
+      "editar_aporte(uuid,text,text,jsonb)",
       "mis_puntos(integer,integer)",
-      "editar_mi_punto(uuid,text,text)",
+      "editar_mi_punto(uuid,text,text,jsonb)",
       "editar_titulo_punto(uuid,text)",
       "cola_puntos(text,integer,integer)",
     ];

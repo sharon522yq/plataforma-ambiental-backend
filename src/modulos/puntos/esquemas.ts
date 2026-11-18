@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { esquemaPaginacion } from "../../compartido/consultas.js";
+import { fuenteGuardada } from "../../compartido/enlaces.js";
 
 /** Deben coincidir con el check de puntos.tipo (migración 002). */
 export const TIPOS_PUNTO = ["contaminacion_agua", "contaminacion_aire", "deforestacion", "residuos", "tala_ilegal", "otro"] as const;
@@ -44,6 +45,8 @@ export const puntoDetalle = z.object({
   ...coordenadas,
   ...base,
   descripcion: z.string(),
+  /** Noticias y documentos que respaldan el caso (020). */
+  fuentes: z.array(fuenteGuardada).default([]),
   creado_en: z.string(),
   actualizado_en: z.string(),
   acciones: z.array(
