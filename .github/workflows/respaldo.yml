@@ -71,7 +71,7 @@ jobs:
 
       # Solo se guarda un respaldo que pasó la prueba. Va cifrado; GitHub lo borra a los 90 días.
       - if: steps.secretos.outputs.hay == 'si'
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: respaldo-${{ github.run_id }}
           path: respaldos/*.tar.gpg
